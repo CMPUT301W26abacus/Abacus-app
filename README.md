@@ -1,16 +1,40 @@
-# abacus-app (TBA)
-ABACUS team project repository for Android app development and all project stuff.
+# 🧮 ABACUS Team App
 
-# ABACUS Project Repository
+> *App name TBD — we're still workshopping it!*
 
-Welcome to the ABACUS team repo! 🎉
+Welcome to the ABACUS team's Android app repository! 👋
 
-This is where we’re keeping **everything** for our semester-long Android app project:  
+## 📁 What's Where?
 
-- Code for the app (once we know what it is 😉)  
-- Notes, meeting summaries, and project plans  
-- Design mockups and wireframes  
-- Resources, tutorials, and helpful links  
-- Templates for PRs, issues, and CI workflows  
+| Folder | What's Inside |
+|--------|---------------|
+| `android-app/` | Our Android Studio project lives here |
+| `docs/` | Meeting notes, architecture decisions, requirements |
+| `design/` | Mockups, wireframes, and pretty pictures |
+| `resources/` | Tutorials, helpful links, and references |
+| `.github/` | GitHub templates and CI workflows |
 
-Right now, this repo gives us a **clean, organized place** to start working together and keep all our stuff in one spot.
+## 🚀 Getting Started
+
+1. Clone this repo
+   ```bash
+   git clone https://github.com/your-org/abacus-app.git
+   ```
+2. Open the `android-app/` folder in Android Studio
+3. Sync Gradle and run on an emulator or device
+4. Happy coding! 🎉
+
+## 🤝 Contributing
+
+Check out [CONTRIBUTING.md](CONTRIBUTING.md) for our team workflow — feature branches, pull requests, the whole deal.
+
+## 👥 Team ABACUS
+
+*Add your names here!*
+
+- Member 1
+- Member 2
+- Member 3
+- Member 4
+- Member 5
+- Member 6
