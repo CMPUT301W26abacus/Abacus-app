@@ -32,9 +32,9 @@ Check out [CONTRIBUTING.md](CONTRIBUTING.md) for our team workflow — feature b
 
 *Add your names here!*
 
-- Member 1
-- Member 2
-- Member 3
-- Member 4
-- Member 5
-- Member 6
+- Summayah Javed
+- Farhan Naim
+- Dyna Dagman
+- Himesh Sharma
+- Erika Jimenez Gonzalez
+- Kaylee Crocker
