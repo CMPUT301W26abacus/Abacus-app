@@ -2,9 +2,9 @@
 
 > *App name TBD — we're still workshopping it!*
 
-Welcome to the ABACUS team's Android app repository! 👋
+Welcome to the ABACUS team's Android app repository!
 
-## 📁 What's Where?
+## What's Where?
 
 | Folder | What's Inside |
 |--------|---------------|
@@ -14,7 +14,7 @@ Welcome to the ABACUS team's Android app repository! 👋
 | `resources/` | Tutorials, helpful links, and references |
 | `.github/` | GitHub templates and CI workflows |
 
-## 🚀 Getting Started
+## Getting Started
 
 1. Clone this repo
    ```bash
@@ -24,11 +24,7 @@ Welcome to the ABACUS team's Android app repository! 👋
 3. Sync Gradle and run on an emulator or device
 4. Happy coding! 🎉
 
-## 🤝 Contributing
-
-Check out [CONTRIBUTING.md](CONTRIBUTING.md) for our team workflow — feature branches, pull requests, the whole deal.
-
-## 👥 Team ABACUS
+## Team ABACUS
 
 *Add your names here!*
 
