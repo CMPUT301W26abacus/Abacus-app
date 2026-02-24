@@ -5,6 +5,7 @@
 Welcome to the ABACUS team's Android app repository!
 
 ## What's Where?
+Check out our Wiki for Project Part 2 (https://github.com/CMPUT301W26abacus/Abacus-app/wiki)
 
 | Folder | What's Inside |
 |--------|---------------|
