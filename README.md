@@ -10,20 +10,7 @@ Check out our Wiki for Project Part 2 (https://github.com/CMPUT301W26abacus/Abac
 | Folder | What's Inside |
 |--------|---------------|
 | `android-app/` | Our Android Studio project lives here |
-| `docs/` | Meeting notes, architecture decisions, requirements |
-| `design/` | Mockups, wireframes, and pretty pictures |
 | `resources/` | Tutorials, helpful links, and references |
-| `.github/` | GitHub templates and CI workflows |
-
-## Getting Started
-
-1. Clone this repo
-   ```bash
-   git clone https://github.com/your-org/abacus-app.git
-   ```
-2. Open the `android-app/` folder in Android Studio
-3. Sync Gradle and run on an emulator or device
-4. Happy coding! 🎉
 
 ## Team ABACUS
 - Summayah Javed
