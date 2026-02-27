@@ -26,9 +26,6 @@ Check out our Wiki for Project Part 2 (https://github.com/CMPUT301W26abacus/Abac
 4. Happy coding! 🎉
 
 ## Team ABACUS
-
-*Add your names here!*
-
 - Summayah Javed
 - Farhan Naim
 - Dyna Dagman
