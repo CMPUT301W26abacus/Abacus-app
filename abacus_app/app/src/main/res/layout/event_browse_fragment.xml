@@ -1,2 +1,221 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources></resources>
+
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent">
+
+<!-- ===== TOP APP BAR ===== -->
+<com.google.android.material.appbar.AppBarLayout
+    android:id="@+id/app_bar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:paddingHorizontal="16dp">
+
+        <!-- App name: "Abacus-App" left-aligned -->
+        <TextView
+            android:id="@+id/tv_app_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Abacus-App"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textColor="@color/grey"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btn_profile"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Profile button top-right -->
+        <!--
+            Icon: ic_account_circle  ← your asset
+            Tap → navigate to profile/account screen
+        -->
+        <ImageButton
+            android:id="@+id/btn_profile"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_account_circle"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Profile"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Screen title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingBottom="8dp"
+        android:text="Events"
+        android:textAppearance="?attr/textAppearanceTitleLarge"
+        android:textColor="@color/grey" />
+
+    <!-- ===== SEARCH BAR ===== -->
+    <!--
+        Search bar row: [ 🔍 search field ] [ scan btn ] [ filter btn ]
+        Scan button mimics Google's "image search" inline icon (ic_qr_code_scanner).
+        Filter button uses ic_filter_list or ic_tune.
+    -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:paddingHorizontal="12dp"
+        android:paddingBottom="8dp">
+
+        <!-- Search input field -->
+        <com.google.android.material.search.SearchBar
+            android:id="@+id/search_bar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Search events..."
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btn_scan"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <!--
+            If SearchBar isn't available in your Material version, replace with:
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                ...>
+                <com.google.android.material.textfield.TextInputEditText ... />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            And add the scan icon as an endIconDrawable, OR keep the two
+            separate ImageButtons (btn_scan, btn_filter) to the right.
+        -->
+
+        <!-- Scan / QR button (like Google Lens inline icon) -->
+        <!--
+            Icon: ic_qr_code_scanner  ← your asset
+            Position: inside or adjacent to the search bar, right side
+        -->
+        <ImageButton
+            android:id="@+id/btn_scan"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:src="@drawable/ic_qr_code_scanner"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Scan QR code"
+            app:layout_constraintEnd_toStartOf="@id/btn_filter"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Filter button -->
+        <!--
+            Icon: ic_filter_list  or  ic_tune  ← your asset
+        -->
+        <ImageButton
+            android:id="@+id/btn_filter"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:src="@drawable/ic_filter_list"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Filter events"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.appbar.AppBarLayout>
+
+<!-- ===== CONTENT AREA ===== -->
+<androidx.core.widget.NestedScrollView
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Events RecyclerView -->
+        <!-- Each item inflates item_event.xml -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_events"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="8dp"
+            android:paddingBottom="80dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+        <!-- Empty state: shown when no joinable events exist -->
+        <LinearLayout
+            android:id="@+id/layout_empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <!--
+                Optional decorative icon for empty state.
+                Icon: ic_event_busy  ← your asset
+            -->
+            <!--
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_event_busy"
+                android:contentDescription="No events" />
+            -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No events available"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Check back later for upcoming events."
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</androidx.core.widget.NestedScrollView>
+
+<!-- ===== BOTTOM NAVIGATION BAR ===== -->
+<!--
+    Tab icons (use your assets):
+      Home    → ic_home
+      Saved   → ic_favorite  /  ic_bookmark
+      History → ic_history
+      Inbox   → ic_notifications
+
+    Wire up in Fragment/Activity:
+      bottomNav.setOnItemSelectedListener { ... }
+-->
+<com.google.android.material.bottomnavigation.BottomNavigationView
+    android:id="@+id/bottom_nav"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    app:menu="@menu/menu_bottom_nav" />
+<!--
+    Create res/menu/menu_bottom_nav.xml with 4 items:
+      item id="nav_home"     icon="@drawable/ic_home"          title="Home"
+      item id="nav_saved"    icon="@drawable/ic_favorite"      title="Saved"
+      item id="nav_history"  icon="@drawable/ic_history"       title="History"
+      item id="nav_inbox"    icon="@drawable/ic_notifications"  title="Inbox"
+-->
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
