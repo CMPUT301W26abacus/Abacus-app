@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "503107591497",
+    "project_id": "abacus-85404",
+    "storage_bucket": "abacus-85404.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:503107591497:android:447972af23515e29ce8e98",
+        "android_client_info": {
+          "package_name": "com.example.abacus_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyqv6NS89KV9gExT_-114HhjHeQT5_P6I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
