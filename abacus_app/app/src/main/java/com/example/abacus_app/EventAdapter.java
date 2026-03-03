@@ -4,16 +4,30 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.List;
 
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
-    private final List<String> eventTitles;
+    public interface OnEventClickListener {
+        void onEventClick(String eventTitle);
+    }
 
+    private final List<String> eventTitles;
+    private final OnEventClickListener listener;
+
+    public EventAdapter(List<String> eventTitles, OnEventClickListener listener) {
+        this.eventTitles = eventTitles;
+        this.listener = listener;
+    }
+
+    // No-click constructor for backwards compatibility
     public EventAdapter(List<String> eventTitles) {
         this.eventTitles = eventTitles;
+        this.listener = null;
     }
 
     @NonNull
@@ -26,7 +40,11 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
-        holder.tvTitle.setText(eventTitles.get(position));
+        String title = eventTitles.get(position);
+        holder.tvTitle.setText(title);
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) listener.onEventClick(title);
+        });
     }
 
     @Override
