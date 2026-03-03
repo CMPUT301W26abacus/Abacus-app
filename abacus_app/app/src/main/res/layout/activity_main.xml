@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -31,7 +30,6 @@
             android:background="@color/white"
             android:paddingHorizontal="16dp">
 
-            <!-- App name: "Abacus-App" left-aligned -->
             <TextView
                 android:id="@+id/tv_app_name"
                 android:layout_width="0dp"
@@ -64,8 +62,6 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Screen title -->
 
         <!-- ===== SEARCH BAR ===== -->
         <!--
@@ -126,20 +122,9 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- ===== CONTENT AREA ===== -->
-
-    <!-- ===== BOTTOM NAVIGATION BAR ===== -->
-    <!--
-        Tab icons (use your assets):
-          Home    → ic_home
-          Saved   → ic_favorite  /  ic_bookmark
-          History → ic_history
-          Inbox   → ic_notifications
-
-        Wire up in Fragment/Activity:
-          bottomNav.setOnItemSelectedListener { ... }
-    -->
+    <!-- ===== CONTENT AREA: RecyclerView ===== -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/home_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/light_grey"
@@ -150,7 +135,7 @@
             android:layout_height="match_parent">
 
             <!-- Events RecyclerView -->
-            <!-- Each item inflates item_event.xml -->
+            <!-- Each item inflates item_list.xml -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_events"
                 android:layout_width="match_parent"
@@ -202,6 +187,32 @@
 
     </androidx.core.widget.NestedScrollView>
 
+    <!--
+        FragmentContainerView sits on top of home content.
+        GONE by default — MainActivity shows/hides it when navigating
+        away from home (saved, history, inbox, profile, details).
+        When visible it covers the home UI completely.
+    -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:defaultNavHost="true"
+        app:navGraph="@navigation/nav_graph" />
+
+    <!-- ===== BOTTOM NAVIGATION BAR ===== -->
+    <!--
+        Tab icons (use your assets):
+          Home    → ic_home
+          Saved   → ic_favorite  /  ic_bookmark
+          History → ic_history
+          Inbox   → ic_notifications
+
+        Wire up in Fragment/Activity:
+          bottomNav.setOnItemSelectedListener { ... }
+    -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"

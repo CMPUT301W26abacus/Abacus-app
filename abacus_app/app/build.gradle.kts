@@ -41,9 +41,10 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+
+    // Navigation
+    implementation("androidx.navigation:navigation-fragment:2.7.7")
+    implementation("androidx.navigation:navigation-ui:2.7.7")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
@@ -52,28 +53,24 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-messaging")
 
-    // DataStore (for UUID storage)
+    // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // Navigation
-    implementation("androidx.navigation:navigation-fragment:2.7.7")
-    implementation("androidx.navigation:navigation-ui:2.7.7")
 
     // ViewModel + LiveData
     implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.0")
     implementation("androidx.lifecycle:lifecycle-livedata:2.8.0")
 
-    // QR Scanning (Erika)
+    // QR Scanning
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
-    // Glide (image loading for posters)
+    // Glide
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 
     // Testing
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.ext.junit)
+    androidTestImplementation(libs.espresso.core)
 }
