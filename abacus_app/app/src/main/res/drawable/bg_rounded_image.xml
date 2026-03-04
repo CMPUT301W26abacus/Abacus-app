@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    res/drawable/bg_rounded_image.xml
+
+    Used as the background on iv_event_poster in item_event.xml to clip
+    the image to rounded corners.
+
+    Usage in XML:
+        android:background="@drawable/bg_rounded_image"
+        android:clipToOutline="true"
+
+    Note: android:clipToOutline="true" is what actually does the clipping —
+    this drawable just defines the shape of the outline to clip to.
+    Both lines are needed together for the rounding to work.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners android:radius="8dp" />
+
+    <!--
+        No fill or stroke needed — this shape is only used to define
+        the clip outline. Setting a fill here would draw a solid colour
+        on top of your image, so leave it transparent.
+    -->
+    <solid android:color="@android:color/transparent" />
+
+</shape>
