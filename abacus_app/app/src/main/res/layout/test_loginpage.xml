@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAF7F2"
+    android:paddingLeft="32dp"
+    android:paddingRight="32dp">
+
+    <!-- Small logo mark -->
+    <ImageView
+        android:id="@+id/imgMark"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_launcher_foreground"
+        android:contentDescription="Abacus mark"
+        android:layout_marginTop="56dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Brand name next to mark -->
+    <TextView
+        android:id="@+id/tvBrand"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Abacus"
+        android:textColor="#1A1714"
+        android:textSize="18sp"
+        android:fontFamily="serif"
+        android:letterSpacing="-0.02"
+        android:layout_marginStart="10dp"
+        app:layout_constraintTop_toTopOf="@+id/imgMark"
+        app:layout_constraintBottom_toBottomOf="@+id/imgMark"
+        app:layout_constraintStart_toEndOf="@+id/imgMark"/>
+
+    <!-- Heading -->
+    <TextView
+        android:id="@+id/tvHeading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome back"
+        android:textColor="#1A1714"
+        android:textSize="30sp"
+        android:fontFamily="serif"
+        android:letterSpacing="-0.02"
+        android:layout_marginTop="48dp"
+        app:layout_constraintTop_toBottomOf="@id/imgMark"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Subheading -->
+    <TextView
+        android:id="@+id/tvSubheading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sign in to continue your conversation"
+        android:textColor="#7A7168"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif-light"
+        android:layout_marginTop="6dp"
+        app:layout_constraintTop_toBottomOf="@id/tvHeading"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Email label -->
+    <TextView
+        android:id="@+id/labelEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="EMAIL"
+        android:textColor="#7A7168"
+        android:textSize="10sp"
+        android:letterSpacing="0.1"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@id/tvSubheading"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Email input -->
+    <EditText
+        android:id="@+id/etEmail"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:hint="you@example.com"
+        android:textColorHint="#B5AFA6"
+        android:textColor="#1A1714"
+        android:textSize="14sp"
+        android:fontFamily="sans-serif"
+        android:inputType="textEmailAddress"
+        android:background="@drawable/input_background"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/labelEmail"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Password label -->
+    <TextView
+        android:id="@+id/labelPassword"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PASSWORD"
+        android:textColor="#7A7168"
+        android:textSize="10sp"
+        android:letterSpacing="0.1"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@id/etEmail"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Password input -->
+    <EditText
+        android:id="@+id/etPassword"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:hint="••••••••"
+        android:textColorHint="#B5AFA6"
+        android:textColor="#1A1714"
+        android:textSize="14sp"
+        android:fontFamily="sans-serif"
+        android:inputType="textPassword"
+        android:background="@drawable/input_background"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/labelPassword"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Forgot password -->
+    <TextView
+        android:id="@+id/tvForgot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Forgot password?"
+        android:textColor="#C96A3A"
+        android:textSize="12sp"
+        android:layout_marginTop="10dp"
+        app:layout_constraintTop_toBottomOf="@id/etPassword"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Sign In button -->
+    <Button
+        android:id="@+id/btnSignIn"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:text="Sign In"
+        android:textColor="#F5F0E8"
+        android:textSize="14sp"
+        android:letterSpacing="0.04"
+        android:fontFamily="sans-serif-medium"
+        android:backgroundTint="#1A1714"
+        android:layout_marginTop="28dp"
+        app:layout_constraintTop_toBottomOf="@id/tvForgot"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Divider "or" -->
+    <TextView
+        android:id="@+id/tvOr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="or"
+        android:textColor="#B5AFA6"
+        android:textSize="12sp"
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@id/btnSignIn"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- SSO Button -->
+    <Button
+        android:id="@+id/btnSSO"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:text="Continue with SSO"
+        android:textColor="#1A1714"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif"
+        android:backgroundTint="#FFFFFF"
+        android:strokeColor="#1A1714"
+        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toBottomOf="@id/tvOr"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+    <!-- Sign up link -->
+    <TextView
+        android:id="@+id/tvSignUp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Don't have an account? Create one"
+        android:textColor="#C96A3A"
+        android:textSize="12sp"
+        android:layout_marginBottom="40dp"
+        app:layout_constraintTop_toBottomOf="@+id/btnSSO"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

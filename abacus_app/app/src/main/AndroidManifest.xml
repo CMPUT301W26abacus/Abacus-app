@@ -32,6 +32,19 @@
 
 
         <!-- TODO: Add the activity for Splash -->
+        <activity android:name=".test_SplashActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- TODO: Add the activity for Login -->
+        <activity android:name=".test_LoginActivity"/>
+
+        <!-- TODO: Add the activity for Register -->
+        <activity android:name=".test_RegisterActivity"/>
 
         <!-- TODO: Add the service for FCM -->
 

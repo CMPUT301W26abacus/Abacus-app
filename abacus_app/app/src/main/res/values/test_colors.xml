@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="claude_ink">#1A1714</color>
+    <color name="claude_cream">#F5F0E8</color>
+    <color name="claude_clay">#C96A3A</color>
+    <color name="claude_warm_white">#FAF7F2</color>
+    <color name="claude_muted">#7A7168</color>
+</resources>
