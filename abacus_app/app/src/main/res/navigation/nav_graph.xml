@@ -40,4 +40,8 @@
         android:name="com.example.abacus_app.MainQrScanFragment"
         android:label="Scan QR" />
 
+    <fragment
+        android:id="@+id/eventQrFragment"
+        android:name="com.example.abacus_app.EventQrFragment"
+        android:label="Event QR" />
 </navigation>
