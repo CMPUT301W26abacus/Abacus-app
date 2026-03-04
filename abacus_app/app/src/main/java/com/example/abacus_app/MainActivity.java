@@ -1,3 +1,20 @@
+/**
+ * MainActivity.java
+ *
+ * Role: Entry point and primary controller for the Abacus application.
+ * Implements the home screen (event browse list) directly and manages
+ * fragment-based navigation for all other screens via a NavHostFragment overlay.
+ *
+ * Design pattern: The home UI lives directly in activity_main.xml rather than
+ * a fragment, with a FragmentContainerView overlay that is shown/hidden when
+ * navigating away from or back to the home screen. This keeps the main event
+ * browse experience as the persistent base of the app.
+ *
+ * Outstanding issues:
+ * - Event list is hardcoded; replace with Firestore LiveData when Firebase is integrated.
+ * - Role-based UI (admin delete buttons, organizer tools) not yet implemented.
+ * - Bottom nav "Saved", "History", "Inbox" fragments are currently empty stubs.
+ */
 package com.example.abacus_app;
 
 import android.os.Build;
@@ -7,6 +24,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentContainerView;
@@ -28,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private FragmentContainerView navHostFragment;
     private View homeContent;
     private AppBarLayout appBar;
+    private BottomNavigationView bottomNav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         homeContent = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
         appBar = findViewById(R.id.app_bar);
+        bottomNav = findViewById(R.id.bottom_nav);
 
         // Set up NavController
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
@@ -57,11 +77,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Profile button → profile fragment
         ImageButton btnProfile = findViewById(R.id.btn_profile);
-        btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment));
+        btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, true));
 
-        // QR scan button → QR fragment
+        // QR scan button → QR scan fragment
         ImageButton btnScan = findViewById(R.id.btn_scan);
-        btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment));
+        btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, true));
 
         // Hardcoded test data — replace with Firestore data later
         List<String> testEvents = Arrays.asList(
@@ -79,47 +99,96 @@ public class MainActivity extends AppCompatActivity {
                 "Open Mic Night"
         );
 
-        // List item click → event details fragment
+        // List item click → event details (hide bottom nav)
         RecyclerView recyclerView = findViewById(R.id.rv_events);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(new EventAdapter(testEvents, eventTitle ->
-                showFragment(R.id.eventDetailsFragment)));
+                showFragment(R.id.eventDetailsFragment, false)));
 
         // Bottom nav
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_home) {
                 showHome();
                 return true;
             } else if (id == R.id.nav_saved) {
-                showFragment(R.id.nav_saved);
+                showFragment(R.id.nav_saved, true);
                 return true;
             } else if (id == R.id.nav_history) {
-                showFragment(R.id.nav_history);
+                showFragment(R.id.nav_history, true);
                 return true;
             } else if (id == R.id.nav_inbox) {
-                showFragment(R.id.nav_inbox);
+                showFragment(R.id.nav_inbox, true);
                 return true;
             }
             return false;
         });
+
+        // Handle back gesture and back button
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (navHostFragment.getVisibility() == View.VISIBLE) {
+                    if (!navController.popBackStack()) {
+                        showHome();
+                    }
+                } else {
+                    finish();
+                }
+            }
+        });
     }
 
-    private void showFragment(int destinationId) {
+    /**
+     * Shows a destination fragment by making the NavHostFragment overlay visible
+     * and hiding the home UI and app bar. Clears the back stack first so previous
+     * tab fragments don't remain underneath.
+     *
+     * @param destinationId The nav graph resource ID of the fragment to navigate to.
+     * @param showBottomNav Whether to keep the bottom nav visible on this screen.
+     */
+    private void showFragment(int destinationId, boolean showBottomNav) {
+        // Clear the entire back stack before navigating so stale fragments
+        // from previous tabs don't interfere with the back button
+        clearBackStack();
+
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);
         appBar.setVisibility(View.GONE);
+        bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         navController.navigate(destinationId);
     }
 
-    private void showHome() {
+    /**
+     * Returns to the home screen by hiding the fragment overlay and
+     * restoring the home UI, app bar, and bottom nav. Clears the fragment back stack.
+     */
+    public void showHome() {
+        clearBackStack();
         navHostFragment.setVisibility(View.GONE);
         homeContent.setVisibility(View.VISIBLE);
         appBar.setVisibility(View.VISIBLE);
-        navController.popBackStack(navController.getGraph().getStartDestinationId(), false);
+        bottomNav.setVisibility(View.VISIBLE);
     }
 
+    /**
+     * Clears the entire NavController back stack so no stale fragments
+     * remain when switching between tabs or returning to home.
+     */
+    private void clearBackStack() {
+        NavController nav = navController;
+        while (nav.getCurrentBackStackEntry() != null) {
+            if (!nav.popBackStack()) break;
+        }
+    }
+
+    /**
+     * Recursively walks the view hierarchy of a ViewGroup and applies
+     * the app text colour to any TextView found. Used to fix Material 3
+     * SearchBar text colour which cannot be set reliably via XML.
+     *
+     * @param viewGroup The root ViewGroup to walk — pass the SearchBar instance.
+     */
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -132,6 +201,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Exposes the NavController to fragments that need to trigger navigation
+     * from outside the normal NavHost flow.
+     *
+     * @return The NavController managing the fragment back stack.
+     */
     public NavController getNavController() {
         return navController;
     }
