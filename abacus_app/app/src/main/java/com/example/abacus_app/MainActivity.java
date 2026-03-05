@@ -36,6 +36,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.search.SearchBar;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,10 +49,26 @@ public class MainActivity extends AppCompatActivity {
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
+    private UserRepository userRepository; //UUID
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 1. Build UserLocalDataSource using Kotlin extension
+        UserLocalDataSource localDataSource = new UserLocalDataSource(
+                DataStoreHelperKt.getDataStore(getApplicationContext())
+        );
+
+        // 2. Build UserRepository
+        userRepository = new UserRepository(
+                localDataSource,
+                FirebaseFirestore.getInstance()
+        );
+
+        // 3. Initialize user on app launch
+        userRepository.initializeUserAsync();
 
         // Navigation bar colour
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -137,6 +154,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+
     }
 
     /**
