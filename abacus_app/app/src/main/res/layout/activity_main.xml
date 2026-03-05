@@ -45,10 +45,6 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
             <!-- Profile button top-right -->
-            <!--
-                Icon: ic_account_circle  ← your asset
-                Tap → navigate to profile/account screen
-            -->
             <ImageButton
                 android:id="@+id/btn_profile"
                 android:layout_width="40dp"
@@ -64,11 +60,6 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- ===== SEARCH BAR ===== -->
-        <!--
-            Search bar row: [ 🔍 search field ] [ scan btn ] [ filter btn ]
-            Scan button mimics Google's "image search" inline icon (ic_qr_code_scanner).
-            Filter button uses ic_filter_list or ic_tune.
-        -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
@@ -102,10 +93,6 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/black" />
 
-            <!-- Filter button -->
-            <!--
-                Icon: ic_filter_list  or  ic_tune  ← your asset
-            -->
             <ImageButton
                 android:id="@+id/btn_filter"
                 android:layout_width="48dp"
@@ -135,7 +122,6 @@
             android:layout_height="match_parent">
 
             <!-- Events RecyclerView -->
-            <!-- Each item inflates item_list.xml -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_events"
                 android:layout_width="match_parent"
@@ -146,7 +132,7 @@
                 android:paddingBottom="80dp"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-            <!-- Empty state: shown when no joinable events exist -->
+            <!-- Empty state: shown when no events match -->
             <LinearLayout
                 android:id="@+id/layout_empty_state"
                 android:layout_width="match_parent"
@@ -155,18 +141,9 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <!--
-                    Optional decorative icon for empty state.
-                    Icon: ic_event_busy  ← your asset
-                -->
-                <!--
-                <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_event_busy"
-                    android:contentDescription="No events" />
-                -->
+                <!-- ↓ added android:id so MainActivity can update the message dynamically -->
                 <TextView
+                    android:id="@+id/tv_empty_message"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
@@ -203,16 +180,6 @@
         app:navGraph="@navigation/nav_graph" />
 
     <!-- ===== BOTTOM NAVIGATION BAR ===== -->
-    <!--
-        Tab icons (use your assets):
-          Home    → ic_home
-          Saved   → ic_favorite  /  ic_bookmark
-          History → ic_history
-          Inbox   → ic_notifications
-
-        Wire up in Fragment/Activity:
-          bottomNav.setOnItemSelectedListener { ... }
-    -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
