@@ -18,6 +18,7 @@
 package com.example.abacus_app;
 
 import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -39,8 +40,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -74,12 +79,43 @@ public class MainActivity extends AppCompatActivity {
             new String[]{"Open Mic Night",         "music,comedy,indoor",     "2025-06-28"}
     );
 
+    private UserRepository userRepository; //UUID
+    private boolean isGuest; //Guest mode flag
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         // ── Teammate's original code (unchanged) ──────────────────────────────
+
+        // Build UserLocalDataSource using Kotlin extension
+        UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+        // Initialize user on app launch
+        userRepository.initializeUserAsync();
+
+        // ↓ Add these lines right after
+        isGuest = getIntent().getBooleanExtra("isGuest", false);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        // Add debug logging
+        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
+        if (currentUser != null) {
+            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
+                " (Anonymous: " + currentUser.isAnonymous() +
+                ", Email: " + currentUser.getEmail() + ")");
+        } else {
+            android.util.Log.d("MainActivity", "No current user");
+        }
+
+        if (!isGuest && currentUser == null) {
+            goToSplash();
+            return;
+        }
+
 
         // Navigation bar colour
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -223,6 +259,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         dialog.show();
+
+
     }
 
     /**
@@ -318,4 +356,30 @@ public class MainActivity extends AppCompatActivity {
     public NavController getNavController() {
         return navController;
     }
+
+
+    public void onGuestJoinAttempt() {
+        showLoginPrompt("Sign in to join events.");
+    }
+
+    private void showLoginPrompt(String message) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Sign in required")
+                .setMessage(message)
+                .setPositiveButton("Sign In", (d, w) ->
+                        startActivity(new Intent(this, LoginActivity.class)))
+                .setNeutralButton("Register", (d, w) ->
+                        startActivity(new Intent(this, RegisterActivity.class)))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void goToSplash() {
+        Intent intent = new Intent(this, SplashActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+
 }
