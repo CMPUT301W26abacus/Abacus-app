@@ -1,7 +1,6 @@
 package com.example.abacus_app;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,9 +14,7 @@ import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-
-import kotlinx.coroutines.BuildersKt;
-import kotlinx.coroutines.Dispatchers;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
  * Splash Activity
@@ -31,11 +28,10 @@ import kotlinx.coroutines.Dispatchers;
  */
 public class SplashActivity extends AppCompatActivity {
 
-    // How long to show the animation before auto-navigating (returning user)
-    private static final int ANIMATION_DELAY_MS = 1800;
 
-    // How long to show the animation before revealing buttons (first-time user)
-    private static final int BUTTONS_REVEAL_DELAY_MS = 1200;
+    private static final int ANIMATION_DELAY_MS = 1800; //returning user
+    private static final int BUTTONS_REVEAL_DELAY_MS = 1200; //first-time user
+    private UserRepository userRepository;     // Repository for user data
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,31 +53,59 @@ public class SplashActivity extends AppCompatActivity {
         btnGetStarted.setVisibility(View.INVISIBLE);
         tvBrowseGuest.setVisibility(View.INVISIBLE);
 
-        // Build the data source to read UUID from DataStore
-        UserLocalDataSource localDataSource = new UserLocalDataSource(
-                DataStoreHelperKt.getDataStore(getApplicationContext())
-        );
+        // Wire up buttons immediately (invisible until revealed)
+        btnGetStarted.setOnClickListener(v -> {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+        });
+        tvBrowseGuest.setOnClickListener(v -> goToMain(true));
 
-        // Read UUID on a background thread, then decide on the main thread
-        new Thread(() -> {
-            String uuid = null;
-            try {
-                // Call the Kotlin suspend function synchronously from Java
-                uuid = BuildersKt.runBlocking(
-                        Dispatchers.getIO(),
-                        (scope, continuation) -> localDataSource.getUUID(continuation)
-                );
-            } catch (Exception e) {
-                e.printStackTrace();
+        // Build UserLocalDataSource using Kotlin extension
+        UserLocalDataSource  localDataSource  = new UserLocalDataSource(getApplicationContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+        userRepository.getCurrentUserIdAsync(uuid -> {
+            if (uuid == null || uuid.isEmpty()) {
+                // Brand new device — no UUID yet, show onboarding buttons
+                showButtons(btnGetStarted, tvBrowseGuest);
+                return;
             }
+            userRepository.getProfileAsync(user -> {
 
-            final boolean isReturningUser = (uuid != null && !uuid.isEmpty());
+                if (user != null && user.getLastLoginAt() > 0) {
+                    // Returning logged-in user — go straight to main
+                    new Handler(Looper.getMainLooper()).postDelayed(
+                            () -> goToMain(false),
+                            ANIMATION_DELAY_MS
+                    );
+                } else {
+                    // UUID exists but never logged in (previous guest session).
+                    // Auto-navigate as guest — they can link an account from
+                    // the profile screen whenever they're ready.
+                    new Handler(Looper.getMainLooper()).postDelayed(
+                            () -> goToMain(true),
+                            ANIMATION_DELAY_MS
+                    );
+                }
+            });
+        });
+    }
 
-            // Switch back to main thread to update UI
-            new Handler(Looper.getMainLooper()).post(() ->
-                    handleUserState(isReturningUser, btnGetStarted, tvBrowseGuest));
+    /**
+     * Reveals the onboarding buttons with a fade-in after the animation delay.
+     * Only shown to brand new devices with no UUID at all.
+     */
+    private void showButtons(Button btnGetStarted, TextView tvBrowseGuest) {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            btnGetStarted.setVisibility(View.VISIBLE);
+            tvBrowseGuest.setVisibility(View.VISIBLE);
 
-        }).start();
+            btnGetStarted.setAlpha(0f);
+            tvBrowseGuest.setAlpha(0f);
+            btnGetStarted.animate().alpha(1f).setDuration(400).start();
+            tvBrowseGuest.animate().alpha(1f).setDuration(400).start();
+        }, BUTTONS_REVEAL_DELAY_MS);
     }
 
     /**

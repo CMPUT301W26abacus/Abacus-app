@@ -1,159 +1,300 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<!--
+    activity_register.xml
+    Design: Same editorial minimalism as activity_login.xml and fragment_profile.xml
+-->
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAF7F2"
-    android:paddingLeft="32dp"
-    android:paddingRight="32dp">
+    android:background="#FFFFFF"
+    android:fillViewport="true"
+    android:overScrollMode="never">
 
-    <!-- Heading -->
-    <TextView
-        android:id="@+id/tvHeading"
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Create account"
-        android:textColor="#1A1714"
-        android:textSize="30sp"
-        android:fontFamily="serif"
-        android:layout_marginTop="72dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"/>
+        android:paddingBottom="48dp">
 
-    <!-- Subheading -->
-    <TextView
-        android:id="@+id/tvSub"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Start your Abacus journey"
-        android:textColor="#7A7168"
-        android:textSize="13sp"
-        android:fontFamily="sans-serif-light"
-        android:layout_marginTop="6dp"
-        app:layout_constraintTop_toBottomOf="@+id/tvHeading"
-        app:layout_constraintStart_toStartOf="parent"/>
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/topBar"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:paddingHorizontal="8dp"
+            android:background="#FFFFFF"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-    <!-- Name label -->
-    <TextView
-        android:id="@+id/labelName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="FULL NAME"
-        android:textColor="#7A7168"
-        android:textSize="10sp"
-        android:letterSpacing="0.1"
-        android:fontFamily="sans-serif-medium"
-        android:layout_marginTop="40dp"
-        app:layout_constraintTop_toBottomOf="@+id/tvSub"
-        app:layout_constraintStart_toStartOf="parent"/>
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_back"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Go back"
+                android:padding="6dp"
+                android:tint="#111827"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
 
-    <!-- Name input -->
-    <EditText
-        android:id="@+id/etName"
-        android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:hint="John Doe"
-        android:textColorHint="#B5AFA6"
-        android:textColor="#1A1714"
-        android:textSize="14sp"
-        android:inputType="textPersonName"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@+id/labelName"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Email label -->
-    <TextView
-        android:id="@+id/labelEmail"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="EMAIL"
-        android:textColor="#7A7168"
-        android:textSize="10sp"
-        android:letterSpacing="0.1"
-        android:fontFamily="sans-serif-medium"
-        android:layout_marginTop="20dp"
-        app:layout_constraintTop_toBottomOf="@+id/etName"
-        app:layout_constraintStart_toStartOf="parent"/>
+        <!-- Hairline rule -->
+        <View
+            android:id="@+id/topDivider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="#F3F4F6"
+            app:layout_constraintTop_toBottomOf="@id/topBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Email input -->
-    <EditText
-        android:id="@+id/etEmail"
-        android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:hint="you@example.com"
-        android:textColorHint="#B5AFA6"
-        android:textColor="#1A1714"
-        android:textSize="14sp"
-        android:inputType="textEmailAddress"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@+id/labelEmail"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Password label -->
-    <TextView
-        android:id="@+id/labelPassword"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="PASSWORD"
-        android:textColor="#7A7168"
-        android:textSize="10sp"
-        android:letterSpacing="0.1"
-        android:fontFamily="sans-serif-medium"
-        android:layout_marginTop="20dp"
-        app:layout_constraintTop_toBottomOf="@+id/etEmail"
-        app:layout_constraintStart_toStartOf="parent"/>
+        <TextView
+            android:id="@+id/tvHeadline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="40dp"
+            android:text="Create account"
+            android:textColor="#111827"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:fontFamily="serif"
+            android:lineSpacingExtra="2dp"
+            app:layout_constraintTop_toBottomOf="@id/topDivider"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Password input -->
-    <EditText
-        android:id="@+id/etPassword"
-        android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:hint="min. 6 characters"
-        android:textColorHint="#B5AFA6"
-        android:textColor="#1A1714"
-        android:textSize="14sp"
-        android:inputType="textPassword"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@+id/labelPassword"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <TextView
+            android:id="@+id/tvSubheadline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="6dp"
+            android:text="Join Abacus to start discovering events"
+            android:textColor="#6B7280"
+            android:textSize="15sp"
+            app:layout_constraintTop_toBottomOf="@id/tvHeadline"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Register button -->
-    <Button
-        android:id="@+id/btnRegister"
-        android:layout_width="0dp"
-        android:layout_height="50dp"
-        android:text="Create Account"
-        android:textColor="#F5F0E8"
-        android:textSize="14sp"
-        android:letterSpacing="0.04"
-        android:fontFamily="sans-serif-medium"
-        android:backgroundTint="#1A1714"
-        android:layout_marginTop="32dp"
-        app:layout_constraintTop_toBottomOf="@+id/etPassword"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Already have account -->
-    <TextView
-        android:id="@+id/tvLogin"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Already have an account? Sign in"
-        android:textColor="#C96A3A"
-        android:textSize="12sp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@+id/btnRegister"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <TextView
+            android:id="@+id/labelSection"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="36dp"
+            android:text="YOUR DETAILS"
+            android:textColor="#9CA3AF"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/tvSubheadline"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <View
+            android:id="@+id/sectionDivider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="8dp"
+            android:background="#F3F4F6"
+            app:layout_constraintTop_toBottomOf="@id/labelSection"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+
+        <TextView
+            android:id="@+id/labelName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="20dp"
+            android:text="Display name"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/sectionDivider"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <EditText
+            android:id="@+id/etName"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="6dp"
+            android:hint="Your name"
+            android:textColorHint="#D1D5DB"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:background="@drawable/input_background"
+            android:paddingHorizontal="14dp"
+            android:inputType="textPersonName|textCapWords"
+            android:autofillHints="name"
+            app:layout_constraintTop_toBottomOf="@id/labelName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+
+        <TextView
+            android:id="@+id/labelEmail"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="16dp"
+            android:text="Email address"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/etName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <EditText
+            android:id="@+id/etEmail"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="6dp"
+            android:hint="you@example.com"
+            android:textColorHint="#D1D5DB"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:background="@drawable/input_background"
+            android:paddingHorizontal="14dp"
+            android:inputType="textEmailAddress"
+            android:autofillHints="emailAddress"
+            app:layout_constraintTop_toBottomOf="@id/labelEmail"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+
+        <TextView
+            android:id="@+id/labelPassword"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="16dp"
+            android:text="Password"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/etEmail"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="6dp"
+            android:hint="••••••••"
+            android:textColorHint="#D1D5DB"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:background="@drawable/input_background"
+            android:paddingHorizontal="14dp"
+            android:inputType="textPassword"
+            android:autofillHints="newPassword"
+            app:layout_constraintTop_toBottomOf="@id/labelPassword"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Password hint -->
+        <TextView
+            android:id="@+id/tvPasswordHint"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="5dp"
+            android:text="Must be at least 6 characters"
+            android:textColor="#9CA3AF"
+            android:textSize="12sp"
+            app:layout_constraintTop_toBottomOf="@id/etPassword"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <Button
+            android:id="@+id/btnRegister"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="28dp"
+            android:text="Create account"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.02"
+            android:backgroundTint="#111827"
+            app:layout_constraintTop_toBottomOf="@id/tvPasswordHint"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Terms note -->
+        <TextView
+            android:id="@+id/tvTerms"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="12dp"
+            android:text="By creating an account you agree to our Terms of Service and Privacy Policy."
+            android:textColor="#9CA3AF"
+            android:textSize="12sp"
+            android:lineSpacingExtra="2dp"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@id/btnRegister"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <View
+            android:id="@+id/footerDivider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="32dp"
+            android:background="#F3F4F6"
+            app:layout_constraintTop_toBottomOf="@id/tvTerms"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <LinearLayout
+            android:id="@+id/signInRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintTop_toBottomOf="@id/footerDivider"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Already have an account? "
+                android:textColor="#6B7280"
+                android:textSize="14sp"/>
+
+            <TextView
+                android:id="@+id/tvLogin"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sign in"
+                android:textColor="#111827"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="?attr/selectableItemBackground"
+                android:padding="2dp"/>
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

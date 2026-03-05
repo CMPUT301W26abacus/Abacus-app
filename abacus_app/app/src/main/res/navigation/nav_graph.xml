@@ -31,8 +31,9 @@
     <!-- Opened from profile button top right -->
     <fragment
         android:id="@+id/mainProfileFragment"
-        android:name="com.example.abacus_app.MainProfileFragment"
-        android:label="Profile" />
+        android:name="com.example.abacus_app.ProfileFragment"
+        android:label="Profile"
+        android:layout="@layout/main_profile_fragment" />
 
     <!-- Opened from QR scan button -->
     <fragment

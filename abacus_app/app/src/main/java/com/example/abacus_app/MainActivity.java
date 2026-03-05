@@ -17,8 +17,6 @@
  */
 package com.example.abacus_app;
 
-import static androidx.core.content.ContextCompat.startActivity;
-
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -64,15 +62,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         // Build UserLocalDataSource using Kotlin extension
-        UserLocalDataSource localDataSource = new UserLocalDataSource(
-                DataStoreHelperKt.getDataStore(getApplicationContext())
-        );
-
-        // Build UserRepository
-        userRepository = new UserRepository(
-                localDataSource,
-                FirebaseFirestore.getInstance()
-        );
+        UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        userRepository = new UserRepository(localDataSource, remoteDataSource);
 
         // Initialize user on app launch
         userRepository.initializeUserAsync();
@@ -80,6 +72,16 @@ public class MainActivity extends AppCompatActivity {
         // ↓ Add these lines right after
         isGuest = getIntent().getBooleanExtra("isGuest", false);
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        // Add debug logging
+        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
+        if (currentUser != null) {
+            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() + 
+                " (Anonymous: " + currentUser.isAnonymous() + 
+                ", Email: " + currentUser.getEmail() + ")");
+        } else {
+            android.util.Log.d("MainActivity", "No current user");
+        }
 
         if (!isGuest && currentUser == null) {
             goToSplash();

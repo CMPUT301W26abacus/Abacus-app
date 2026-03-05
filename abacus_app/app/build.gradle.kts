@@ -3,6 +3,7 @@ plugins {
 
     // Add the dependency for the Google services Gradle plugin
     id("com.google.gms.google-services")
+
 }
 
 android {
@@ -33,6 +34,17 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "com.google.protobuf") {
+            when (requested.name) {
+                "protobuf-javalite" -> useVersion("3.23.4")
+                "protobuf-lite" -> useVersion("3.0.1") // prevents conflict from espresso-contrib
+            }
+        }
     }
 }
 
@@ -73,13 +85,33 @@ dependencies {
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation(libs.datastore.preferences.rxjava3)
+    
+    // SwipeRefreshLayout
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
+    // Protobuf used by Firestore
+    implementation("com.google.protobuf:protobuf-javalite:3.23.4")
+    implementation(libs.swiperefreshlayout)
+
 
     // Testing
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation(libs.ext.junit)
+    testImplementation(libs.runner)
     androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
     debugImplementation("androidx.fragment:fragment-testing:1.6.2")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.test:runner:1.5.2")
+
+    // Espresso
+    androidTestImplementation ("androidx.test.espresso:espresso-contrib:3.5.1") {
+        exclude(group = "com.google.protobuf", module = "protobuf-lite")
+    }
+    androidTestImplementation ("androidx.test.espresso:espresso-intents:3.5.1")
+    androidTestImplementation ("androidx.test.espresso:espresso-core:3.5.1")
+    // AndroidX Test
+    androidTestImplementation ("androidx.test:core:1.5.0")
+    androidTestImplementation ("androidx.test:runner:1.5.2")
+    androidTestImplementation ("androidx.test:rules:1.5.0")
+
+    androidTestImplementation("com.google.protobuf:protobuf-javalite:3.23.4")
 }
