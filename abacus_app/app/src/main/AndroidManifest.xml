@@ -37,10 +37,10 @@
         </activity>
 
         <!-- TODO: Add the activity for Login -->
-        <activity android:name=".test_LoginActivity"/>
+        <activity android:name=".LoginActivity"/>
 
         <!-- TODO: Add the activity for Register -->
-        <activity android:name=".test_RegisterActivity"/>
+        <activity android:name=".RegisterActivity"/>
 
         <!-- TODO: Add the service for FCM -->
 

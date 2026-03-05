@@ -17,7 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class test_RegisterActivity extends AppCompatActivity {
+public class RegisterActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
 
@@ -82,7 +82,7 @@ public class test_RegisterActivity extends AppCompatActivity {
 
         // Go back to login
         tvLogin.setOnClickListener(v -> {
-            startActivity(new Intent(this, test_LoginActivity.class));
+            startActivity(new Intent(this, LoginActivity.class));
             finish();
         });
     }

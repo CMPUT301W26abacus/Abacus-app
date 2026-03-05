@@ -17,6 +17,9 @@
  */
 package com.example.abacus_app;
 
+import static androidx.core.content.ContextCompat.startActivity;
+
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -35,7 +38,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.search.SearchBar;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.Arrays;
@@ -50,25 +56,36 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
 
     private UserRepository userRepository; //UUID
+    private boolean isGuest; //Guest mode flag
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Build UserLocalDataSource using Kotlin extension
+        // Build UserLocalDataSource using Kotlin extension
         UserLocalDataSource localDataSource = new UserLocalDataSource(
                 DataStoreHelperKt.getDataStore(getApplicationContext())
         );
 
-        // 2. Build UserRepository
+        // Build UserRepository
         userRepository = new UserRepository(
                 localDataSource,
                 FirebaseFirestore.getInstance()
         );
 
-        // 3. Initialize user on app launch
+        // Initialize user on app launch
         userRepository.initializeUserAsync();
+
+        // ↓ Add these lines right after
+        isGuest = getIntent().getBooleanExtra("isGuest", false);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        if (!isGuest && currentUser == null) {
+            goToSplash();
+            return;
+        }
+
 
         // Navigation bar colour
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -229,4 +246,30 @@ public class MainActivity extends AppCompatActivity {
     public NavController getNavController() {
         return navController;
     }
+
+
+    public void onGuestJoinAttempt() {
+        showLoginPrompt("Sign in to join events.");
+    }
+
+    private void showLoginPrompt(String message) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Sign in required")
+                .setMessage(message)
+                .setPositiveButton("Sign In", (d, w) ->
+                        startActivity(new Intent(this, LoginActivity.class)))
+                .setNeutralButton("Register", (d, w) ->
+                        startActivity(new Intent(this, RegisterActivity.class)))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void goToSplash() {
+        Intent intent = new Intent(this, SplashActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+
 }

@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 
-public class test_LoginActivity extends AppCompatActivity {
+public class LoginActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
 
@@ -35,10 +35,15 @@ public class test_LoginActivity extends AppCompatActivity {
 
             mAuth.signInWithEmailAndPassword(email, password)
                     .addOnSuccessListener(authResult -> {
+                        getSharedPreferences("abacus_prefs", MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("has_launched_before", true)
+                                .apply();
+
                         Toast.makeText(this, "Welcome back!", Toast.LENGTH_SHORT).show();
                         // TODO: navigate to main screen once ready
-                        // startActivity(new Intent(this, MainActivity.class));
-                        // finish();
+                        startActivity(new Intent(this, MainActivity.class));
+                        finish();
                     })
                     .addOnFailureListener(e ->
                             Toast.makeText(this, "Login failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
@@ -58,7 +63,7 @@ public class test_LoginActivity extends AppCompatActivity {
         });
 
         tvSignUp.setOnClickListener(v -> {
-            startActivity(new Intent(this, test_RegisterActivity.class));
+            startActivity(new Intent(this, RegisterActivity.class));
         });
 
         btnSSO.setOnClickListener(v -> {
