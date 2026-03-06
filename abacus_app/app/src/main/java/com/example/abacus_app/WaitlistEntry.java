@@ -1,13 +1,13 @@
 package com.example.abacus_app;
+
 import com.google.firebase.Timestamp;
 
 /**
- *  Entity class that hold the data related to a single waitlist entry, including
- *  the user that joined the waitlist, their current status, their lotto number, and
- *  the timestamp of when they joined.
+ * Entity class that holds the data related to a single waitlist entry.
+ * Modified for Firestore compatibility.
  *
  * @author Team Abacus
- * @version 1.0
+ * @version 1.1
  */
 public class WaitlistEntry {
 
@@ -17,10 +17,15 @@ public class WaitlistEntry {
     public static final String STATUS_DECLINED = "declined";
     public static final String STATUS_CANCELLED = "cancelled";
 
-    private final String userId;
-    private String status; // "WAITLISTED", "INVITED", "ACCEPTED", "DECLINED", "CANCELLED"
-    private final Integer lotteryNumber; // randomly assigned; used for lotto draw
-    private final Timestamp joinTime;
+    private String userId;
+    private String status;
+    private Integer lotteryNumber;
+    private Timestamp joinTime;
+
+    /**
+     * No-argument constructor required for Firestore deserialization.
+     */
+    public WaitlistEntry() {}
 
     public WaitlistEntry(String userId, String status, Integer lotteryNumber, Timestamp joinTime) {
         this.userId = userId;
@@ -31,6 +36,10 @@ public class WaitlistEntry {
 
     public String getUserId() {
         return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getStatus() {
@@ -45,7 +54,15 @@ public class WaitlistEntry {
         return lotteryNumber;
     }
 
+    public void setLotteryNumber(Integer lotteryNumber) {
+        this.lotteryNumber = lotteryNumber;
+    }
+
     public Timestamp getJoinTime() {
         return joinTime;
+    }
+
+    public void setJoinTime(Timestamp joinTime) {
+        this.joinTime = joinTime;
     }
 }

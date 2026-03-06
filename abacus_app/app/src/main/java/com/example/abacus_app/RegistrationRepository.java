@@ -1,23 +1,22 @@
 package com.example.abacus_app;
 
-import java.sql.Timestamp;
+import com.google.firebase.Timestamp;
 import java.util.ArrayList;
 import java.util.Random;
 
-
 /**
- *  Controller class that manages all actions related to the lottery and waitlist of
- *  a single event.
- *  <p>
- *  Responsibilities include updating the statuses of {@link WaitlistEntry}, running
- *  the random lottery selection algorithm, and handling business logic. The lottery
- *  works by assigning a random lottery number to each user as they join the waitlist
- *  (the lottery number is secret). At the time of the draw, the n lowest entries are
- *  the winners.
- *  </p>
+ * Controller class that manages all actions related to the lottery and waitlist of
+ * a single event.
+ * <p>
+ * Responsibilities include updating the statuses of {@link WaitlistEntry}, running
+ * the random lottery selection algorithm, and handling business logic. The lottery
+ * works by assigning a random lottery number to each user as they join the waitlist
+ * (the lottery number is secret). At the time of the draw, the n lowest entries are
+ * the winners.
+ * </p>
  *
  * @author Team Abacus
- * @version 1.0
+ * @version 1.1
  */
 public class RegistrationRepository {
 
@@ -80,34 +79,34 @@ public class RegistrationRepository {
     }
 
     public void joinWaitlist(String userID) {
-        int lotteryNumber = new Random().nextInt(10000);
-        WaitlistEntry entry =  new WaitlistEntry(userID, WaitlistEntry.STATUS_WAITLISTED, lotteryNumber, com.google.firebase.Timestamp.now());
+        int lotteryNumber = new Random().nextInt(1000000);
+        WaitlistEntry entry = new WaitlistEntry(userID, WaitlistEntry.STATUS_WAITLISTED, lotteryNumber, Timestamp.now());
         RegistrationRemoteDataSource remote = new RegistrationRemoteDataSource();
         remote.joinWaitlist(eventID, entry);
     }
 
     public void leaveWaitlist(String userID) {
-
+        // TODO: Implementation for removing user from waitlist
     }
 
     public void acceptInvitation(String userID) {
-
+        // TODO: Update status to ACCEPTED
     }
 
     public void declineInvitation(String userID) {
-
+        // TODO: Update status to DECLINED
     }
 
     public void cancelEntrant(String userId) {
-
+        // TODO: Update status to CANCELLED
     }
 
     public void runLottery() {
-
+        // TODO: Algorithm to select winners
     }
 
     public void drawReplacement() {
-
+        // TODO: Draw one more winner from waitlist
     }
 
     public ArrayList<WaitlistEntry> getAll() {
