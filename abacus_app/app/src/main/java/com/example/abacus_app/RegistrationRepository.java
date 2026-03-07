@@ -1,12 +1,17 @@
 package com.example.abacus_app;
 
-import java.sql.Timestamp;
+import android.os.Handler;
+import android.os.Looper;
+
+import com.google.firebase.Timestamp;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
- *  Controller class that manages all actions related to the lottery and waitlist of a single event.
+ *  Controller class that manages all actions related to the lottery and waitlist of a all events.
  *  <p>
  *  Responsibilities include updating the statuses of {@link WaitlistEntry}, running the random
  *  lottery selection algorithm, and handling business logic. The lottery works by assigning a
@@ -14,77 +19,41 @@ import java.util.Random;
  *  the time of the draw, the n lowest entries are the winners.
  *  </p>
  *
+ *  NOTE: Methods in this class run ASYNCHRONOUSLY and require a callback. Only to be used from UI
+ *  classes. For synchronous methods for the architecture layer (repositories), refer to
+ *  {@link RegistrationRemoteDataSource}.
+ *
  * @author Team Abacus
  * @version 1.0
  */
 public class RegistrationRepository {
 
-    private final String eventID;
-    private boolean lotteryDrawn;
-    private boolean waitlistOpen;
-    private Timestamp waitlistCloseTime;
-    private int eventCapacity;
-    private int waitlistCapacity;
+    private final RegistrationRemoteDataSource remoteDataSource;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    private RegistrationRemoteDataSource remote = new RegistrationRemoteDataSource();
-
-    public RegistrationRepository(String eventID, Timestamp waitlistCloseTime, int eventCapacity, int waitlistCapacity) {
-        this.eventID = eventID;
-        this.waitlistCloseTime = waitlistCloseTime;
-        this.eventCapacity = eventCapacity;
-        this.waitlistCapacity = waitlistCapacity;
-    }
-
-    public String getEventID() {
-        return eventID;
-    }
-
-    public boolean isLotteryDrawn() {
-        return lotteryDrawn;
-    }
-
-    public void setLotteryDrawn(boolean lotteryDrawn) {
-        this.lotteryDrawn = lotteryDrawn;
-    }
-
-    public boolean isWaitlistOpen() {
-        return waitlistOpen;
-    }
-
-    public void setWaitlistOpen(boolean waitlistOpen) {
-        this.waitlistOpen = waitlistOpen;
-    }
-
-    public Timestamp getWaitlistCloseTime() {
-        return waitlistCloseTime;
-    }
-
-    public void setWaitlistCloseTime(Timestamp waitlistCloseTime) {
-        this.waitlistCloseTime = waitlistCloseTime;
-    }
-
-    public int getEventCapacity() {
-        return eventCapacity;
-    }
-
-    public void setEventCapacity(int eventCapacity) { // check with waitlist cap
-        this.eventCapacity = eventCapacity;
-    }
-
-    public int getWaitlistCapacity() {
-        return waitlistCapacity;
-    }
-
-    public void setWaitlistCapacity(int waitlistCapacity) { // check with current waitlist
-        this.waitlistCapacity = waitlistCapacity;
+    /**
+     * Constructs the RegistrationRepository object.
+     */
+    public RegistrationRepository() {
+        this.remoteDataSource = new RegistrationRemoteDataSource();
     }
 
     /**
      * Gets the number of entrants currently on the waitlist, regardless of status.
-     * @return the number of entrants on the waitlist
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
-    public int getWaitListSize() {
-        return remote.getWaitlistSize(eventID);
+    public void getWaitListSize(String eventID, IntegerCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute operation
+                Integer size = remoteDataSource.getWaitlistSizeSync(eventID);
+                mainHandler.post(() -> callback.onResult(size));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
     /**
@@ -92,116 +61,247 @@ public class RegistrationRepository {
      * timestamp is recorded.
      *
      * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
      * @throws IllegalStateException the waitlist is full or closed
      * @throws IllegalArgumentException the user is already on the waitlist
      */
-    public void joinWaitlist(String userID) {
-        if (!waitlistOpen) {
-            throw new IllegalStateException("The waitlist is closed.");
-        } else if (getWaitListSize() >= waitlistCapacity) {
-            throw new IllegalStateException("The waitlist is full.");
-        } else if (isOnWaitlist(userID)) {
-            throw new IllegalArgumentException("This user is already on the waitlist.");
-        } else {
-            int lotteryNumber = new Random().nextInt(10000);
-            WaitlistEntry entry = new WaitlistEntry(userID, WaitlistEntry.STATUS_WAITLISTED, lotteryNumber, com.google.firebase.Timestamp.now());
-            remote.joinWaitlist(eventID, entry);
-        }
+    public void joinWaitlist(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                // logic checks
+                /**
+                EventRemoteDataSource eventDS = new EventRemoteDataSource();
+                boolean waitlistOpen = eventDS.isWaitlistOpen(eventID);
+                if (!waitlistOpen) {
+                    throw new IllegalStateException("Waitlist is closed.");
+                }
+                int waitlistCapacity = eventDS.getWaitlistCapacity(eventID);
+                if (waitlistCapacity != -1) { // or whatever indicates that a waitlist has no limit <--TODO
+                    int waitlistSize = remoteDataSource.getWaitlistSizeSync(eventID);
+                    if (waitlistSize >= waitlistCapacity) {
+                        throw new IllegalStateException("Waitlist is full.");
+                    }
+                }
+                if (remoteDataSource.isUserOnWaitlistSync(eventID, userID)) {
+                    throw new IllegalArgumentException("User is already on waitlist.");
+                }
+                 **/
+
+                // execute operation
+                Random random = new Random();
+                WaitlistEntry entry = new WaitlistEntry(
+                        userID,
+                        eventID,
+                        WaitlistEntry.STATUS_WAITLISTED,
+                        random.nextInt(100000),
+                        Timestamp.now()
+                );
+                remoteDataSource.joinWaitlistSync(eventID, entry);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     /**
-     * Deletes the date related to the waitlist entry of the user.
+     * Deletes the data related to the waitlist entry of the user.
      *
      * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
      * @throws IllegalArgumentException the given user is not on the waitlist
      */
-    public void leaveWaitlist(String userID) {
-        if (!isOnWaitlist(userID)) {
-            throw new IllegalArgumentException("This user was not on the waitlist.");
-        } else {
-            remote.leaveWaitlist(eventID, userID);
-        }
+    public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                // logic checks
+                boolean isOnWaitlist = remoteDataSource.isUserOnWaitlistSync(userID, eventID);
+                if (!isOnWaitlist) {
+                    throw new IllegalArgumentException("This user was not on the waitlist.");
+                }
+
+                // execute operation
+                remoteDataSource.removeWaitlistEntrySync(eventID, userID);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     /**
      * Changes the status of an invited entrant from invited to accepted.
      *
      * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
      * @throws IllegalStateException the user status is not invited
      */
-    public void acceptInvitation(String userID) {
-        if (!isOnWaitlist(userID)) {
-            throw new IllegalArgumentException("This user is not on the waitlist.");
-        } else if (!getUserEntry(userID).getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-            throw new IllegalStateException("User cannot accept invitation because they were not invited.");
-        } else {
-            remote.updateEntryStatus(eventID, userID, WaitlistEntry.STATUS_ACCEPTED);
-        }
+    public void acceptInvitation(String userID, String eventID, VoidCallback callback) throws Exception {
+        executor.submit(() -> {
+            try {
+                // logic checks
+                boolean isOnWaitlist = remoteDataSource.isUserOnWaitlistSync(userID, eventID);
+                if (!isOnWaitlist) {
+                    throw new IllegalArgumentException("This user is not on the waitlist.");
+                }
+                WaitlistEntry entry = remoteDataSource.getUserWaitlistEntry(userID, eventID);
+                if (!entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                    throw new IllegalStateException("User cannot accept invitation because they were not invited.");
+                }
+
+                // execute operation
+                remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_ACCEPTED);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     /**
      * Changes the status of an invited entrant from invited to declined.
      *
      * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
      * @throws IllegalStateException the user status is not invited
      */
-    public void declineInvitation(String userID) {
-        if (!isOnWaitlist(userID)) {
-            throw new IllegalArgumentException("This user is not on the waitlist.");
-        } else if (!getUserEntry(userID).getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-            throw new IllegalStateException("User cannot decline invitation because they were not invited.");
-        } else {
-            remote.updateEntryStatus(eventID, userID, WaitlistEntry.STATUS_DECLINED);
-        }
+    public void declineInvitation(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                // logic checks
+                boolean isOnWaitlist = remoteDataSource.isUserOnWaitlistSync(userID, eventID);
+                if (!isOnWaitlist) {
+                    throw new IllegalArgumentException("This user is not on the waitlist.");
+                }
+                WaitlistEntry entry = remoteDataSource.getUserWaitlistEntry(userID, eventID);
+                if (!entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                    throw new IllegalStateException("User cannot decline invitation because they were not invited.");
+                }
+
+                // execute operation
+                remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_DECLINED);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
-    public void cancelEntrant(String userID) {
+    /**
+     * Changes the status of an entrant to cancelled.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
+     * @throws IllegalArgumentException the user is not on the waitlist
+     * @throws IllegalStateException the user status is not invited
+     */
+    public void cancelEntrant(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                // logic checks
+                boolean isOnWaitlist = remoteDataSource.isUserOnWaitlistSync(userID, eventID);
+                if (!isOnWaitlist) {
+                    throw new IllegalArgumentException("This user is not on the waitlist.");
+                }
+
+                // execute operation
+                remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_CANCELLED);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    public void runLottery() {
 
     }
 
-    public boolean isOnWaitlist(String userID) {
-        throw new UnsupportedOperationException("TODO");
-    }
-
-    public WaitlistEntry getUserEntry(String userID) {
-        if (!isOnWaitlist(userID)) {
-            throw new IllegalArgumentException("This user is not on the waitlist.");
-        } else {
-            return remote.getWaitlistEntry(eventID, userID);
-        }
-    }
-
-    public void runLottery() { // trigger notifications and send invited users
+    public void drawReplacement() {
 
     }
 
-    public void drawReplacement() { // also trigger notification
+    /**
+     * Checks whether or not a user is on the waitlist of an event.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void isOnWaitlist(String userID, String eventID, BooleanCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                boolean result = remoteDataSource.isUserOnWaitlistSync(userID, eventID);
+                mainHandler.post(() -> callback.onResult(result));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(false));
+            }
+        });
+    }
+
+    public void getUserEntry(String userID) {
 
     }
 
-    public ArrayList<WaitlistEntry> getAllEntries() {
-        throw new UnsupportedOperationException("TODO");
+    public void getAllEntries() {
+
     }
 
-    public ArrayList<WaitlistEntry> getWaitlisted() {
-        throw new UnsupportedOperationException("TODO");
+    public void getWaitlisted() {
+
     }
 
-    public ArrayList<WaitlistEntry> getInvited() {
-        throw new UnsupportedOperationException("TODO");
+    public void getInvited() {
+
     }
 
-    public ArrayList<WaitlistEntry> getAccepted() {
-        throw new UnsupportedOperationException("TODO");
+    public void getAccepted() {
+
     }
 
-    public ArrayList<WaitlistEntry> getDeclined() {
-        throw new UnsupportedOperationException("TODO");
+    public void getDeclined() {
+
     }
 
-    public ArrayList<WaitlistEntry> getCancelled() {
-        throw new UnsupportedOperationException("TODO");
+    public void getCancelled() {
+
+    }
+
+    public void getHistoryForUser() {
+
+    }
+
+    public interface WaitlistCallback {
+        void onResult(ArrayList<WaitlistEntry> waitlist);
+    }
+
+    public interface EntryCallback {
+        void onResult(WaitlistEntry entry);
+    }
+
+    public interface BooleanCallback {
+        void onResult(Boolean value);
+    }
+
+    public interface IntegerCallback {
+        void onResult(Integer value);
+    }
+
+    public interface VoidCallback {
+        void onComplete(Exception error);
     }
 }
