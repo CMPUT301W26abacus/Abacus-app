@@ -45,4 +45,14 @@
         android:id="@+id/eventQrFragment"
         android:name="com.example.abacus_app.EventQrFragment"
         android:label="Event QR" />
+
+    <fragment
+        android:id="@+id/organizerCreateFragment"
+        android:name="com.example.abacus_app.OrganizerCreateFragment"
+        android:label="Create Event" />
+
+    <fragment
+        android:id="@+id/organizerManageFragment"
+        android:name="com.example.abacus_app.OrganizerManageFragment"
+        android:label="Manage Event" />
 </navigation>
