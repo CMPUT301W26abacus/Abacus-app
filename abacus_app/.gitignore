@@ -13,4 +13,4 @@
 .externalNativeBuild
 .cxx
 local.properties
-abacus_app/app/google-services.json
+app/google-services.json

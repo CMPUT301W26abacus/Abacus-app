@@ -113,11 +113,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Profile button → profile fragment
         ImageButton btnProfile = findViewById(R.id.btn_profile);
-        btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, true));
+        btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
 
         // QR scan button → QR scan fragment
         ImageButton btnScan = findViewById(R.id.btn_scan);
-        btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, true));
+        btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, false));
 
         // Hardcoded test data — replace with Firestore data later
         List<String> testEvents = Arrays.asList(
