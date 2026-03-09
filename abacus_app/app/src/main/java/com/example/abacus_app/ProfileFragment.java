@@ -50,7 +50,10 @@ public class ProfileFragment extends Fragment {
     private View        dangerDivider;
     private TextView    labelDanger;
 
-    @Nullable
+    /**
+     * Inflates and returns the layout for this fragment.
+     */
+    @NonNull
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
@@ -58,6 +61,9 @@ public class ProfileFragment extends Fragment {
         return inflater.inflate(R.layout.main_profile_fragment, container, false);
     }
 
+    /**
+     * Initializes views and observes LiveData from ProfileViewModel.
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -99,7 +105,6 @@ public class ProfileFragment extends Fragment {
         UserRepository       repo   = new UserRepository(local, remote);
         viewModel.init(repo, isGuest);
 
-        // ── Observe LiveData ──────────────────────────────────────────────
 
         viewModel.getName().observe(getViewLifecycleOwner(), name -> {
             // Update header display name
@@ -196,6 +201,12 @@ public class ProfileFragment extends Fragment {
         viewModel.loadProfile();
     }
 
+    /**
+     * Displays UI elements for a guest user.
+     *
+     * @implNote This method hides editable fields and buttons, and shows a banner
+     *           encouraging the user to link an account.
+     */
     private void showGuestUI() {
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
@@ -208,6 +219,11 @@ public class ProfileFragment extends Fragment {
         etPhone.setEnabled(false);
     }
 
+    /**
+     * Displays UI elements for a logged-in user.
+     *
+     * @implNote This method enables editable fields and buttons, and hides the guest banner.
+     */
     private void showLoggedInUI() {
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
@@ -220,6 +236,9 @@ public class ProfileFragment extends Fragment {
         etPhone.setEnabled(true);
     }
 
+    /**
+     * Simple TextWatcher implementation for EditText fields.
+     */
     private abstract static class SimpleTextWatcher implements TextWatcher {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}

@@ -81,6 +81,11 @@ public class MainHistoryFragment extends Fragment {
         viewModel.loadRegistrationHistory();
     }
 
+    /**
+     * Binds UI components to their respective views.
+     *
+     * @param root
+     */
     private void bindViews(View root) {
         swipeRefreshLayout = root.findViewById(R.id.swipe_refresh);
         recyclerView = root.findViewById(R.id.rv_registrations);
@@ -88,18 +93,27 @@ public class MainHistoryFragment extends Fragment {
         progressBar = root.findViewById(R.id.progress_bar);
     }
 
+    /**
+     * Sets up the RecyclerView and its adapter.
+     */
     private void setupRecyclerView() {
         adapter = new HistoryAdapter();
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);
     }
 
+    /**
+     * Sets up the SwipeRefreshLayout for refreshing the registration history.
+     */
     private void setupSwipeRefresh() {
         swipeRefreshLayout.setOnRefreshListener(() -> {
             viewModel.refresh();
         });
     }
 
+    /**
+     * Observes the ViewModel for changes in registration history, loading state, and error messages.
+     */
     private void observeViewModel() {
         // Observe registration list
         viewModel.getRegistrations().observe(getViewLifecycleOwner(), registrations -> {
@@ -127,7 +141,11 @@ public class MainHistoryFragment extends Fragment {
             }
         });
     }
-
+/**
+     * Shows or hides the empty state layout based on whether the registration history is empty.
+     *
+     * @param isEmpty True if the registration history is empty, false otherwise.
+     */
     private void showEmptyState(boolean isEmpty) {
         recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         emptyStateLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
@@ -140,11 +158,22 @@ public class MainHistoryFragment extends Fragment {
 
         private List<MainHistoryViewModel.RegistrationHistoryItem> registrations;
 
+        /**
+         * Updates the adapter with a new list of registration history items.
+         * @param registrations List of registration history items.
+         */
         public void updateRegistrations(List<MainHistoryViewModel.RegistrationHistoryItem> registrations) {
             this.registrations = registrations;
             notifyDataSetChanged();
         }
 
+        /**
+         * Creates a new ViewHolder for the RecyclerView.
+         * @param parent   The ViewGroup into which the new View will be added after it is bound to
+         *                 an adapter position.
+         * @param viewType The view type of the new View.
+         * @return A new ViewHolder for the RecyclerView.
+         */
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -153,6 +182,11 @@ public class MainHistoryFragment extends Fragment {
             return new ViewHolder(view);
         }
 
+        /**
+         * Binds a registration history item to a ViewHolder.
+         * @param holder   The ViewHolder to bind the item to.
+         * @param position The position of the item in the list.
+         */
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             if (registrations != null && position < registrations.size()) {
@@ -161,11 +195,18 @@ public class MainHistoryFragment extends Fragment {
             }
         }
 
+        /**
+         * Returns the total number of items in the adapter.
+         * @return Total number of items.
+         */
         @Override
         public int getItemCount() {
             return registrations != null ? registrations.size() : 0;
         }
 
+        /**
+         * ViewHolder for displaying registration history items.
+         */
         static class ViewHolder extends RecyclerView.ViewHolder {
             private final TextView eventTitleView;
             private final TextView eventDateTimeView;
@@ -247,10 +288,6 @@ public class MainHistoryFragment extends Fragment {
             throw new IllegalArgumentException("Unknown ViewModel class");
         }
     }
-
-    // ------------------------------------------------------------------ //
-    // Placeholder Repository Implementation
-    // ------------------------------------------------------------------ //
 
     /**
      * Placeholder implementation until actual RegistrationRepository is created.

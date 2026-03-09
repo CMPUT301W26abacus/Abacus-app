@@ -15,17 +15,17 @@ import java.util.concurrent.Executors;
  * Architecture Layer: Repository
  *
  * Coordinates user initialization and synchronization between
- * local SharedPreferences storage and Firebase Firestore.
+ * local database storage and Firebase Firestore.
  *
- * Used by: MainProfileFragment, MainActivity
+ * Used by: ProfileFragment, ProfileViewModel, MainActivity
  */
 public class UserRepository {
 
     private final UserLocalDataSource  localDataSource;
     private final UserRemoteDataSource remoteDataSource;
 
-    private final ExecutorService executor    = Executors.newSingleThreadExecutor();
-    private final Handler         mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public UserRepository(UserLocalDataSource localDataSource,
                           UserRemoteDataSource remoteDataSource) {

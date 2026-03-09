@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
 
+    // Play Services
+    implementation("com.google.android.gms:play-services-base:18.5.0")
+
     // Navigation
     implementation("androidx.navigation:navigation-fragment:2.7.7")
     implementation("androidx.navigation:navigation-ui:2.7.7")

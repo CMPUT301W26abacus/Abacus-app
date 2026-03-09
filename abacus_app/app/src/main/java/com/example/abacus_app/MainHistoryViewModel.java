@@ -11,11 +11,9 @@ import java.util.List;
 
 /**
  * Architecture Layer: ViewModel
- *
  * Fetches and holds the current user's registration history from Firestore.
  * Maps raw status strings to human-readable display labels before exposing
  * them to the fragment.
- *
  * Used by: MainHistoryFragment
  */
 public class MainHistoryViewModel extends ViewModel {

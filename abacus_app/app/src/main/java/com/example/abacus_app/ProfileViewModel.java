@@ -46,33 +46,55 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<Boolean> getIsGuest()       { return _isGuest; }
     public LiveData<String>  getToastMessage()  { return _toastMessage; }
     public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
-
-
     private UserRepository userRepository;
 
+    /**
+     * Initializes the ViewModel with a UserRepository and guest status.
+     * @param repository UserRepository instance
+     * @param isGuest boolean indicating if the user is a guest
+     */
     public void init(UserRepository repository, boolean isGuest) {
         this.userRepository = repository;
         _isGuest.setValue(isGuest);
     }
 
+    /**
+     * Sets the user name.
+     * @param name String containing the user's name
+     */
     public void setName(String name) {
         _name.setValue(name);
         _nameError.setValue(null); // clear error on edit
     }
-
+    /**
+     * Sets the user email.
+     * @param email String containing the user's email
+     */
     public void setEmail(String email) {
         _email.setValue(email);
         _emailError.setValue(null);
     }
 
+    /**
+     * Sets the user phone number.
+     * @param phone String containing the user's phone number
+     */
     public void setPhone(String phone) {
         _phone.setValue(phone);
     }
     
+    /**
+     * Sets the user role.
+     * @param role String containing the user's role
+     */
     public void setRole(String role) {
         _role.setValue(role);
     }
-    
+
+    /**
+     * Sets the notifications enabled state.
+     * @param enabled Boolean indicating whether notifications are enabled
+     */
     public void setNotificationsEnabled(boolean enabled) {
         _notificationsEnabled.setValue(enabled);
     }
@@ -98,10 +120,6 @@ public class ProfileViewModel extends ViewModel {
             }
         });
     }
-
-    // ------------------------------------------------------------------ //
-    //  Save profile
-    // ------------------------------------------------------------------ //
 
     /**
      * Validates inputs then saves to Firestore via the repository.
