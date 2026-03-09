@@ -32,8 +32,8 @@ public class OrganizerManageFragment extends Fragment {
     private List<WaitlistEntry> entries = new ArrayList<>();
     private TextView tvEventName, tvCount;
 
-    public static ManageEventFragment newInstance(String eventId, String eventTitle) {
-        ManageEventFragment fragment = new ManageEventFragment();
+    public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {
+        OrganizerManageFragment fragment = new OrganizerManageFragment();
         Bundle args = new Bundle();
         args.putString("EVENT_ID", eventId);
         args.putString("EVENT_TITLE", eventTitle);

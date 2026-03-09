@@ -5,6 +5,9 @@ import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Handles all remote data operations (Firestore) for events and waitlists.
  */
@@ -40,6 +43,24 @@ public class RegistrationRemoteDataSource {
     public void joinWaitlist(String eventID, WaitlistEntry entry) {
         eventsRef.document(eventID).collection("waitlist")
                 .document(entry.getUserId()).set(entry);
+    }
+
+    /**
+     * Updates the status field of a single waitlist entry.
+     */
+    public void updateStatus(String eventID, String userID, String status) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("status", status);
+        eventsRef.document(eventID).collection("waitlist")
+                .document(userID).update(update);
+    }
+
+    /**
+     * Removes a user from the waitlist entirely.
+     */
+    public void deleteFromWaitlist(String eventID, String userID) {
+        eventsRef.document(eventID).collection("waitlist")
+                .document(userID).delete();
     }
 
     /**

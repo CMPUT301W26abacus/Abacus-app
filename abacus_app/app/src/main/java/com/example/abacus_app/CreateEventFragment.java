@@ -56,7 +56,7 @@ public class CreateEventFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_create_event, container, false);
+        View view = inflater.inflate(R.layout.organizer_create_fragment, container, false);
         
         viewModel = new ViewModelProvider(this).get(CreateEventViewModel.class);
         

@@ -53,7 +53,7 @@ public class ManageEventFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_manage_event, container, false);
+        View view = inflater.inflate(R.layout.organizer_manage_fragment, container, false);
 
         viewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
         
