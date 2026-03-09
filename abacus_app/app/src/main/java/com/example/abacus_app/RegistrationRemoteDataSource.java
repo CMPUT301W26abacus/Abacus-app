@@ -91,4 +91,47 @@ public class RegistrationRemoteDataSource {
 
         Tasks.await(docRef.update("status", status));
     }
+
+    /**
+     * Gets all waitlist entries for a specific user across all events.
+     *
+     * DISCLAIMER: This method was temporarily implemented by Dyna for Sprint 1 integration.
+     * Kaylee should review this implementation to ensure it:
+     * - Follows the correct Firestore database schema
+     * - Handles pagination for users with many entries
+     * - Implements proper error handling and retry logic
+     * - Optimizes query performance (consider using collection group queries)
+     *
+     * @param userID the unique ID of the user in the database
+     * @return ArrayList of WaitlistEntry objects for this user
+     * @throws Exception if the Firestore operation fails
+     */
+    public java.util.ArrayList<WaitlistEntry> getWaitlistEntriesForUser(String userID) throws Exception {
+        java.util.ArrayList<WaitlistEntry> userEntries = new java.util.ArrayList<>();
+        
+        // Query all events collection to find waitlist entries for this user
+        QuerySnapshot eventsSnapshot = Tasks.await(
+                firestore.collection("events").get()
+        );
+        
+        // For each event, check if the user has a waitlist entry
+        for (QueryDocumentSnapshot eventDoc : eventsSnapshot) {
+            String eventID = eventDoc.getId();
+            
+            DocumentSnapshot userEntryDoc = Tasks.await(
+                    getCollectionRef(eventID)
+                            .document(userID)
+                            .get()
+            );
+            
+            if (userEntryDoc.exists()) {
+                WaitlistEntry entry = userEntryDoc.toObject(WaitlistEntry.class);
+                if (entry != null) {
+                    userEntries.add(entry);
+                }
+            }
+        }
+        
+        return userEntries;
+    }
 }

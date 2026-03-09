@@ -52,10 +52,9 @@ public class MainHistoryFragment extends Fragment {
 
         View root = inflater.inflate(R.layout.main_history_fragment, container, false);
 
-        // Initialize ViewModel with placeholder repository
-        // TODO: Replace with actual RegistrationRepository when implemented
-        PlaceholderRegistrationRepository repository = new PlaceholderRegistrationRepository();
-        MainHistoryViewModelFactory factory = new MainHistoryViewModelFactory(repository);
+        // Initialize ViewModel with Kaylee's RegistrationRepository
+        RegistrationRepositoryAdapter repositoryAdapter = new RegistrationRepositoryAdapter();
+        MainHistoryViewModelFactory factory = new MainHistoryViewModelFactory(repositoryAdapter);
         viewModel = new ViewModelProvider(this, factory).get(MainHistoryViewModel.class);
 
         // Bind UI components
@@ -290,31 +289,53 @@ public class MainHistoryFragment extends Fragment {
     }
 
     /**
-     * Placeholder implementation until actual RegistrationRepository is created.
+     * Adapter class to bridge Kaylee's RegistrationRepository with our ViewModel interface.
+     * This allows us to use Kaylee's concrete RegistrationRepository class with our
+     * MainHistoryViewModel that expects a specific interface.
+     * 
+     * INTEGRATION STATUS: ✅ COMPLETE - Now using real getHistoryForUser implementation
+     * 
+     * TODO: 
+     * - Replace "current_user_id" placeholder with actual user authentication
+     * - Implement event title lookup using EventRepository or similar
+     * - Consider migrating to Kaylee's models directly once interfaces align
      */
-    private static class PlaceholderRegistrationRepository implements MainHistoryViewModel.RegistrationRepository {
+    private static class RegistrationRepositoryAdapter implements MainHistoryViewModel.RegistrationRepository {
+        private final RegistrationRepository kayleeRepo;
+
+        public RegistrationRepositoryAdapter() {
+            // Initialize Kaylee's repository
+            this.kayleeRepo = new RegistrationRepository();
+        }
+
         @Override
-        public void getHistoryForUser(HistoryCallback callback) {
-            // Simulate network delay and return sample data
-            new android.os.Handler().postDelayed(() -> {
+        public void getHistoryForUser(MainHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+            // Use the actual implemented method from Kaylee's repository
+            // TODO: Get the current user ID from authentication/session management
+            String currentUserId = "current_user_id"; // Placeholder - replace with actual user ID
+            
+            kayleeRepo.getHistoryForUser(currentUserId, waitlistEntries -> {
                 try {
-                    // Sample data for demonstration
-                    java.util.List<MainHistoryViewModel.Registration> sampleData = java.util.Arrays.asList(
-                            new MainHistoryViewModel.Registration("Summer Music Festival", "selected",
-                                    System.currentTimeMillis() - 86400000),
-                            new MainHistoryViewModel.Registration("Art Gallery Opening", "waitlisted",
-                                    System.currentTimeMillis() - 172800000),
-                            new MainHistoryViewModel.Registration("Tech Meetup 2025", "accepted",
-                                    System.currentTimeMillis() - 259200000),
-                            new MainHistoryViewModel.Registration("Food Festival Downtown", "declined",
-                                    System.currentTimeMillis() - 345600000),
-                            new MainHistoryViewModel.Registration("Winter Sports Event", "cancelled",
-                                    System.currentTimeMillis() - 432000000));
-                    callback.onResult(sampleData, null);
+                    // Convert WaitlistEntry objects to Registration objects
+                    java.util.List<MainHistoryViewModel.Registration> registrations = new java.util.ArrayList<>();
+                    
+                    for (WaitlistEntry entry : waitlistEntries) {
+                        // TODO: Get actual event title using entry.getEventID()
+                        String eventTitle = "Event " + entry.getEventID(); // Placeholder
+                        
+                        MainHistoryViewModel.Registration registration = new MainHistoryViewModel.Registration(
+                            eventTitle,
+                            entry.getStatus().toLowerCase(), // Convert to lowercase for consistency
+                            entry.getJoinTime().toDate().getTime()
+                        );
+                        registrations.add(registration);
+                    }
+                    
+                    callback.onResult(registrations, null);
                 } catch (Exception e) {
                     callback.onResult(null, e);
                 }
-            }, 1000);
+            });
         }
     }
 }

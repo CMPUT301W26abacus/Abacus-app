@@ -281,8 +281,27 @@ public class RegistrationRepository {
 
     }
 
-    public void getHistoryForUser() {
-
+    /**
+     * Gets all waitlist entries for a specific user across all events.
+     *
+     * DISCLAIMER: This method was temporarily implemented by Dyna for Sprint 1 integration.
+     * Kaylee should review and modify this implementation as needed to match her design
+     * and ensure it properly handles edge cases, error conditions, and performance
+     * requirements for the lottery/waitlist system.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param callback called when the operation completes with the user's waitlist history
+     */
+    public void getHistoryForUser(String userID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute operation
+                ArrayList<WaitlistEntry> userHistory = remoteDataSource.getWaitlistEntriesForUser(userID);
+                mainHandler.post(() -> callback.onResult(userHistory));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(new ArrayList<>()));
+            }
+        });
     }
 
     public interface WaitlistCallback {

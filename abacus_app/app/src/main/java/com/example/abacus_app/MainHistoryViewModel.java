@@ -11,9 +11,11 @@ import java.util.List;
 
 /**
  * Architecture Layer: ViewModel
+ *
  * Fetches and holds the current user's registration history from Firestore.
  * Maps raw status strings to human-readable display labels before exposing
  * them to the fragment.
+ *
  * Used by: MainHistoryFragment
  */
 public class MainHistoryViewModel extends ViewModel {
@@ -125,8 +127,11 @@ public class MainHistoryViewModel extends ViewModel {
     }
 
     /**
-     * Placeholder interface for RegistrationRepository.
-     * This will be replaced with the actual implementation later.
+     * Interface for RegistrationRepository that our ViewModel expects.
+     * 
+     * Currently bridged to Kaylee's RegistrationRepository via RegistrationRepositoryAdapter
+     * in MainHistoryFragment. Once Kaylee's interface matches this exactly, we can use
+     * her repository directly.
      */
     public interface RegistrationRepository {
         void getHistoryForUser(HistoryCallback callback);
@@ -137,8 +142,11 @@ public class MainHistoryViewModel extends ViewModel {
     }
 
     /**
-     * Placeholder class for Registration data model.
-     * This will be replaced with the actual implementation later.
+     * Registration data model for our ViewModel.
+     * 
+     * Currently using our own model, but this should eventually be replaced
+     * with Kaylee's Registration model or WaitlistEntry model when her schema
+     * is finalized.
      */
     public static class Registration {
         private String eventTitle;
