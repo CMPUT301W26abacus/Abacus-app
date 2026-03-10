@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.*;
 
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Performs CRUD operations on the waitlist data in remote Firestore database.
@@ -141,5 +142,36 @@ public class RegistrationRemoteDataSource {
         }
 
         return waitlist;
+    }
+
+    public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
+
+        try {
+            QuerySnapshot snapshot = Tasks.await(
+                    firestore.collectionGroup("waitlist")
+                            .whereEqualTo("userID", userID)
+                            .get()
+            );
+
+            ArrayList<WaitlistEntry> history = new ArrayList<>();
+
+            for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                String eventID = doc.getString("eventID");
+                String status = doc.getString("status");
+                Long lotteryNumLong = doc.getLong("lotteryNumber");
+                int lotteryNumber = lotteryNumLong != null ? lotteryNumLong.intValue() : 0;
+                Timestamp joinTime = doc.getTimestamp("joinTime");
+
+                WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
+                history.add(entry);
+            }
+
+            return history;
+
+        } catch (Exception e) {
+            Log.e("RDS", "query failed", e);
+        }
+
+        return null;
     }
 }

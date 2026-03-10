@@ -334,8 +334,22 @@ public class RegistrationRepository {
         });
     }
 
-    public void getHistoryForUser() {
-
+    /**
+     * Gets all waitlist entries associated with a single user across all events.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getHistoryForUser(String userID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> history = remoteDataSource.getHistoryForUserSync(userID);
+                mainHandler.post(() -> callback.onResult(history));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
     public interface WaitlistCallback {
