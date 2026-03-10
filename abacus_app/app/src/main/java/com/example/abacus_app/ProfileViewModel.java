@@ -18,35 +18,29 @@ import java.util.Map;
  */
 public class ProfileViewModel extends ViewModel {
 
-
     private final MutableLiveData<String>  _name         = new MutableLiveData<>("");
     private final MutableLiveData<String>  _email        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _phone        = new MutableLiveData<>("");
-    
-    // Sprint 1 extensions
     private final MutableLiveData<String>  _role         = new MutableLiveData<>("entrant");
     private final MutableLiveData<Boolean> _notificationsEnabled = new MutableLiveData<>(true);
-
     private final MutableLiveData<String>  _nameError    = new MutableLiveData<>(null);
     private final MutableLiveData<String>  _emailError   = new MutableLiveData<>(null);
-
     private final MutableLiveData<Boolean> _isSaving     = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> _isGuest      = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _toastMessage = new MutableLiveData<>(null);
     private final MutableLiveData<Boolean> _profileDeleted = new MutableLiveData<>(false);
 
-    public LiveData<String>  getName()          { return _name; }
-    public LiveData<String>  getEmail()         { return _email; }
-    public LiveData<String>  getPhone()         { return _phone; }
-    public LiveData<String>  getRole()          { return _role; }
+    public LiveData<String>  getName()                 { return _name; }
+    public LiveData<String>  getEmail()                { return _email; }
+    public LiveData<String>  getPhone()                { return _phone; }
+    public LiveData<String>  getRole()                 { return _role; }
     public LiveData<Boolean> getNotificationsEnabled() { return _notificationsEnabled; }
-    public LiveData<String>  getNameError()     { return _nameError; }
-    public LiveData<String>  getEmailError()    { return _emailError; }
-    public LiveData<Boolean> getIsSaving()      { return _isSaving; }
-    public LiveData<Boolean> getIsGuest()       { return _isGuest; }
-    public LiveData<String>  getToastMessage()  { return _toastMessage; }
-    public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
-
+    public LiveData<String>  getNameError()            { return _nameError; }
+    public LiveData<String>  getEmailError()           { return _emailError; }
+    public LiveData<Boolean> getIsSaving()             { return _isSaving; }
+    public LiveData<Boolean> getIsGuest()              { return _isGuest; }
+    public LiveData<String>  getToastMessage()         { return _toastMessage; }
+    public LiveData<Boolean> getProfileDeleted()       { return _profileDeleted; }
 
     private UserRepository userRepository;
 
@@ -57,7 +51,7 @@ public class ProfileViewModel extends ViewModel {
 
     public void setName(String name) {
         _name.setValue(name);
-        _nameError.setValue(null); // clear error on edit
+        _nameError.setValue(null);
     }
 
     public void setEmail(String email) {
@@ -68,15 +62,14 @@ public class ProfileViewModel extends ViewModel {
     public void setPhone(String phone) {
         _phone.setValue(phone);
     }
-    
+
     public void setRole(String role) {
         _role.setValue(role);
     }
-    
+
     public void setNotificationsEnabled(boolean enabled) {
         _notificationsEnabled.setValue(enabled);
     }
-
 
     /**
      * Loads the user profile from Firestore and pushes values into LiveData.
@@ -99,13 +92,10 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    // ------------------------------------------------------------------ //
-    //  Save profile
-    // ------------------------------------------------------------------ //
-
     /**
-     * Validates inputs then saves to Firestore via the repository.
-     * Exposes saving state so the fragment can disable the Save button.
+     * Validates inputs then saves name, email, phone, and notificationsEnabled to Firestore.
+     * Role is intentionally excluded — it can only be changed via Firestore console
+     * or by an admin, never by the user editing their own profile.
      */
     public void saveProfile() {
         if (userRepository == null) return;
@@ -113,16 +103,14 @@ public class ProfileViewModel extends ViewModel {
         String name  = _name.getValue()  != null ? _name.getValue().trim()  : "";
         String email = _email.getValue() != null ? _email.getValue().trim() : "";
         String phone = _phone.getValue() != null ? _phone.getValue().trim() : "";
-        String role  = _role.getValue()  != null ? _role.getValue() : "entrant";
-        boolean notificationsEnabled = _notificationsEnabled.getValue() != null ? _notificationsEnabled.getValue() : true;
+        boolean notificationsEnabled = _notificationsEnabled.getValue() != null
+                ? _notificationsEnabled.getValue() : true;
 
-        // Validate name
         if (name.isEmpty()) {
             _nameError.setValue("Name cannot be empty");
             return;
         }
 
-        // Validate email
         if (!email.isEmpty() && (!email.contains("@") || !email.contains("."))) {
             _emailError.setValue("Please enter a valid email address");
             return;
@@ -134,8 +122,8 @@ public class ProfileViewModel extends ViewModel {
         data.put("name",  name);
         data.put("email", email);
         data.put("phone", phone);
-        data.put("role", role);
         data.put("notificationsEnabled", notificationsEnabled);
+        // role is NOT included here — saving profile never overwrites role
 
         userRepository.saveProfileAsync(data, error -> {
             _isSaving.postValue(false);
@@ -159,8 +147,6 @@ public class ProfileViewModel extends ViewModel {
                 _name.postValue("");
                 _email.postValue("");
                 _phone.postValue("");
-                _role.postValue("entrant");
-                _notificationsEnabled.postValue(true);
                 _profileDeleted.postValue(true);
                 _toastMessage.postValue("Profile deleted");
             } else {
@@ -169,7 +155,6 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    /** Call after the fragment has consumed a toast message to avoid repeat. */
     public void clearToast() {
         _toastMessage.setValue(null);
     }

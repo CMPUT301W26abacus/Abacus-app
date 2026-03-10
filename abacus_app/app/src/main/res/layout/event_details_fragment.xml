@@ -24,13 +24,15 @@
             android:orientation="vertical">
 
             <!-- Event poster -->
+
             <ImageView
                 android:id="@+id/iv_event_poster"
                 android:layout_width="match_parent"
                 android:layout_height="220dp"
+                android:layout_marginTop="100dp"
+                android:contentDescription="Event poster"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_event_poster"
-                android:contentDescription="Event poster" />
+                android:src="@drawable/ic_event_poster" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -40,7 +42,6 @@
                 android:paddingTop="20dp"
                 android:paddingBottom="16dp">
 
-                <!-- Event title -->
                 <TextView
                     android:id="@+id/tv_event_title"
                     android:layout_width="match_parent"
@@ -51,7 +52,6 @@
                     android:textStyle="bold"
                     android:lineSpacingExtra="2dp" />
 
-                <!-- Organizer -->
                 <TextView
                     android:id="@+id/tv_organizer"
                     android:layout_width="match_parent"
@@ -61,7 +61,6 @@
                     android:textColor="@color/black"
                     android:textSize="14sp" />
 
-                <!-- Divider -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
@@ -69,7 +68,6 @@
                     android:layout_marginBottom="20dp"
                     android:background="@color/light_grey" />
 
-                <!-- Date & time -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -89,7 +87,6 @@
                     android:textSize="15sp"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Location -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -109,7 +106,6 @@
                     android:textSize="15sp"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Waitlist count -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -129,14 +125,12 @@
                     android:textSize="15sp"
                     android:layout_marginBottom="20dp" />
 
-                <!-- Divider -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:layout_marginBottom="20dp"
                     android:background="@color/light_grey" />
 
-                <!-- Description -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -160,35 +154,51 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Back button — overlaid top left -->
+    <!-- Back button — 48x48, overlaid top left -->
     <ImageButton
         android:id="@+id/btn_back"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="48dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="50dp"
         android:background="@android:color/transparent"
         android:contentDescription="Back"
         android:src="@drawable/ic_arrow_back"
-        app:tint="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/black" />
+
+    <!-- Title centered at same level as back button -->
+    <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:gravity="center"
+        android:text="Event Details"
+        android:textAppearance="?attr/textAppearanceHeadlineSmall"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- QR button — overlaid top right -->
     <ImageButton
         android:id="@+id/btn_view_qr"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginTop="48dp"
-        android:layout_marginEnd="12dp"
-        android:background="@android:color/transparent"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginEnd="8dp"
+        android:adjustViewBounds="false"
+        android:background="@color/light_grey"
         android:contentDescription="View QR Code"
+        android:cropToPadding="true"
         android:src="@drawable/ic_qr"
-        app:tint="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/black" />
 
-    <!-- Join Waiting List — fixed at bottom, shown when NOT on waitlist -->
+    <!-- Join Waiting List — orange, shown when NOT on waitlist -->
     <Button
         android:id="@+id/btn_join_waitlist"
         android:layout_width="0dp"
@@ -197,12 +207,14 @@
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="28dp"
         android:text="Join Waiting List"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/orange"
         android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Leave Waiting List — fixed at bottom, shown when already on waitlist -->
+    <!-- Leave Waiting List — white/outlined, shown when already on waitlist -->
     <Button
         android:id="@+id/btn_leave_waitlist"
         android:layout_width="0dp"
@@ -211,6 +223,8 @@
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="28dp"
         android:text="Leave Waiting List"
+        android:textColor="@color/black"
+        android:backgroundTint="@color/white"
         android:visibility="gone"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         app:layout_constraintBottom_toBottomOf="parent"

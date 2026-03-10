@@ -46,7 +46,7 @@ public class ProfileFragment extends Fragment {
     private Button      btnSave;
     private Button      btnDelete;
     private Button      btnLinkAccount;
-    private TextView    tvGuestBanner;
+    private View    tvGuestBanner;
     private View        dangerDivider;
     private TextView    labelDanger;
 

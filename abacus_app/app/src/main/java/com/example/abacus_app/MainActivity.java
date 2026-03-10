@@ -1,20 +1,3 @@
-/**
- * MainActivity.java
- *
- * Role: Entry point and primary controller for the Abacus application.
- * Implements the home screen (event browse list) directly and manages
- * fragment-based navigation for all other screens via a NavHostFragment overlay.
- *
- * Design pattern: The home UI lives directly in activity_main.xml rather than
- * a fragment, with a FragmentContainerView overlay that is shown/hidden when
- * navigating away from or back to the home screen. This keeps the main event
- * browse experience as the persistent base of the app.
- *
- * Outstanding issues:
- * - Event list is hardcoded; replace with Firestore LiveData when Firebase is integrated.
- * - Role-based UI (admin delete buttons, organizer tools) not yet implemented.
- * - Bottom nav "Saved", "History", "Inbox" fragments are currently empty stubs.
- */
 package com.example.abacus_app;
 
 import android.app.DatePickerDialog;
@@ -47,7 +30,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -62,14 +44,13 @@ public class MainActivity extends AppCompatActivity {
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
-    // ── Filter state ───────────────────────────────────────────────────────────
+    private String userRole = "entrant";
+
     private String activeKeyword = "";
-    private String activeDate    = ""; // "yyyy-MM-dd" or empty if not set
+    private String activeDate    = "";
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
-    // Hardcoded test data — replace with Firestore data later
-    // Format: "title|interests|date(yyyy-MM-dd)"
     private final List<String[]> allEvents = Arrays.asList(
             new String[]{"Summer Music Festival",  "music,outdoor,festival",  "2025-08-10"},
             new String[]{"Art Gallery Opening",    "art,culture,indoor",      "2025-07-22"},
@@ -79,150 +60,167 @@ public class MainActivity extends AppCompatActivity {
             new String[]{"Open Mic Night",         "music,comedy,indoor",     "2025-06-28"}
     );
 
-    private UserRepository userRepository; //UUID
-    private boolean isGuest; //Guest mode flag
+    private UserRepository userRepository;
+    private boolean isGuest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ── Teammate's original code (unchanged) ──────────────────────────────
-
-        // Build UserLocalDataSource using Kotlin extension
         UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
-
-        // Initialize user on app launch
         userRepository.initializeUserAsync();
 
-        // ↓ Add these lines right after
         isGuest = getIntent().getBooleanExtra("isGuest", false);
+
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-
-        // Add debug logging
-        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
-        if (currentUser != null) {
-            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
-                " (Anonymous: " + currentUser.isAnonymous() +
-                ", Email: " + currentUser.getEmail() + ")");
-        } else {
-            android.util.Log.d("MainActivity", "No current user");
-        }
-
         if (!isGuest && currentUser == null) {
             goToSplash();
             return;
         }
 
-
-        // Navigation bar colour
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(80, 255, 255, 255));
         } else {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(180, 255, 255, 255));
         }
 
-        // Views
         homeContent     = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
         appBar          = findViewById(R.id.app_bar);
         bottomNav       = findViewById(R.id.bottom_nav);
 
-        // Set up NavController
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
         navController = navHost.getNavController();
 
-        // Search bar text colour fix
         SearchBar searchBar = findViewById(R.id.search_bar);
         setSearchBarTextColor(searchBar);
 
-        // Profile button → profile fragment
         ImageButton btnProfile = findViewById(R.id.btn_profile);
         btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
 
-        // QR scan button → QR scan fragment
         ImageButton btnScan = findViewById(R.id.btn_scan);
         btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, false));
 
-        // List item click → event details (hide bottom nav)
         recyclerView = findViewById(R.id.rv_events);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
         layoutEmptyState = findViewById(R.id.layout_empty_state);
-
-        // Show full list on startup
         applyFilters();
 
-        // Bottom nav
-        bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                showHome();
-                return true;
-            } else if (id == R.id.nav_saved) {
-                showFragment(R.id.nav_saved, true);
-                return true;
-            } else if (id == R.id.nav_history) {
-                showFragment(R.id.nav_history, true);
-                return true;
-            } else if (id == R.id.nav_inbox) {
-                showFragment(R.id.nav_inbox, true);
-                return true;
-            }
-            return false;
-        });
-
-        // Handle back gesture and back button
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
-                    if (!navController.popBackStack()) {
-                        showHome();
-                    }
+                    if (!navController.popBackStack()) showHome();
                 } else {
                     finish();
                 }
             }
         });
 
-        // ── Filter button → bottom sheet (US 01.01.04) ────────────────────────
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
+
+        // Fetch role using UUID (not Firebase Auth UID) then set up nav
+        fetchRoleAndSetupNav(localDataSource);
     }
 
-    // ── Filter logic ──────────────────────────────────────────────────────────
+    /**
+     * Reads the user's role from Firestore using the local UUID as the document key.
+     * This is necessary because Firestore documents use our custom UUID, not Firebase Auth UID.
+     */
+    private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
+        String uuid = localDataSource.getUUIDSync();
+
+        if (uuid != null) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uuid)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        String role = doc.getString("role");
+                        userRole = (role != null) ? role : "entrant";
+                        android.util.Log.d("MainActivity", "Role from Firestore: " + userRole + " for UUID: " + uuid);
+                        setupBottomNav();
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.w("MainActivity", "Firestore role fetch failed", e);
+                        String intentRole = getIntent().getStringExtra("role");
+                        userRole = (intentRole != null) ? intentRole : "entrant";
+                        setupBottomNav();
+                    });
+        } else {
+            userRole = "entrant";
+            setupBottomNav();
+        }
+    }
 
     /**
-     * Opens the filter bottom sheet. Pre-fills any currently active filters
-     * so the user can see and edit what's applied.
+     * Sets the correct bottom nav menu and listeners based on role.
+     * Entrants: Home, Saved, History, Inbox.
+     * Organizers/Admins: Home, Tools, Logs, Notifications.
      */
+    private void setupBottomNav() {
+        if ("organizer".equals(userRole) || "admin".equals(userRole)) {
+            bottomNav.getMenu().clear();
+            bottomNav.inflateMenu(R.menu.menu_bottom_nav_organizer);
+
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_tools) {
+                    showFragment(R.id.organizerToolsFragment, true);
+                    return true;
+                } else if (id == R.id.nav_logs) {
+                    showFragment(R.id.organizerLogsFragment, true);
+                    return true;
+                } else if (id == R.id.nav_notifications) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+
+        } else {
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_saved) {
+                    showFragment(R.id.nav_saved, true);
+                    return true;
+                } else if (id == R.id.nav_history) {
+                    showFragment(R.id.nav_history, true);
+                    return true;
+                } else if (id == R.id.nav_inbox) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
+
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
 
         TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
-        Button btnPickDate     = dialog.findViewById(R.id.btn_pick_date);
-        Button            btnApply        = dialog.findViewById(R.id.btn_apply_filters);
-        Button            btnClear        = dialog.findViewById(R.id.btn_clear_filters);
+        Button btnPickDate          = dialog.findViewById(R.id.btn_pick_date);
+        Button btnApply             = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear             = dialog.findViewById(R.id.btn_clear_filters);
 
-        // Pre-fill with active filters
-        if (etKeyword != null && !activeKeyword.isEmpty()) {
-            etKeyword.setText(activeKeyword);
-        }
+        if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
 
-        // Holds the date the user picked inside this dialog session
         final String[] pickedDate = {activeDate};
+        if (btnPickDate != null && !activeDate.isEmpty()) btnPickDate.setText(activeDate);
 
-        // Update button label if a date is already active
-        if (btnPickDate != null && !activeDate.isEmpty()) {
-            btnPickDate.setText(activeDate);
-        }
-
-        // Date picker
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
@@ -230,25 +228,21 @@ public class MainActivity extends AppCompatActivity {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
-                }, cal.get(Calendar.YEAR),
-                        cal.get(Calendar.MONTH),
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH),
                         cal.get(Calendar.DAY_OF_MONTH)).show();
             });
         }
 
-        // Apply
         if (btnApply != null) {
             btnApply.setOnClickListener(v -> {
                 activeKeyword = etKeyword != null && etKeyword.getText() != null
-                        ? etKeyword.getText().toString().trim().toLowerCase()
-                        : "";
+                        ? etKeyword.getText().toString().trim().toLowerCase() : "";
                 activeDate = pickedDate[0];
                 applyFilters();
                 dialog.dismiss();
             });
         }
 
-        // Clear — resets all filters and refreshes the full list
         if (btnClear != null) {
             btnClear.setOnClickListener(v -> {
                 activeKeyword = "";
@@ -259,18 +253,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         dialog.show();
-
-
     }
 
-    /**
-     * Filters allEvents using the active keyword and/or date and updates
-     * the RecyclerView. Shows the empty state if nothing matches.
-     *
-     * Keyword matches against title and interests (case-insensitive).
-     * Date matches events whose date equals the selected date exactly.
-     * Both filters must match when both are active (AND logic).
-     */
     private void applyFilters() {
         List<String> filtered = new ArrayList<>();
 
@@ -279,35 +263,24 @@ public class MainActivity extends AppCompatActivity {
             String interests = event[1].toLowerCase();
             String date      = event[2];
 
-            // Keyword filter — matches title or interests
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || interests.contains(activeKeyword);
+            boolean dateMatch = activeDate.isEmpty() || date.equals(activeDate);
 
-            // Date filter — matches exact date
-            boolean dateMatch = activeDate.isEmpty()
-                    || date.equals(activeDate);
-
-            if (keywordMatch && dateMatch) {
-                filtered.add(event[0]); // add title for display
-            }
+            if (keywordMatch && dateMatch) filtered.add(event[0]);
         }
 
-        // Update RecyclerView
         recyclerView.setAdapter(new EventAdapter(filtered,
                 eventTitle -> showFragment(R.id.eventDetailsFragment, false)));
 
-        // Show empty state if no results
         if (filtered.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             layoutEmptyState.setVisibility(View.VISIBLE);
-            // Update empty state message depending on whether filters are active
             TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
             if (tvEmpty != null) {
                 boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters
-                        ? "No matching events found"
-                        : "No events available");
+                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
             }
         } else {
             recyclerView.setVisibility(View.VISIBLE);
@@ -315,9 +288,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Teammate's original methods (unchanged) ───────────────────────────────
-
-    private void showFragment(int destinationId, boolean showBottomNav) {
+    public void showFragment(int destinationId, boolean showBottomNav) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);
@@ -335,9 +306,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearBackStack() {
-        NavController nav = navController;
-        while (nav.getCurrentBackStackEntry() != null) {
-            if (!nav.popBackStack()) break;
+        while (navController.getCurrentBackStackEntry() != null) {
+            if (!navController.popBackStack()) break;
         }
     }
 
@@ -353,10 +323,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public NavController getNavController() {
-        return navController;
-    }
-
+    public NavController getNavController() { return navController; }
+    public String getUserRole() { return userRole; }
 
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
@@ -380,6 +348,4 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
     }
-
-
 }

@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -61,16 +62,23 @@ public class OrganizerCreateFragment extends Fragment {
 
         viewModel = new ViewModelProvider(this).get(CreateEventViewModel.class);
 
-        etTitle = view.findViewById(R.id.et_event_title);
+        etTitle       = view.findViewById(R.id.et_event_title);
         etDescription = view.findViewById(R.id.et_event_description);
-        etLimit = view.findViewById(R.id.et_waitlist_limit);
-        btnSetStart = view.findViewById(R.id.btn_set_start);
-        btnSetEnd = view.findViewById(R.id.btn_set_end);
-        btnUpload = view.findViewById(R.id.btn_upload_poster);
-        btnCreate = view.findViewById(R.id.btn_create_event);
-        switchGeo = view.findViewById(R.id.switch_geo);
-        cbLimit = view.findViewById(R.id.cb_limit_waitlist);
-        ivPoster = view.findViewById(R.id.iv_poster_preview);
+        etLimit       = view.findViewById(R.id.et_waitlist_limit);
+        btnSetStart   = view.findViewById(R.id.btn_set_start);
+        btnSetEnd     = view.findViewById(R.id.btn_set_end);
+        btnUpload     = view.findViewById(R.id.btn_upload_poster);
+        btnCreate     = view.findViewById(R.id.btn_create_event);
+        switchGeo     = view.findViewById(R.id.switch_geo);
+        cbLimit       = view.findViewById(R.id.cb_limit_waitlist);
+        ivPoster      = view.findViewById(R.id.iv_poster_preview);
+
+        ImageButton btnBack = view.findViewById(R.id.btn_back);
+        btnBack.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+            }
+        });
 
         cbLimit.setOnCheckedChangeListener((v, isChecked) -> etLimit.setEnabled(isChecked));
         btnSetStart.setOnClickListener(v -> showDateTimePicker(true));
@@ -87,7 +95,7 @@ public class OrganizerCreateFragment extends Fragment {
             if (created) {
                 Toast.makeText(getContext(), "Event Created!", Toast.LENGTH_SHORT).show();
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showHome();
+                    ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
                 }
             }
         });
@@ -125,9 +133,11 @@ public class OrganizerCreateFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "DATE_PICKER");
     }
 
+
+
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
-        String desc = etDescription.getText().toString().trim();
+        String desc  = etDescription.getText().toString().trim();
 
         if (title.isEmpty() || startTimestamp == null || endTimestamp == null) {
             Toast.makeText(getContext(), "Please fill all required fields", Toast.LENGTH_SHORT).show();
@@ -144,7 +154,12 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        Event event = new Event(null, title, desc, "ORGANIZER_ID", startTimestamp, endTimestamp,
+        // Use real UUID instead of hardcoded string
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        String organizerId = local.getUUIDSync();
+        if (organizerId == null) organizerId = "ORGANIZER_ID";
+
+        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 limit, switchGeo.isChecked());
         viewModel.createEvent(event, posterUri);
     }
