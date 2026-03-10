@@ -1,7 +1,12 @@
 package com.example.abacus_app;
 
+import android.util.Log;
+
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.*;
+
+import java.util.ArrayList;
 
 /**
  * Performs CRUD operations on the waitlist data in remote Firestore database.
@@ -55,14 +60,15 @@ public class RegistrationRemoteDataSource {
         return null;
     }
 
-    public int getWaitlistSizeSync(String eventId) throws Exception {
+    public int getWaitlistSizeSync(String eventID) throws Exception {
 
-        AggregateQuery query = getCollectionRef(eventId).count();
+        Log.d("mytagRDS", "Running from RDS...");
 
-        AggregateQuerySnapshot snapshot =
-                Tasks.await(query.get(AggregateSource.SERVER));
+        QuerySnapshot snapshot = Tasks.await(
+                getCollectionRef(eventID).get(Source.SERVER)
+        );
 
-        return Math.toIntExact(snapshot.getCount());
+        return snapshot.size();
     }
 
     public void joinWaitlistSync(String eventID, WaitlistEntry entry) throws Exception {
@@ -90,5 +96,50 @@ public class RegistrationRemoteDataSource {
                         .document(userId);
 
         Tasks.await(docRef.update("status", status));
+    }
+
+    public ArrayList<WaitlistEntry> getEntriesSync(String eventID) throws Exception {
+
+        QuerySnapshot snapshot = Tasks.await(
+                getCollectionRef(eventID).get()
+        );
+
+        ArrayList<WaitlistEntry> waitlist = new ArrayList<>();
+
+        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+            String userID = doc.getString("userID");
+            String status = doc.getString("status");
+            Long lotteryNumberLong = doc.getLong("lotteryNumber");
+            int lotteryNumber = lotteryNumberLong != null ? lotteryNumberLong.intValue() : 0;
+            Timestamp joinTime = doc.getTimestamp("joinTime");
+
+            WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
+            waitlist.add(entry);
+        }
+
+        return waitlist;
+    }
+
+    public ArrayList<WaitlistEntry> getEntriesWithStatusSync(String eventID, String status) throws Exception {
+
+        QuerySnapshot snapshot = Tasks.await(
+                getCollectionRef(eventID).get()
+        );
+
+        ArrayList<WaitlistEntry> waitlist = new ArrayList<>();
+
+        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+            if (doc.getString("status").equals(status)) {
+                String userID = doc.getString("userID");
+                Long lotteryNumberLong = doc.getLong("lotteryNumber");
+                int lotteryNumber = lotteryNumberLong != null ? lotteryNumberLong.intValue() : 0;
+                Timestamp joinTime = doc.getTimestamp("joinTime");
+
+                WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
+                waitlist.add(entry);
+            }
+        }
+
+        return waitlist;
     }
 }

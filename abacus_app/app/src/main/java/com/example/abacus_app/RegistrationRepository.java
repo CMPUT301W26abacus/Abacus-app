@@ -2,9 +2,11 @@ package com.example.abacus_app;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import com.google.firebase.Timestamp;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,9 +49,12 @@ public class RegistrationRepository {
     public void getWaitListSize(String eventID, IntegerCallback callback) {
         executor.submit(() -> {
             try {
+                Log.d("mytagREPO", "Running from repo...");
                 // execute operation
                 Integer size = remoteDataSource.getWaitlistSizeSync(eventID);
+                Log.d("mytagRDS", "Value (from REPO): " + size);
                 mainHandler.post(() -> callback.onResult(size));
+                Log.d("mytagREPO", "Results posted...");
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onResult(null));
             }
@@ -257,28 +262,76 @@ public class RegistrationRepository {
 
     }
 
-    public void getAllEntries() {
-
+    public void getAllEntries(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesSync(eventID);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
-    public void getWaitlisted() {
-
+    public void getWaitlisted(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_WAITLISTED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
-    public void getInvited() {
-
+    public void getInvited(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_INVITED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
-    public void getAccepted() {
-
+    public void getAccepted(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_ACCEPTED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
-    public void getDeclined() {
-
+    public void getDeclined(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_DECLINED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
-    public void getCancelled() {
-
+    public void getCancelled(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_CANCELLED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
     public void getHistoryForUser() {
