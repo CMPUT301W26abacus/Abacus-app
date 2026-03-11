@@ -15,13 +15,19 @@ import java.util.concurrent.ExecutionException;
  * NOTE: The methods in this class run SYNCHRONOUSLY and are only to be used in the architecture
  * layer (repositories). For methods related to UI, refer to {@link RegistrationRepository}.
  *
- * @author Team Abacus
+ * @author Team Abacus, Kaylee Crocker
  * @version 1.0
  */
 public class RegistrationRemoteDataSource {
 
     private final FirebaseFirestore firestore;
 
+    /**
+     * Constructs a RegistrationRemoteDataSource object which can be used to read/write to the
+     * waitlist of an event in the Firestore database.
+     *
+     * NOTE: This class should only be utilized from repository classes.
+     */
     public RegistrationRemoteDataSource() {
         firestore = FirebaseFirestore.getInstance();
     }
@@ -33,6 +39,15 @@ public class RegistrationRemoteDataSource {
                 .collection("waitlist");
     }
 
+    /**
+     * Checks whether or not a specific user is on the waitlist of a specific event by searching
+     * for their document in the database.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @return true if user is on waitlist, false otherwise
+     * @throws Exception something went wrong
+     */
     public boolean isUserOnWaitlistSync(String userID, String eventID) throws Exception {
 
         DocumentSnapshot doc = Tasks.await(
@@ -46,6 +61,15 @@ public class RegistrationRemoteDataSource {
         return doc.exists();
     }
 
+    /**
+     * Returns a WaitlistEntry object containing the data associated with the entry of a single
+     * user for a single event.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @return the WaitlistEntry containing the status, joinTime, lotteryNumber, etc...
+     * @throws Exception something went wrong
+     */
     public WaitlistEntry getUserWaitlistEntry(String userID, String eventID) throws Exception {
 
         DocumentSnapshot doc = Tasks.await(

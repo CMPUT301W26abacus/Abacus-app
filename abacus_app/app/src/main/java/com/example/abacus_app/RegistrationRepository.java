@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link RegistrationRemoteDataSource}.
  *
- * @author Team Abacus
+ * @author Team Abacus, Kaylee Crocker
  * @version 1.0
  */
 public class RegistrationRepository {
@@ -43,6 +43,7 @@ public class RegistrationRepository {
 
     /**
      * Gets the number of entrants currently on the waitlist, regardless of status.
+     *
      * @param eventID the unique ID of the event in the database
      * @param callback called when the operation completes
      */
@@ -258,10 +259,31 @@ public class RegistrationRepository {
         });
     }
 
-    public void getUserEntry(String userID) {
-
+    /**
+     * Gets the WaitlistEntry associated with a single user for a signle event.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getUserEntry(String userID, String eventID, EntryCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                WaitlistEntry entry = remoteDataSource.getUserWaitlistEntry(userID, eventID);
+                mainHandler.post(() -> callback.onResult(entry));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event, regardless of entry status.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getAllEntries(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -274,6 +296,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "waitlisted".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getWaitlisted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -286,6 +314,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "invited".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getInvited(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -298,6 +332,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "accepted".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getAccepted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -310,6 +350,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "declined".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getDeclined(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -322,6 +368,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "cancelled".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getCancelled(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -352,22 +404,37 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Callback interface for method that must return a ArrayList<WaitlistEntry>.
+     */
     public interface WaitlistCallback {
         void onResult(ArrayList<WaitlistEntry> waitlist);
     }
 
+    /**
+     * Callback interface for method that must return WaitlistEntry object.
+     */
     public interface EntryCallback {
         void onResult(WaitlistEntry entry);
     }
 
+    /**
+     * Callback interface for method that must return a boolean value.
+     */
     public interface BooleanCallback {
         void onResult(Boolean value);
     }
 
+    /**
+     * Callback interface for method that must return an Integer value.
+     */
     public interface IntegerCallback {
         void onResult(Integer value);
     }
 
+    /**
+     * Callback interface for methods that return nothing (void).
+     */
     public interface VoidCallback {
         void onComplete(Exception error);
     }

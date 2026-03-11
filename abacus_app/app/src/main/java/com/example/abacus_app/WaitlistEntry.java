@@ -6,7 +6,7 @@ import com.google.firebase.Timestamp;
  *  joined the waitlist, the event they joined, their current status, their lotto number, and the
  *  timestamp of when they joined.
  *
- * @author Team Abacus
+ * @author Team Abacus, Kaylee Crocker
  * @version 1.0
  */
 public class WaitlistEntry {
