@@ -2,9 +2,11 @@ package com.example.abacus_app;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import com.google.firebase.Timestamp;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,7 +25,7 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link RegistrationRemoteDataSource}.
  *
- * @author Team Abacus
+ * @author Team Abacus, Kaylee Crocker
  * @version 1.0
  */
 public class RegistrationRepository {
@@ -41,15 +43,19 @@ public class RegistrationRepository {
 
     /**
      * Gets the number of entrants currently on the waitlist, regardless of status.
+     *
      * @param eventID the unique ID of the event in the database
      * @param callback called when the operation completes
      */
     public void getWaitListSize(String eventID, IntegerCallback callback) {
         executor.submit(() -> {
             try {
+                Log.d("mytagREPO", "Running from repo...");
                 // execute operation
                 Integer size = remoteDataSource.getWaitlistSizeSync(eventID);
+                Log.d("mytagRDS", "Value (from REPO): " + size);
                 mainHandler.post(() -> callback.onResult(size));
+                Log.d("mytagREPO", "Results posted...");
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onResult(null));
             }
@@ -253,73 +259,182 @@ public class RegistrationRepository {
         });
     }
 
-    public void getUserEntry(String userID) {
-
-    }
-
-    public void getAllEntries() {
-
-    }
-
-    public void getWaitlisted() {
-
-    }
-
-    public void getInvited() {
-
-    }
-
-    public void getAccepted() {
-
-    }
-
-    public void getDeclined() {
-
-    }
-
-    public void getCancelled() {
-
-    }
-
     /**
-     * Gets all waitlist entries for a specific user across all events.
-     *
-     * DISCLAIMER: This method was temporarily implemented by Dyna for Sprint 1 integration.
-     * Kaylee should review and modify this implementation as needed to match her design
-     * and ensure it properly handles edge cases, error conditions, and performance
-     * requirements for the lottery/waitlist system.
+     * Gets the WaitlistEntry associated with a single user for a signle event.
      *
      * @param userID the unique ID of the user in the database
-     * @param callback called when the operation completes with the user's waitlist history
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
      */
-    public void getHistoryForUser(String userID, WaitlistCallback callback) {
+    public void getUserEntry(String userID, String eventID, EntryCallback callback) {
         executor.submit(() -> {
             try {
-                // execute operation
-                ArrayList<WaitlistEntry> userHistory = remoteDataSource.getWaitlistEntriesForUser(userID);
-                mainHandler.post(() -> callback.onResult(userHistory));
+                // execute logic
+                WaitlistEntry entry = remoteDataSource.getUserWaitlistEntry(userID, eventID);
+                mainHandler.post(() -> callback.onResult(entry));
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onResult(new ArrayList<>()));
+                mainHandler.post(() -> callback.onResult(null));
             }
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event, regardless of entry status.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getAllEntries(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesSync(eventID);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all entries on the waitlist of a specific event with status "waitlisted".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getWaitlisted(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_WAITLISTED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all entries on the waitlist of a specific event with status "invited".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getInvited(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_INVITED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all entries on the waitlist of a specific event with status "accepted".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getAccepted(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_ACCEPTED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all entries on the waitlist of a specific event with status "declined".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getDeclined(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_DECLINED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all entries on the waitlist of a specific event with status "cancelled".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getCancelled(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_CANCELLED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all waitlist entries associated with a single user across all events.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getHistoryForUser(String userID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> history = remoteDataSource.getHistoryForUserSync(userID);
+                mainHandler.post(() -> callback.onResult(history));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Callback interface for method that must return a ArrayList<WaitlistEntry>.
+     */
     public interface WaitlistCallback {
         void onResult(ArrayList<WaitlistEntry> waitlist);
     }
 
+    /**
+     * Callback interface for method that must return WaitlistEntry object.
+     */
     public interface EntryCallback {
         void onResult(WaitlistEntry entry);
     }
 
+    /**
+     * Callback interface for method that must return a boolean value.
+     */
     public interface BooleanCallback {
         void onResult(Boolean value);
     }
 
+    /**
+     * Callback interface for method that must return an Integer value.
+     */
     public interface IntegerCallback {
         void onResult(Integer value);
     }
 
+    /**
+     * Callback interface for methods that return nothing (void).
+     */
     public interface VoidCallback {
         void onComplete(Exception error);
     }
