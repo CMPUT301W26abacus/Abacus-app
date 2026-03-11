@@ -48,6 +48,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Source;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -324,11 +325,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Teammate's original methods (unchanged) ───────────────────────────────
 
-    private void showFragment(int destinationId, boolean showBottomNav) {
+    public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
-    private void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
+    public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);

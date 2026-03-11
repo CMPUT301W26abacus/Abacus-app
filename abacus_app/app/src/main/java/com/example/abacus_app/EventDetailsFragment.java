@@ -29,6 +29,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -45,6 +47,14 @@ public class EventDetailsFragment extends Fragment {
     private Button btnLeaveWaitlist;
     private TextView tvWaitlistCount;
 
+    /**
+     * Creates and returns the view hierarchy for this fragment.
+     *
+     * @param inflater The LayoutInflater used to inflate the fragment's layout.
+     * @param container The parent ViewGroup that this fragment's UI should be attached to.
+     * @param savedInstanceState If non-null, this fragment is being re-constructed from a previous saved state.
+     * @return The View for the fragment's UI, inflated from the event_details_fragment layout.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -53,6 +63,15 @@ public class EventDetailsFragment extends Fragment {
         return inflater.inflate(R.layout.event_details_fragment, container, false);
     }
 
+    /**
+     * Called immediately after onCreateView() to initialize UI components and set up event listeners.
+     * This method handles back navigation, displays the event title from arguments, sets up QR code viewing,
+     * loads complete event details from Firestore, and initializes waitlist functionality including
+     * join/leave buttons with proper authentication and status checking.
+     *
+     * @param view The View returned by onCreateView().
+     * @param savedInstanceState If non-null, this fragment is being re-constructed from a previous saved state.
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -268,14 +287,35 @@ public class EventDetailsFragment extends Fragment {
                     registration.put("status", "waitlisted");
                     registration.put("timestamp", System.currentTimeMillis());
 
+                    // Write to registrations collection
                     registrationRef.set(registration)
                             .addOnSuccessListener(unused -> {
-                                eventRef.update("waitlistCount", FieldValue.increment(1));
-                                Toast.makeText(requireContext(),
-                                        "You have joined the waiting list!",
-                                        Toast.LENGTH_SHORT).show();
-                                showLeaveButton();
-                                loadWaitlistCount();
+                                // Also write to waitlist subcollection for history compatibility
+                                DocumentReference waitlistRef = db.collection("events")
+                                        .document(currentEventId)
+                                        .collection("waitlist")
+                                        .document(currentUserId);
+                                
+                                Map<String, Object> waitlistEntry = new HashMap<>();
+                                waitlistEntry.put("userID", currentUserId);
+                                waitlistEntry.put("eventID", currentEventId);
+                                waitlistEntry.put("status", "waitlisted");
+                                waitlistEntry.put("joinTime", com.google.firebase.Timestamp.now()); 
+                                waitlistEntry.put("lotteryNumber", 0); 
+                                
+                                waitlistRef.set(waitlistEntry)
+                                        .addOnSuccessListener(unused2 -> {
+                                            eventRef.update("waitlistCount", FieldValue.increment(1));
+                                            Toast.makeText(requireContext(),
+                                                    "You have joined the waiting list!",
+                                                    Toast.LENGTH_SHORT).show();
+                                            showLeaveButton();
+                                            loadWaitlistCount();
+                                        })
+                                        .addOnFailureListener(e -> 
+                                                Toast.makeText(requireContext(),
+                                                        "Something went wrong. Please try again.",
+                                                        Toast.LENGTH_SHORT).show());
                             })
                             .addOnFailureListener(e ->
                                     Toast.makeText(requireContext(),
@@ -322,12 +362,25 @@ public class EventDetailsFragment extends Fragment {
 
         registrationRef.delete()
                 .addOnSuccessListener(unused -> {
-                    eventRef.update("waitlistCount", FieldValue.increment(-1));
-                    Toast.makeText(requireContext(),
-                            "You have left the waiting list.",
-                            Toast.LENGTH_SHORT).show();
-                    showJoinButton();
-                    loadWaitlistCount();
+                    // Also remove from waitlist subcollection
+                    DocumentReference waitlistRef = db.collection("events")
+                            .document(currentEventId)
+                            .collection("waitlist")
+                            .document(currentUserId);
+                    
+                    waitlistRef.delete()
+                            .addOnSuccessListener(unused2 -> {
+                                eventRef.update("waitlistCount", FieldValue.increment(-1));
+                                Toast.makeText(requireContext(),
+                                        "You have left the waiting list.",
+                                        Toast.LENGTH_SHORT).show();
+                                showJoinButton();
+                                loadWaitlistCount();
+                            })
+                            .addOnFailureListener(e ->
+                                    Toast.makeText(requireContext(),
+                                            "Something went wrong. Please try again.",
+                                            Toast.LENGTH_SHORT).show());
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(requireContext(),
@@ -336,11 +389,19 @@ public class EventDetailsFragment extends Fragment {
                 );
     }
 
+    /**
+     * Displays the Join button and hides the Leave button.
+     * Used when the user is not currently on the waitlist for this event.
+     */
     private void showJoinButton() {
         btnJoinWaitlist.setVisibility(View.VISIBLE);
         btnLeaveWaitlist.setVisibility(View.GONE);
     }
 
+    /**
+     * Displays the Leave button and hides the Join button.
+     * Used when the user is currently on the waitlist for this event.
+     */
     private void showLeaveButton() {
         btnJoinWaitlist.setVisibility(View.GONE);
         btnLeaveWaitlist.setVisibility(View.VISIBLE);

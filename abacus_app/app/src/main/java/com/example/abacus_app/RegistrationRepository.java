@@ -57,38 +57,58 @@ public class RegistrationRepository {
      * Adds a user to the waitlist with a random lottery number.
      */
     public void joinWaitlist(String userID) {
-        int lotteryNumber = new Random().nextInt(1000000);
-        WaitlistEntry entry = new WaitlistEntry(userID, WaitlistEntry.STATUS_WAITLISTED,
-                lotteryNumber, Timestamp.now());
-        remote.joinWaitlist(eventID, entry);
+        try {
+            int lotteryNumber = new Random().nextInt(1000000);
+            WaitlistEntry entry = new WaitlistEntry(userID, eventID, WaitlistEntry.STATUS_WAITLISTED,
+                    lotteryNumber, Timestamp.now());
+            remote.joinWaitlistSync(eventID, entry);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to join waitlist: " + e.getMessage(), e);
+        }
     }
 
     /**
      * Removes a user from the waitlist entirely.
      */
     public void leaveWaitlist(String userID) {
-        remote.deleteFromWaitlist(eventID, userID);
+        try {
+            remote.removeWaitlistEntrySync(eventID, userID);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to leave waitlist: " + e.getMessage(), e);
+        }
     }
 
     /**
      * Updates the entrant's status to ACCEPTED after they confirm their invitation.
      */
     public void acceptInvitation(String userID) {
-        remote.updateStatus(eventID, userID, WaitlistEntry.STATUS_ACCEPTED);
+        try {
+            remote.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_ACCEPTED);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to accept invitation: " + e.getMessage(), e);
+        }
     }
 
     /**
      * Updates the entrant's status to DECLINED if they choose not to register.
      */
     public void declineInvitation(String userID) {
-        remote.updateStatus(eventID, userID, WaitlistEntry.STATUS_DECLINED);
+        try {
+            remote.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_DECLINED);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to decline invitation: " + e.getMessage(), e);
+        }
     }
 
     /**
      * Cancels an entrant by updating their status to CANCELLED.
      */
     public void cancelEntrant(String userId) {
-        remote.updateStatus(eventID, userId, WaitlistEntry.STATUS_CANCELLED);
+        try {
+            remote.updateUserEntryStatusSync(eventID, userId, WaitlistEntry.STATUS_CANCELLED);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to cancel entrant: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -98,12 +118,16 @@ public class RegistrationRepository {
      * @param waitlist the current list of waitlisted entrants fetched from Firestore
      */
     public void runLottery(ArrayList<WaitlistEntry> waitlist) {
-        waitlist.sort((a, b) -> Integer.compare(a.getLotteryNumber(), b.getLotteryNumber()));
-        int inviteCount = Math.min(eventCapacity, waitlist.size());
-        for (int i = 0; i < inviteCount; i++) {
-            remote.updateStatus(eventID, waitlist.get(i).getUserId(), WaitlistEntry.STATUS_INVITED);
+        try {
+            waitlist.sort((a, b) -> Integer.compare(a.getLotteryNumber(), b.getLotteryNumber()));
+            int inviteCount = Math.min(eventCapacity, waitlist.size());
+            for (int i = 0; i < inviteCount; i++) {
+                remote.updateUserEntryStatusSync(eventID, waitlist.get(i).getUserID(), WaitlistEntry.STATUS_INVITED);
+            }
+            lotteryDrawn = true;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to run lottery: " + e.getMessage(), e);
         }
-        lotteryDrawn = true;
     }
 
     /**
@@ -116,7 +140,13 @@ public class RegistrationRepository {
         waitlist.stream()
                 .filter(e -> WaitlistEntry.STATUS_WAITLISTED.equals(e.getStatus()))
                 .min((a, b) -> Integer.compare(a.getLotteryNumber(), b.getLotteryNumber()))
-                .ifPresent(e -> remote.updateStatus(eventID, e.getUserId(), WaitlistEntry.STATUS_INVITED));
+                .ifPresent(e -> {
+                    try {
+                        remote.updateUserEntryStatusSync(eventID, e.getUserID(), WaitlistEntry.STATUS_INVITED);
+                    } catch (Exception ex) {
+                        throw new RuntimeException("Failed to update replacement status", ex);
+                    }
+                });
     }
 
     /**

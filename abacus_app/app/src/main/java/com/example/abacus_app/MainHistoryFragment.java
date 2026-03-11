@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +22,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Architecture Layer: View (Fragment)
@@ -52,22 +60,32 @@ public class MainHistoryFragment extends Fragment {
 
         View root = inflater.inflate(R.layout.main_history_fragment, container, false);
 
-        // Initialize ViewModel with Kaylee's RegistrationRepository
-        RegistrationRepositoryAdapter repositoryAdapter = new RegistrationRepositoryAdapter();
-        MainHistoryViewModelFactory factory = new MainHistoryViewModelFactory(repositoryAdapter);
-        viewModel = new ViewModelProvider(this, factory).get(MainHistoryViewModel.class);
+        try {
+            // Initialize ViewModel with Firebase-backed repository
+            FirebaseRegistrationRepository repositoryAdapter = new FirebaseRegistrationRepository(requireContext());
+            MainHistoryViewModelFactory factory = new MainHistoryViewModelFactory(repositoryAdapter);
+            viewModel = new ViewModelProvider(this, factory).get(MainHistoryViewModel.class);
 
-        // Bind UI components
-        bindViews(root);
+            // Bind UI components
+            bindViews(root);
 
-        // Set up RecyclerView
-        setupRecyclerView();
+            // Set up RecyclerView
+            setupRecyclerView();
 
-        // Set up SwipeRefreshLayout
-        setupSwipeRefresh();
+            // Set up SwipeRefreshLayout
+            setupSwipeRefresh();
 
-        // Set up observers
-        observeViewModel();
+            // Set up observers
+            observeViewModel();
+        } catch (Exception e) {
+            Log.e("MainHistoryFragment", "Error initializing fragment", e);
+            // Show error message to user
+            Toast.makeText(requireContext(), "Error loading history: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            
+            // Bind UI components even if there's an error
+            bindViews(root);
+            showEmptyState(true);
+        }
 
         return root;
     }
@@ -76,8 +94,19 @@ public class MainHistoryFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Load registration history when view is ready
-        viewModel.loadRegistrationHistory();
+        try {
+            // Load registration history when view is ready
+            if (viewModel != null) {
+                viewModel.loadRegistrationHistory();
+            } else {
+                Log.e("MainHistoryFragment", "ViewModel is null, cannot load history");
+                showEmptyState(true);
+            }
+        } catch (Exception e) {
+            Log.e("MainHistoryFragment", "Error loading registration history", e);
+            Toast.makeText(requireContext(), "Error loading history data", Toast.LENGTH_SHORT).show();
+            showEmptyState(true);
+        }
     }
 
     /**
@@ -105,26 +134,37 @@ public class MainHistoryFragment extends Fragment {
      * Sets up the SwipeRefreshLayout for refreshing the registration history.
      */
     private void setupSwipeRefresh() {
-        swipeRefreshLayout.setOnRefreshListener(() -> {
-            viewModel.refresh();
-        });
+        if (swipeRefreshLayout != null && viewModel != null) {
+            swipeRefreshLayout.setOnRefreshListener(() -> {
+                viewModel.refresh();
+            });
+        }
     }
 
     /**
      * Observes the ViewModel for changes in registration history, loading state, and error messages.
      */
     private void observeViewModel() {
+        if (viewModel == null) {
+            Log.e("MainHistoryFragment", "ViewModel is null, cannot observe");
+            return;
+        }
+
         // Observe registration list
         viewModel.getRegistrations().observe(getViewLifecycleOwner(), registrations -> {
-            adapter.updateRegistrations(registrations);
+            if (adapter != null) {
+                adapter.updateRegistrations(registrations);
+            }
             showEmptyState(registrations.isEmpty());
         });
 
         // Observe loading state
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            if (progressBar != null) {
+                progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            }
             // Stop swipe refresh animation if loading is complete
-            if (!isLoading && swipeRefreshLayout.isRefreshing()) {
+            if (!isLoading && swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
                 swipeRefreshLayout.setRefreshing(false);
             }
         });
@@ -134,23 +174,25 @@ public class MainHistoryFragment extends Fragment {
             if (error != null && !error.isEmpty()) {
                 Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
                 // Stop swipe refresh on error
-                if (swipeRefreshLayout.isRefreshing()) {
+                if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
                     swipeRefreshLayout.setRefreshing(false);
                 }
             }
         });
     }
-/**
+    /**
      * Shows or hides the empty state layout based on whether the registration history is empty.
      *
      * @param isEmpty True if the registration history is empty, false otherwise.
      */
     private void showEmptyState(boolean isEmpty) {
-        recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-        emptyStateLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-    }
-
-    /**
+        if (recyclerView != null) {
+            recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        }
+        if (emptyStateLayout != null) {
+            emptyStateLayout.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
+    }    /**
      * Adapter for displaying registration history items.
      */
     private static class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHolder> {
@@ -222,6 +264,10 @@ public class MainHistoryFragment extends Fragment {
                 eventPosterView = itemView.findViewById(R.id.iv_event_poster);
             }
 
+            /**
+             * Binds a RegistrationHistoryItem to the views in the ViewHolder, setting text, colors, and images
+             * @param item The RegistrationHistoryItem containing the data to display in this ViewHolder
+             */
             void bind(MainHistoryViewModel.RegistrationHistoryItem item) {
                 // Set event title
                 eventTitleView.setText(item.getEventTitle());
@@ -249,6 +295,12 @@ public class MainHistoryFragment extends Fragment {
                 eventPosterView.setScaleType(ImageView.ScaleType.CENTER);
             }
 
+            /**
+             *  Maps a status label to a corresponding color resource.      
+             * 
+             * @param statusLabel The status label to map (e.g. "Selected!", "Enrolled", "On Waitlist", "Declined", "Cancelled").
+             * @return The color resource ID corresponding to the status label.
+             */
             private int getStatusColor(String statusLabel) {
                 switch (statusLabel) {
                     case "Selected!":
@@ -277,6 +329,14 @@ public class MainHistoryFragment extends Fragment {
             this.repository = repository;
         }
 
+        /**
+         * Creates a new instance of the given ViewModel class, injecting the RegistrationRepository dependency.
+         *
+         * @param modelClass The class of the ViewModel to create.
+         * @param <T>        The type of the ViewModel.
+         * @return A new instance of the specified ViewModel class.
+         * @throws IllegalArgumentException if the modelClass is not assignable from MainHistoryViewModel.
+         */
         @NonNull
         @Override
         @SuppressWarnings("unchecked")
@@ -289,53 +349,142 @@ public class MainHistoryFragment extends Fragment {
     }
 
     /**
-     * Adapter class to bridge Kaylee's RegistrationRepository with our ViewModel interface.
-     * This allows us to use Kaylee's concrete RegistrationRepository class with our
-     * MainHistoryViewModel that expects a specific interface.
-     * 
-     * INTEGRATION STATUS: ✅ COMPLETE - Now using real getHistoryForUser implementation
-     * 
-     * TODO: 
-     * - Replace "current_user_id" placeholder with actual user authentication
-     * - Implement event title lookup using EventRepository or similar
-     * - Consider migrating to Kaylee's models directly once interfaces align
+     * Firebase-backed implementation that fetches real user registration history.
      */
-    private static class RegistrationRepositoryAdapter implements MainHistoryViewModel.RegistrationRepository {
-        private final RegistrationRepository kayleeRepo;
+    private static class FirebaseRegistrationRepository implements MainHistoryViewModel.RegistrationRepository {
+        private static final String TAG = "FirebaseRegRepo";
+        private final Context context;
+        private final RegistrationRemoteDataSource dataSource;
+        private final FirebaseFirestore firestore;
+        private final ExecutorService executor;
 
-        public RegistrationRepositoryAdapter() {
-            // Initialize Kaylee's repository
-            this.kayleeRepo = new RegistrationRepository();
+        public FirebaseRegistrationRepository(Context context) {
+            this.context = context;
+            this.dataSource = new RegistrationRemoteDataSource();
+            this.firestore = FirebaseFirestore.getInstance();
+            this.executor = Executors.newSingleThreadExecutor();
         }
 
+        /**
+         * Fetches the registration history for the current user by first retrieving the user's ID from the UserRepository, then querying the RegistrationRemoteDataSource for all waitlist entries associated with that user ID, and finally converting those waitlist entries into a list of Registration objects that can be displayed in the UI. This method runs asynchronously and returns the results through a callback to avoid blocking the main thread during Firebase queries.
+         * 
+         * @param callback Callback to receive the list of registrations or an error if one occurs.
+         */
         @Override
-        public void getHistoryForUser(MainHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
-            // Use the actual implemented method from Kaylee's repository
-            // TODO: Get the current user ID from authentication/session management
-            String currentUserId = "current_user_id"; // Placeholder - replace with actual user ID
-            
-            kayleeRepo.getHistoryForUser(currentUserId, waitlistEntries -> {
-                try {
-                    // Convert WaitlistEntry objects to Registration objects
-                    java.util.List<MainHistoryViewModel.Registration> registrations = new java.util.ArrayList<>();
-                    
-                    for (WaitlistEntry entry : waitlistEntries) {
-                        // TODO: Get actual event title using entry.getEventID()
-                        String eventTitle = "Event " + entry.getEventID(); // Placeholder
-                        
-                        MainHistoryViewModel.Registration registration = new MainHistoryViewModel.Registration(
-                            eventTitle,
-                            entry.getStatus().toLowerCase(), // Convert to lowercase for consistency
-                            entry.getJoinTime().toDate().getTime()
-                        );
-                        registrations.add(registration);
-                    }
-                    
-                    callback.onResult(registrations, null);
-                } catch (Exception e) {
-                    callback.onResult(null, e);
+        public void getHistoryForUser(HistoryCallback callback) {
+            // Get current user ID from UserRepository
+            UserLocalDataSource localDataSource = new UserLocalDataSource(context);
+            UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(firestore);
+            UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+            userRepository.getCurrentUserId(userId -> {
+                if (userId == null) {
+                    Log.e(TAG, "No current user ID found");
+                    callback.onResult(new ArrayList<>(), new Exception("User not authenticated"));
+                    return;
                 }
+
+                // Execute Firebase query on background thread
+                executor.execute(() -> {
+                    try {
+                        // Get user's waitlist entries across all events
+                        ArrayList<WaitlistEntry> waitlistEntries = dataSource.getHistoryForUserSync(userId);
+                        
+                        if (waitlistEntries.isEmpty()) {
+                            Log.d(TAG, "No registration history found for user: " + userId);
+                            callback.onResult(new ArrayList<>(), null);
+                            return;
+                        }
+
+                        Log.d(TAG, "Found " + waitlistEntries.size() + " registration entries");
+                        
+                        // Convert WaitlistEntry objects to Registration objects
+                        List<MainHistoryViewModel.Registration> registrations = new ArrayList<>();
+                        
+                        // We'll fetch event titles in batches
+                        List<String> eventIds = new ArrayList<>();
+                        for (WaitlistEntry entry : waitlistEntries) {
+                            eventIds.add(entry.getEventID());
+                        }
+                        
+                        // Fetch event details to get titles
+                        fetchEventTitles(eventIds, eventTitles -> {
+                            for (WaitlistEntry entry : waitlistEntries) {
+                                String eventTitle = eventTitles.get(entry.getEventID());
+                                if (eventTitle == null) {
+                                    eventTitle = "Event " + entry.getEventID(); // Fallback
+                                }
+                                
+                                MainHistoryViewModel.Registration registration = new MainHistoryViewModel.Registration(
+                                        eventTitle,
+                                        entry.getStatus(),
+                                        entry.getJoinTime() != null ? entry.getJoinTime().toDate().getTime() : System.currentTimeMillis()
+                                );
+                                registrations.add(registration);
+                            }
+                            
+                            Log.d(TAG, "Successfully converted " + registrations.size() + " registrations");
+                            callback.onResult(registrations, null);
+                        });
+
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to fetch user registration history", e);
+                        callback.onResult(new ArrayList<>(), e);
+                    }
+                });
             });
+        }
+
+        /**
+         * Fetch event titles for the given event IDs 
+         * 
+         * @param eventIds List of event IDs to fetch titles for
+         * @param callback Callback to receive a map of event IDs to titles once fetching is complete
+         * 
+         */
+        private void fetchEventTitles(List<String> eventIds, EventTitlesCallback callback) {
+            java.util.Map<String, String> eventTitles = new java.util.HashMap<>();
+            
+            if (eventIds.isEmpty()) {
+                callback.onResult(eventTitles);
+                return;
+            }
+
+            // Counter to track async operations
+            final int[] pendingRequests = {eventIds.size()};
+            
+            for (String eventId : eventIds) {
+                firestore.collection("events")
+                        .document(eventId)
+                        .get()
+                        .addOnSuccessListener(documentSnapshot -> {
+                            if (documentSnapshot.exists()) {
+                                String title = documentSnapshot.getString("title");
+                                if (title != null) {
+                                    eventTitles.put(eventId, title);
+                                }
+                            }
+                            
+                            pendingRequests[0]--;
+                            if (pendingRequests[0] == 0) {
+                                callback.onResult(eventTitles);
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Failed to fetch title for event: " + eventId, e);
+                            pendingRequests[0]--;
+                            if (pendingRequests[0] == 0) {
+                                callback.onResult(eventTitles);
+                            }
+                        });
+            }
+        }
+
+        /**
+         * Callback interface for receiving event titles after fetching from Firestore.
+         */
+        private interface EventTitlesCallback {
+            void onResult(java.util.Map<String, String> eventTitles);
         }
     }
 }

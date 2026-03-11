@@ -1,0 +1,44 @@
+[
+  {
+    "_comment": "Open event with capacity limit and active waitlist",
+    "eventId": "event-spring-gala-2026",
+    "title": "Spring Gala 2026",
+    "description": "Annual spring celebration hosted by the University of Alberta Students' Union. Live music, food, and prizes.",
+    "organizerId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "registrationStart": "2026-03-01T08:00:00Z",
+    "registrationEnd": "2026-03-20T23:59:00Z",
+    "waitlistCapacity": 100,
+    "waitlistCount": 6,
+    "geoRequired": false,
+    "posterImageUrl": null,
+    "qrCodeUrl": null
+  },
+  {
+    "_comment": "Event with unlimited waitlist (waitlistCapacity is null)",
+    "eventId": "event-winter-concert-2025",
+    "title": "Winter Concert 2025",
+    "description": "Faculty of Music annual winter concert. Featuring classical and contemporary pieces.",
+    "organizerId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "registrationStart": "2025-11-15T09:00:00Z",
+    "registrationEnd": "2025-12-10T17:00:00Z",
+    "waitlistCapacity": null,
+    "waitlistCount": 42,
+    "geoRequired": false,
+    "posterImageUrl": null,
+    "qrCodeUrl": null
+  },
+  {
+    "_comment": "Event with geo-check required (campus-only attendance)",
+    "eventId": "event-cs-hackathon-2025",
+    "title": "CS Hackathon 2025",
+    "description": "48-hour hackathon for computing science students. Teams of 2-4. Prizes for top 3 teams.",
+    "organizerId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "registrationStart": "2025-01-20T00:00:00Z",
+    "registrationEnd": "2025-02-01T23:59:00Z",
+    "waitlistCapacity": 80,
+    "waitlistCount": 80,
+    "geoRequired": true,
+    "posterImageUrl": null,
+    "qrCodeUrl": null
+  }
+]

@@ -42,7 +42,7 @@ public class MainHistoryViewModel extends ViewModel {
 
         registrationRepository.getHistoryForUser((registrationList, error) -> {
             Log.d(TAG, "Registration history callback received");
-            isLoading.setValue(false);
+            isLoading.postValue(false);
             if (error == null && registrationList != null) {
                 Log.d(TAG, "Successfully loaded " + registrationList.size() + " registrations");
                 List<RegistrationHistoryItem> historyItems = new ArrayList<>();
@@ -53,12 +53,12 @@ public class MainHistoryViewModel extends ViewModel {
                             registration.getRegisteredAt()
                     ));
                 }
-                registrations.setValue(historyItems);
+                registrations.postValue(historyItems);
             } else {
                 String errorMsg = error != null ? error.getMessage() : "Failed to load registration history";
                 Log.e(TAG, "Failed to load registration history: " + errorMsg);
-                errorMessage.setValue(errorMsg);
-                registrations.setValue(new ArrayList<>()); // Show empty state
+                errorMessage.postValue(errorMsg);
+                registrations.postValue(new ArrayList<>()); // Show empty state
             }
         });
     }
