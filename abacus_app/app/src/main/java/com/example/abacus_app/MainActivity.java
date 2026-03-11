@@ -11,7 +11,6 @@
  * browse experience as the persistent base of the app.
  *
  * Outstanding issues:
- * - Event list is hardcoded; replace with Firestore LiveData when Firebase is integrated.
  * - Role-based UI (admin delete buttons, organizer tools) not yet implemented.
  * - Bottom nav "Saved", "History", "Inbox" fragments are currently empty stubs.
  */
@@ -43,13 +42,14 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Source;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -68,19 +68,12 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
-    // Hardcoded test data — replace with Firestore data later
-    // Format: "title|interests|date(yyyy-MM-dd)"
-    private final List<String[]> allEvents = Arrays.asList(
-            new String[]{"Summer Music Festival",  "music,outdoor,festival",  "2025-08-10"},
-            new String[]{"Art Gallery Opening",    "art,culture,indoor",      "2025-07-22"},
-            new String[]{"Community Food Drive",   "community,volunteer",     "2025-06-15"},
-            new String[]{"Tech Meetup 2025",       "tech,networking,indoor",  "2025-09-05"},
-            new String[]{"Charity Run",            "fitness,outdoor,charity", "2025-07-04"},
-            new String[]{"Open Mic Night",         "music,comedy,indoor",     "2025-06-28"}
-    );
+    // Full list loaded from Firestore — filtered copy shown in RecyclerView
+    private final List<Event> allEvents = new ArrayList<>();
 
-    private UserRepository userRepository; //UUID
-    private boolean isGuest; //Guest mode flag
+    private EventRepository eventRepository;
+    private UserRepository userRepository;
+    private boolean isGuest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,24 +82,19 @@ public class MainActivity extends AppCompatActivity {
 
         // ── Teammate's original code (unchanged) ──────────────────────────────
 
-        // Build UserLocalDataSource using Kotlin extension
         UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
-
-        // Initialize user on app launch
         userRepository.initializeUserAsync();
 
-        // ↓ Add these lines right after
         isGuest = getIntent().getBooleanExtra("isGuest", false);
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        // Add debug logging
         android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
         if (currentUser != null) {
             android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
-                " (Anonymous: " + currentUser.isAnonymous() +
-                ", Email: " + currentUser.getEmail() + ")");
+                    " (Anonymous: " + currentUser.isAnonymous() +
+                    ", Email: " + currentUser.getEmail() + ")");
         } else {
             android.util.Log.d("MainActivity", "No current user");
         }
@@ -116,47 +104,34 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-
-        // Navigation bar colour
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(80, 255, 255, 255));
         } else {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(180, 255, 255, 255));
         }
 
-        // Views
         homeContent     = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
         appBar          = findViewById(R.id.app_bar);
         bottomNav       = findViewById(R.id.bottom_nav);
 
-        // Set up NavController
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
         navController = navHost.getNavController();
 
-        // Search bar text colour fix
         SearchBar searchBar = findViewById(R.id.search_bar);
         setSearchBarTextColor(searchBar);
 
-        // Profile button → profile fragment
         ImageButton btnProfile = findViewById(R.id.btn_profile);
         btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
 
-        // QR scan button → QR scan fragment
         ImageButton btnScan = findViewById(R.id.btn_scan);
         btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, false));
 
-        // List item click → event details (hide bottom nav)
-        recyclerView = findViewById(R.id.rv_events);
+        recyclerView     = findViewById(R.id.rv_events);
+        layoutEmptyState = findViewById(R.id.layout_empty_state);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        layoutEmptyState = findViewById(R.id.layout_empty_state);
-
-        // Show full list on startup
-        applyFilters();
-
-        // Bottom nav
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_home) {
@@ -175,7 +150,6 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
 
-        // Handle back gesture and back button
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -189,40 +163,64 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ── Filter button → bottom sheet (US 01.01.04) ────────────────────────
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
+
+        // ── Load real events from Firestore (replaces hardcoded list) ──────────
+        eventRepository = new EventRepository();
+        loadEventsFromFirestore();
+    }
+
+    // ── Firestore event loading ────────────────────────────────────────────────
+
+    /**
+     * Fetches all events from Firestore using Himesh's EventRepository.
+     * Forces a server fetch (bypasses local cache) so changes in Firestore
+     * are always reflected immediately.
+     * On success, stores them in allEvents and applies current filters.
+     * Shows empty state if Firestore returns nothing or fails.
+     */
+    private void loadEventsFromFirestore() {
+        showLoadingState();
+
+        // Force fetch from server, bypassing Firestore local cache
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .get(Source.SERVER)
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("MainActivity", "Firestore returned " + querySnapshot.size() + " events");
+                    allEvents.clear();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Event event = doc.toObject(Event.class);
+                        android.util.Log.d("MainActivity", "Event loaded: " + (event != null ? event.getTitle() : "null"));
+                        if (event != null) {
+                            allEvents.add(event);
+                        }
+                    }
+                    applyFilters();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("MainActivity", "Failed to load events: " + e.getMessage());
+                    applyFilters(); // will show empty state
+                });
     }
 
     // ── Filter logic ──────────────────────────────────────────────────────────
 
-    /**
-     * Opens the filter bottom sheet. Pre-fills any currently active filters
-     * so the user can see and edit what's applied.
-     */
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
 
-        TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
-        Button btnPickDate     = dialog.findViewById(R.id.btn_pick_date);
-        Button            btnApply        = dialog.findViewById(R.id.btn_apply_filters);
-        Button            btnClear        = dialog.findViewById(R.id.btn_clear_filters);
+        TextInputEditText etKeyword  = dialog.findViewById(R.id.et_keyword);
+        Button btnPickDate           = dialog.findViewById(R.id.btn_pick_date);
+        Button btnApply              = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear              = dialog.findViewById(R.id.btn_clear_filters);
 
-        // Pre-fill with active filters
-        if (etKeyword != null && !activeKeyword.isEmpty()) {
-            etKeyword.setText(activeKeyword);
-        }
+        if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
 
-        // Holds the date the user picked inside this dialog session
         final String[] pickedDate = {activeDate};
+        if (btnPickDate != null && !activeDate.isEmpty()) btnPickDate.setText(activeDate);
 
-        // Update button label if a date is already active
-        if (btnPickDate != null && !activeDate.isEmpty()) {
-            btnPickDate.setText(activeDate);
-        }
-
-        // Date picker
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
@@ -236,19 +234,16 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // Apply
         if (btnApply != null) {
             btnApply.setOnClickListener(v -> {
                 activeKeyword = etKeyword != null && etKeyword.getText() != null
-                        ? etKeyword.getText().toString().trim().toLowerCase()
-                        : "";
+                        ? etKeyword.getText().toString().trim().toLowerCase() : "";
                 activeDate = pickedDate[0];
                 applyFilters();
                 dialog.dismiss();
             });
         }
 
-        // Clear — resets all filters and refreshes the full list
         if (btnClear != null) {
             btnClear.setOnClickListener(v -> {
                 activeKeyword = "";
@@ -259,55 +254,59 @@ public class MainActivity extends AppCompatActivity {
         }
 
         dialog.show();
-
-
     }
 
     /**
-     * Filters allEvents using the active keyword and/or date and updates
-     * the RecyclerView. Shows the empty state if nothing matches.
-     *
-     * Keyword matches against title and interests (case-insensitive).
-     * Date matches events whose date equals the selected date exactly.
+     * Filters allEvents (real Firestore events) using active keyword and/or date.
+     * Keyword matches title and description (case-insensitive).
+     * Date matches events whose registrationStart falls on the selected date.
      * Both filters must match when both are active (AND logic).
      */
     private void applyFilters() {
-        List<String> filtered = new ArrayList<>();
+        List<Event> filtered = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
-        for (String[] event : allEvents) {
-            String title     = event[0].toLowerCase();
-            String interests = event[1].toLowerCase();
-            String date      = event[2];
+        for (Event event : allEvents) {
+            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
-            // Keyword filter — matches title or interests
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
-                    || interests.contains(activeKeyword);
+                    || description.contains(activeKeyword);
 
-            // Date filter — matches exact date
-            boolean dateMatch = activeDate.isEmpty()
-                    || date.equals(activeDate);
-
-            if (keywordMatch && dateMatch) {
-                filtered.add(event[0]); // add title for display
+            boolean dateMatch = true;
+            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
+                String eventDate = sdf.format(event.getRegistrationStart().toDate());
+                dateMatch = eventDate.equals(activeDate);
             }
+
+            if (keywordMatch && dateMatch) filtered.add(event);
         }
 
-        // Update RecyclerView
-        recyclerView.setAdapter(new EventAdapter(filtered,
-                eventTitle -> showFragment(R.id.eventDetailsFragment, false)));
+        List<String> titles = new ArrayList<>();
+        for (Event e : filtered) titles.add(e.getTitle());
 
-        // Show empty state if no results
+        recyclerView.setAdapter(new EventAdapter(titles, eventTitle -> {
+            String eventId = "";
+            for (Event e : filtered) {
+                if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
+                    eventId = e.getEventId();
+                    break;
+                }
+            }
+            Bundle args = new Bundle();
+            args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
+            args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+            showFragment(R.id.eventDetailsFragment, false, args);
+        }));
+
         if (filtered.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             layoutEmptyState.setVisibility(View.VISIBLE);
-            // Update empty state message depending on whether filters are active
             TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
             if (tvEmpty != null) {
                 boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters
-                        ? "No matching events found"
-                        : "No events available");
+                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
             }
         } else {
             recyclerView.setVisibility(View.VISIBLE);
@@ -315,15 +314,27 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /** Shows empty state while Firestore is loading. */
+    private void showLoadingState() {
+        recyclerView.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.VISIBLE);
+        TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+        if (tvEmpty != null) tvEmpty.setText("Loading events...");
+    }
+
     // ── Teammate's original methods (unchanged) ───────────────────────────────
 
     private void showFragment(int destinationId, boolean showBottomNav) {
+        showFragment(destinationId, showBottomNav, null);
+    }
+
+    private void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);
         appBar.setVisibility(View.GONE);
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
-        navController.navigate(destinationId);
+        navController.navigate(destinationId, args);
     }
 
     public void showHome() {
@@ -335,9 +346,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearBackStack() {
-        NavController nav = navController;
-        while (nav.getCurrentBackStackEntry() != null) {
-            if (!nav.popBackStack()) break;
+        while (navController.getCurrentBackStackEntry() != null) {
+            if (!navController.popBackStack()) break;
         }
     }
 
@@ -356,7 +366,6 @@ public class MainActivity extends AppCompatActivity {
     public NavController getNavController() {
         return navController;
     }
-
 
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
@@ -380,6 +389,4 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
     }
-
-
 }
