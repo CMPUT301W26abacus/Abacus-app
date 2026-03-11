@@ -1,4 +1,5 @@
 package com.example.abacus_app;
+
 import com.google.firebase.Timestamp;
 
 /**
@@ -11,6 +12,9 @@ import com.google.firebase.Timestamp;
  */
 public class WaitlistEntry {
 
+    /**
+     * Indicates that an entrant is on the waitlist but has not been invited.
+     */
     /**
      * Indicates that an entrant is on the waitlist but has not been invited.
      */
@@ -79,6 +83,10 @@ public class WaitlistEntry {
      * Gets the current status of the entrant.
      * @return the current waitlist status of the entrant
      */
+    /**
+     * Gets the current status of the entrant.
+     * @return the current waitlist status of the entrant
+     */
     public String getStatus() {
         return status;
     }
@@ -91,6 +99,10 @@ public class WaitlistEntry {
         return lotteryNumber;
     }
 
+    /**
+     * Gets the waitlist join time of the entrant.
+     * @return the timestamp at which the user joined the waitlist
+     */
     /**
      * Gets the waitlist join time of the entrant.
      * @return the timestamp at which the user joined the waitlist
