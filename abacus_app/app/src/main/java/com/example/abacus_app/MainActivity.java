@@ -1,3 +1,10 @@
+/**
+ * MainActivity.java
+ *
+ * Role: Entry point and primary controller for the Abacus application.
+ * Implements the home screen (event browse list) directly and manages
+ * fragment-based navigation for all other screens via a NavHostFragment overlay.
+ */
 package com.example.abacus_app;
 
 import android.app.DatePickerDialog;
@@ -29,9 +36,10 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Source;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -51,15 +59,10 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
-    private final List<String[]> allEvents = Arrays.asList(
-            new String[]{"Summer Music Festival",  "music,outdoor,festival",  "2025-08-10"},
-            new String[]{"Art Gallery Opening",    "art,culture,indoor",      "2025-07-22"},
-            new String[]{"Community Food Drive",   "community,volunteer",     "2025-06-15"},
-            new String[]{"Tech Meetup 2025",       "tech,networking,indoor",  "2025-09-05"},
-            new String[]{"Charity Run",            "fitness,outdoor,charity", "2025-07-04"},
-            new String[]{"Open Mic Night",         "music,comedy,indoor",     "2025-06-28"}
-    );
+    // Full list loaded from Firestore — filtered copy shown in RecyclerView
+    private final List<Event> allEvents = new ArrayList<>();
 
+    private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
 
@@ -76,6 +79,16 @@ public class MainActivity extends AppCompatActivity {
         isGuest = getIntent().getBooleanExtra("isGuest", false);
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
+        if (currentUser != null) {
+            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
+                    " (Anonymous: " + currentUser.isAnonymous() +
+                    ", Email: " + currentUser.getEmail() + ")");
+        } else {
+            android.util.Log.d("MainActivity", "No current user");
+        }
+
         if (!isGuest && currentUser == null) {
             goToSplash();
             return;
@@ -108,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.rv_events);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         layoutEmptyState = findViewById(R.id.layout_empty_state);
-        applyFilters();
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -125,7 +137,13 @@ public class MainActivity extends AppCompatActivity {
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
 
         fetchRoleAndSetupNav(localDataSource);
+
+        // Load real events from Firestore
+        eventRepository = new EventRepository();
+        loadEventsFromFirestore();
     }
+
+    // ── Role & Nav ────────────────────────────────────────────────────────────
 
     private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
         String uuid = localDataSource.getUUIDSync();
@@ -167,7 +185,6 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.organizerToolsFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
-                    // Admin sees image/profile moderation; organizer sees activity logs
                     if ("admin".equals(userRole)) {
                         showFragment(R.id.adminLogsFragment, true);
                     } else {
@@ -202,6 +219,34 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ── Firestore event loading ───────────────────────────────────────────────
+
+    private void loadEventsFromFirestore() {
+        showLoadingState();
+
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .get(Source.SERVER)
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("MainActivity", "Firestore returned " + querySnapshot.size() + " events");
+                    allEvents.clear();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Event event = doc.toObject(Event.class);
+                        android.util.Log.d("MainActivity", "Event loaded: " + (event != null ? event.getTitle() : "null"));
+                        if (event != null) {
+                            allEvents.add(event);
+                        }
+                    }
+                    applyFilters();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("MainActivity", "Failed to load events: " + e.getMessage());
+                    applyFilters(); // will show empty state
+                });
+    }
+
+    // ── Filter logic ──────────────────────────────────────────────────────────
+
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
@@ -223,7 +268,8 @@ public class MainActivity extends AppCompatActivity {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
-                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH),
+                }, cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH),
                         cal.get(Calendar.DAY_OF_MONTH)).show();
             });
         }
@@ -251,23 +297,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyFilters() {
-        List<String> filtered = new ArrayList<>();
+        List<Event> filtered = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
-        for (String[] event : allEvents) {
-            String title     = event[0].toLowerCase();
-            String interests = event[1].toLowerCase();
-            String date      = event[2];
+        for (Event event : allEvents) {
+            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
-                    || interests.contains(activeKeyword);
-            boolean dateMatch = activeDate.isEmpty() || date.equals(activeDate);
+                    || description.contains(activeKeyword);
 
-            if (keywordMatch && dateMatch) filtered.add(event[0]);
+            boolean dateMatch = true;
+            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
+                String eventDate = sdf.format(event.getRegistrationStart().toDate());
+                dateMatch = eventDate.equals(activeDate);
+            }
+
+            if (keywordMatch && dateMatch) filtered.add(event);
         }
 
-        recyclerView.setAdapter(new EventAdapter(filtered,
-                eventTitle -> showFragment(R.id.eventDetailsFragment, false)));
+        List<String> titles = new ArrayList<>();
+        for (Event e : filtered) titles.add(e.getTitle());
+
+        recyclerView.setAdapter(new EventAdapter(titles, eventTitle -> {
+            String eventId = "";
+            for (Event e : filtered) {
+                if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
+                    eventId = e.getEventId();
+                    break;
+                }
+            }
+            Bundle args = new Bundle();
+            args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
+            args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+            showFragment(R.id.eventDetailsFragment, false, args);
+        }));
 
         if (filtered.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
@@ -283,13 +348,26 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void showLoadingState() {
+        recyclerView.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.VISIBLE);
+        TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+        if (tvEmpty != null) tvEmpty.setText("Loading events...");
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+
     public void showFragment(int destinationId, boolean showBottomNav) {
+        showFragment(destinationId, showBottomNav, null);
+    }
+
+    public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);
         appBar.setVisibility(View.GONE);
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
-        navController.navigate(destinationId);
+        navController.navigate(destinationId, args);
     }
 
     public void showHome() {
