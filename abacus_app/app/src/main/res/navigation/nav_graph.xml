@@ -4,37 +4,31 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/nav_saved">
 
-    <!-- Bottom nav: Saved -->
     <fragment
         android:id="@+id/nav_saved"
         android:name="com.example.abacus_app.MainSavedFragment"
         android:label="Saved" />
 
-    <!-- Bottom nav: History -->
     <fragment
         android:id="@+id/nav_history"
         android:name="com.example.abacus_app.MainHistoryFragment"
         android:label="History" />
 
-    <!-- Bottom nav: Inbox -->
     <fragment
         android:id="@+id/nav_inbox"
         android:name="com.example.abacus_app.MainInboxFragment"
         android:label="Inbox" />
 
-    <!-- Opened from list item tap -->
     <fragment
         android:id="@+id/eventDetailsFragment"
         android:name="com.example.abacus_app.EventDetailsFragment"
         android:label="Event Details" />
 
-    <!-- Opened from profile button top right -->
     <fragment
         android:id="@+id/mainProfileFragment"
-        android:name="com.example.abacus_app.MainProfileFragment"
+        android:name="com.example.abacus_app.ProfileFragment"
         android:label="Profile" />
 
-    <!-- Opened from QR scan button -->
     <fragment
         android:id="@+id/mainQrScanFragment"
         android:name="com.example.abacus_app.MainQrScanFragment"
@@ -44,4 +38,31 @@
         android:id="@+id/eventQrFragment"
         android:name="com.example.abacus_app.EventQrFragment"
         android:label="Event QR" />
+
+    <fragment
+        android:id="@+id/organizerCreateFragment"
+        android:name="com.example.abacus_app.OrganizerCreateFragment"
+        android:label="Create Event" />
+
+    <fragment
+        android:id="@+id/organizerManageFragment"
+        android:name="com.example.abacus_app.OrganizerManageFragment"
+        android:label="Manage Event" />
+
+    <fragment
+        android:id="@+id/organizerToolsFragment"
+        android:name="com.example.abacus_app.OrganizerToolsFragment"
+        android:label="Tools" />
+
+    <fragment
+        android:id="@+id/organizerLogsFragment"
+        android:name="com.example.abacus_app.OrganizerLogsFragment"
+        android:label="Logs" />
+
+    <!-- Admin only -->
+    <fragment
+        android:id="@+id/adminLogsFragment"
+        android:name="com.example.abacus_app.AdminLogsFragment"
+        android:label="Admin Logs" />
+
 </navigation>

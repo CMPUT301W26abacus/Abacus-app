@@ -4,24 +4,18 @@
  * Role: Entry point and primary controller for the Abacus application.
  * Implements the home screen (event browse list) directly and manages
  * fragment-based navigation for all other screens via a NavHostFragment overlay.
- *
- * Design pattern: The home UI lives directly in activity_main.xml rather than
- * a fragment, with a FragmentContainerView overlay that is shown/hidden when
- * navigating away from or back to the home screen. This keeps the main event
- * browse experience as the persistent base of the app.
- *
- * Outstanding issues:
- * - Event list is hardcoded; replace with Firestore LiveData when Firebase is integrated.
- * - Role-based UI (admin delete buttons, organizer tools) not yet implemented.
- * - Bottom nav "Saved", "History", "Inbox" fragments are currently empty stubs.
  */
 package com.example.abacus_app;
 
+import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -35,10 +29,20 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.search.SearchBar;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Source;
 
-import java.util.Arrays;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -48,121 +52,324 @@ public class MainActivity extends AppCompatActivity {
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
+    private String userRole = "entrant";
+
+    private String activeKeyword = "";
+    private String activeDate    = "";
+    private RecyclerView recyclerView;
+    private LinearLayout layoutEmptyState;
+
+    // Full list loaded from Firestore — filtered copy shown in RecyclerView
+    private final List<Event> allEvents = new ArrayList<>();
+
+    private EventRepository eventRepository;
+    private UserRepository userRepository;
+    private boolean isGuest;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Navigation bar colour
+        UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        userRepository = new UserRepository(localDataSource, remoteDataSource);
+        userRepository.initializeUserAsync();
+
+        isGuest = getIntent().getBooleanExtra("isGuest", false);
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
+        if (currentUser != null) {
+            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
+                    " (Anonymous: " + currentUser.isAnonymous() +
+                    ", Email: " + currentUser.getEmail() + ")");
+        } else {
+            android.util.Log.d("MainActivity", "No current user");
+        }
+
+        if (!isGuest && currentUser == null) {
+            goToSplash();
+            return;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(80, 255, 255, 255));
         } else {
             getWindow().setNavigationBarColor(android.graphics.Color.argb(180, 255, 255, 255));
         }
 
-        // Views
-        homeContent = findViewById(R.id.home_content);
+        homeContent     = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
-        appBar = findViewById(R.id.app_bar);
-        bottomNav = findViewById(R.id.bottom_nav);
+        appBar          = findViewById(R.id.app_bar);
+        bottomNav       = findViewById(R.id.bottom_nav);
 
-        // Set up NavController
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
         navController = navHost.getNavController();
 
-        // Search bar text colour fix
         SearchBar searchBar = findViewById(R.id.search_bar);
         setSearchBarTextColor(searchBar);
 
-        // Profile button → profile fragment
         ImageButton btnProfile = findViewById(R.id.btn_profile);
         btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
 
-        // QR scan button → QR scan fragment
         ImageButton btnScan = findViewById(R.id.btn_scan);
         btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, false));
 
-        // Hardcoded test data — replace with Firestore data later
-        List<String> testEvents = Arrays.asList(
-                "Summer Music Festival",
-                "Art Gallery Opening",
-                "Community Food Drive",
-                "Tech Meetup 2025",
-                "Charity Run",
-                "Open Mic Night",
-                "Summer Music Festival",
-                "Art Gallery Opening",
-                "Community Food Drive",
-                "Tech Meetup 2025",
-                "Charity Run",
-                "Open Mic Night"
-        );
-
-        // List item click → event details (hide bottom nav)
-        RecyclerView recyclerView = findViewById(R.id.rv_events);
+        recyclerView = findViewById(R.id.rv_events);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(new EventAdapter(testEvents, eventTitle ->
-                showFragment(R.id.eventDetailsFragment, false)));
+        layoutEmptyState = findViewById(R.id.layout_empty_state);
 
-        // Bottom nav
-        bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                showHome();
-                return true;
-            } else if (id == R.id.nav_saved) {
-                showFragment(R.id.nav_saved, true);
-                return true;
-            } else if (id == R.id.nav_history) {
-                showFragment(R.id.nav_history, true);
-                return true;
-            } else if (id == R.id.nav_inbox) {
-                showFragment(R.id.nav_inbox, true);
-                return true;
-            }
-            return false;
-        });
-
-        // Handle back gesture and back button
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
-                    if (!navController.popBackStack()) {
-                        showHome();
-                    }
+                    if (!navController.popBackStack()) showHome();
                 } else {
                     finish();
                 }
             }
         });
+
+        ImageButton btnFilter = findViewById(R.id.btn_filter);
+        btnFilter.setOnClickListener(v -> showFilterBottomSheet());
+
+        fetchRoleAndSetupNav(localDataSource);
+
+        // Load real events from Firestore
+        eventRepository = new EventRepository();
+        loadEventsFromFirestore();
     }
 
-    /**
-     * Shows a destination fragment by making the NavHostFragment overlay visible
-     * and hiding the home UI and app bar. Clears the back stack first so previous
-     * tab fragments don't remain underneath.
-     *
-     * @param destinationId The nav graph resource ID of the fragment to navigate to.
-     * @param showBottomNav Whether to keep the bottom nav visible on this screen.
-     */
-    private void showFragment(int destinationId, boolean showBottomNav) {
-        // Clear the entire back stack before navigating so stale fragments
-        // from previous tabs don't interfere with the back button
-        clearBackStack();
+    // ── Role & Nav ────────────────────────────────────────────────────────────
 
+    private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
+        String uuid = localDataSource.getUUIDSync();
+
+        if (uuid != null) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uuid)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        String role = doc.getString("role");
+                        userRole = (role != null) ? role : "entrant";
+                        android.util.Log.d("MainActivity", "Role from Firestore: " + userRole + " for UUID: " + uuid);
+                        setupBottomNav();
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.w("MainActivity", "Firestore role fetch failed", e);
+                        String intentRole = getIntent().getStringExtra("role");
+                        userRole = (intentRole != null) ? intentRole : "entrant";
+                        setupBottomNav();
+                    });
+        } else {
+            userRole = "entrant";
+            setupBottomNav();
+        }
+    }
+
+    private void setupBottomNav() {
+        if ("organizer".equals(userRole) || "admin".equals(userRole)) {
+            bottomNav.getMenu().clear();
+            bottomNav.inflateMenu(R.menu.menu_bottom_nav_organizer);
+
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_tools) {
+                    showFragment(R.id.organizerToolsFragment, true);
+                    return true;
+                } else if (id == R.id.nav_logs) {
+                    if ("admin".equals(userRole)) {
+                        showFragment(R.id.adminLogsFragment, true);
+                    } else {
+                        showFragment(R.id.organizerLogsFragment, true);
+                    }
+                    return true;
+                } else if (id == R.id.nav_notifications) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+
+        } else {
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_saved) {
+                    showFragment(R.id.nav_saved, true);
+                    return true;
+                } else if (id == R.id.nav_history) {
+                    showFragment(R.id.nav_history, true);
+                    return true;
+                } else if (id == R.id.nav_inbox) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
+
+    // ── Firestore event loading ───────────────────────────────────────────────
+
+    private void loadEventsFromFirestore() {
+        showLoadingState();
+
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .get(Source.SERVER)
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("MainActivity", "Firestore returned " + querySnapshot.size() + " events");
+                    allEvents.clear();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Event event = doc.toObject(Event.class);
+                        android.util.Log.d("MainActivity", "Event loaded: " + (event != null ? event.getTitle() : "null"));
+                        if (event != null) {
+                            allEvents.add(event);
+                        }
+                    }
+                    applyFilters();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("MainActivity", "Failed to load events: " + e.getMessage());
+                    applyFilters(); // will show empty state
+                });
+    }
+
+    // ── Filter logic ──────────────────────────────────────────────────────────
+
+    private void showFilterBottomSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
+
+        TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
+        Button btnPickDate          = dialog.findViewById(R.id.btn_pick_date);
+        Button btnApply             = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear             = dialog.findViewById(R.id.btn_clear_filters);
+
+        if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
+
+        final String[] pickedDate = {activeDate};
+        if (btnPickDate != null && !activeDate.isEmpty()) btnPickDate.setText(activeDate);
+
+        if (btnPickDate != null) {
+            btnPickDate.setOnClickListener(v -> {
+                Calendar cal = Calendar.getInstance();
+                new DatePickerDialog(this, (view, year, month, day) -> {
+                    pickedDate[0] = String.format(Locale.getDefault(),
+                            "%04d-%02d-%02d", year, month + 1, day);
+                    btnPickDate.setText(pickedDate[0]);
+                }, cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH),
+                        cal.get(Calendar.DAY_OF_MONTH)).show();
+            });
+        }
+
+        if (btnApply != null) {
+            btnApply.setOnClickListener(v -> {
+                activeKeyword = etKeyword != null && etKeyword.getText() != null
+                        ? etKeyword.getText().toString().trim().toLowerCase() : "";
+                activeDate = pickedDate[0];
+                applyFilters();
+                dialog.dismiss();
+            });
+        }
+
+        if (btnClear != null) {
+            btnClear.setOnClickListener(v -> {
+                activeKeyword = "";
+                activeDate    = "";
+                applyFilters();
+                dialog.dismiss();
+            });
+        }
+
+        dialog.show();
+    }
+
+    private void applyFilters() {
+        List<Event> filtered = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+        for (Event event : allEvents) {
+            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
+
+            boolean keywordMatch = activeKeyword.isEmpty()
+                    || title.contains(activeKeyword)
+                    || description.contains(activeKeyword);
+
+            boolean dateMatch = true;
+            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
+                String eventDate = sdf.format(event.getRegistrationStart().toDate());
+                dateMatch = eventDate.equals(activeDate);
+            }
+
+            if (keywordMatch && dateMatch) filtered.add(event);
+        }
+
+        List<String> titles = new ArrayList<>();
+        for (Event e : filtered) titles.add(e.getTitle());
+
+        recyclerView.setAdapter(new EventAdapter(titles, eventTitle -> {
+            String eventId = "";
+            for (Event e : filtered) {
+                if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
+                    eventId = e.getEventId();
+                    break;
+                }
+            }
+            Bundle args = new Bundle();
+            args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
+            args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+            showFragment(R.id.eventDetailsFragment, false, args);
+        }));
+
+        if (filtered.isEmpty()) {
+            recyclerView.setVisibility(View.GONE);
+            layoutEmptyState.setVisibility(View.VISIBLE);
+            TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+            if (tvEmpty != null) {
+                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+            }
+        } else {
+            recyclerView.setVisibility(View.VISIBLE);
+            layoutEmptyState.setVisibility(View.GONE);
+        }
+    }
+
+    private void showLoadingState() {
+        recyclerView.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.VISIBLE);
+        TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+        if (tvEmpty != null) tvEmpty.setText("Loading events...");
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+
+    public void showFragment(int destinationId, boolean showBottomNav) {
+        showFragment(destinationId, showBottomNav, null);
+    }
+
+    public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
+        clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
         homeContent.setVisibility(View.GONE);
         appBar.setVisibility(View.GONE);
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
-        navController.navigate(destinationId);
+        navController.navigate(destinationId, args);
     }
 
-    /**
-     * Returns to the home screen by hiding the fragment overlay and
-     * restoring the home UI, app bar, and bottom nav. Clears the fragment back stack.
-     */
     public void showHome() {
         clearBackStack();
         navHostFragment.setVisibility(View.GONE);
@@ -171,24 +378,12 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * Clears the entire NavController back stack so no stale fragments
-     * remain when switching between tabs or returning to home.
-     */
     private void clearBackStack() {
-        NavController nav = navController;
-        while (nav.getCurrentBackStackEntry() != null) {
-            if (!nav.popBackStack()) break;
+        while (navController.getCurrentBackStackEntry() != null) {
+            if (!navController.popBackStack()) break;
         }
     }
 
-    /**
-     * Recursively walks the view hierarchy of a ViewGroup and applies
-     * the app text colour to any TextView found. Used to fix Material 3
-     * SearchBar text colour which cannot be set reliably via XML.
-     *
-     * @param viewGroup The root ViewGroup to walk — pass the SearchBar instance.
-     */
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -201,13 +396,29 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Exposes the NavController to fragments that need to trigger navigation
-     * from outside the normal NavHost flow.
-     *
-     * @return The NavController managing the fragment back stack.
-     */
-    public NavController getNavController() {
-        return navController;
+    public NavController getNavController() { return navController; }
+    public String getUserRole() { return userRole; }
+
+    public void onGuestJoinAttempt() {
+        showLoginPrompt("Sign in to join events.");
+    }
+
+    private void showLoginPrompt(String message) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Sign in required")
+                .setMessage(message)
+                .setPositiveButton("Sign In", (d, w) ->
+                        startActivity(new Intent(this, LoginActivity.class)))
+                .setNeutralButton("Register", (d, w) ->
+                        startActivity(new Intent(this, RegisterActivity.class)))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void goToSplash() {
+        Intent intent = new Intent(this, SplashActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 }

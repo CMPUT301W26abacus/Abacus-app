@@ -115,9 +115,9 @@
             android:minWidth="0dp"
             android:paddingHorizontal="10dp"
             android:text="Join"
-            android:textColor="@color/black"
+            android:textColor="@color/light_grey"
             android:textSize="12sp"
-            app:backgroundTint="@color/grey"
+            app:backgroundTint="@color/orange"
             app:iconTint="@color/grey"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />

@@ -3,22 +3,308 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/light_grey">
 
-    <!-- Back button top left -->
-    <!-- Icon: ic_arrow_back ← your asset -->
+    <!-- Scrollable body -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:overScrollMode="never"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="100dp"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="40dp">
+
+            <!-- Avatar + name card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:id="@+id/imgAvatar"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/ic_avatar_placeholder"
+                        android:contentDescription="User Avatar"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_avatar_placeholder" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvDisplayedName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Your Name"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textColor="@color/black"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvDisplayedEmail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text=""
+                            android:textAppearance="?attr/textAppearanceBodySmall"
+                            android:textColor="@color/grey" />
+
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Guest banner -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/tvGuestBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#FFF8F0"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="2dp"
+                    android:padding="16dp"
+                    android:text="You're browsing as a guest. Link an account to save your profile across devices."
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="@color/black" />
+
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:id="@+id/labelSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="8dp"
+                android:letterSpacing="0.1"
+                android:text="PERSONAL INFO"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="@color/grey" />
+
+            <!-- Fields card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/labelName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Display name"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etName"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/input_background"
+                        android:hint="Your name"
+                        android:inputType="textPersonName|textCapWords"
+                        android:paddingHorizontal="14dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey" />
+
+                    <TextView
+                        android:id="@+id/tvNameError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="#EF4444"
+                        android:visibility="gone" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="16dp"
+                        android:background="@color/grey" />
+
+                    <TextView
+                        android:id="@+id/labelEmail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Email address"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etEmail"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/input_background"
+                        android:hint="you@example.com"
+                        android:inputType="textEmailAddress"
+                        android:paddingHorizontal="14dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey" />
+
+                    <TextView
+                        android:id="@+id/tvEmailError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="#EF4444"
+                        android:visibility="gone" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="16dp"
+                        android:background="@color/grey" />
+
+                    <TextView
+                        android:id="@+id/labelPhone"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Phone number"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etPhone"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/input_background"
+                        android:hint="+1 (555) 000-0000"
+                        android:inputType="phone"
+                        android:paddingHorizontal="14dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <Button
+                android:id="@+id/btnLinkAccount"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/black"
+                android:text="Link Account"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/white"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnSaveProfile"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/black"
+                android:text="Save changes"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/white"
+                android:visibility="gone" />
+
+            <View
+                android:id="@+id/dangerDivider"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/grey"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/labelDanger"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:letterSpacing="0.1"
+                android:text="DANGER ZONE"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="#EF4444"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnDeleteProfile"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:backgroundTint="#FEF2F2"
+                android:text="Delete profile"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="#EF4444"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Back button overlaid top-left, matching event_qr_fragment pattern -->
     <ImageButton
-        android:id="@+id/btn_back"
+        android:id="@+id/btnBack"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="50dp"
         android:background="@android:color/transparent"
-        android:contentDescription="Back"
+        android:contentDescription="Go back"
         android:src="@drawable/ic_arrow_back"
+        app:tint="@color/black"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/black" />
+        app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Title centered horizontally at same vertical position -->
+    <TextView
+        android:id="@+id/tvTopBarTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:gravity="center"
+        android:text="Profile"
+        android:textAppearance="?attr/textAppearanceHeadlineSmall"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

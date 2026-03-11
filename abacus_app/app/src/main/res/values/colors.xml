@@ -4,20 +4,10 @@
     <color name="white">#F5F5F7</color>
     <color name="grey">#E8E8ED</color>
     <color name="light_grey">#FFFFFF</color>
+    <color name="orange">#C96A3A</color>
+    <color name="claude_ink">#1A1714</color>
+    <color name="claude_cream">#F5F0E8</color>
+    <color name="claude_clay">#C96A3A</color>
+    <color name="claude_warm_white">#FAF7F2</color>
+    <color name="claude_muted">#7A7168</color>
 </resources>
-
-    <!--
-    <?xml version="1.0" encoding="utf-8"?>
-    <resources>
-<color name="black">#88897E</color>
-<color name="white">#000000</color>
-<color name="grey">#222225</color>
-<color name="light_grey">#0C0C0E</color>
-</resources>
-    <resources>
-        <color name="black">#787282</color>
-        <color name="white">#F5EFFE</color>
-        <color name="grey">#E8DBFB</color>
-        <color name="light_grey">#F1E9FE</color>#
-    </resources>
-    -->
