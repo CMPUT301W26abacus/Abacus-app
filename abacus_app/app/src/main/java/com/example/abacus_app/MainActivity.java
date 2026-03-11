@@ -124,14 +124,9 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
 
-        // Fetch role using UUID (not Firebase Auth UID) then set up nav
         fetchRoleAndSetupNav(localDataSource);
     }
 
-    /**
-     * Reads the user's role from Firestore using the local UUID as the document key.
-     * This is necessary because Firestore documents use our custom UUID, not Firebase Auth UID.
-     */
     private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
         String uuid = localDataSource.getUUIDSync();
 
@@ -158,11 +153,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Sets the correct bottom nav menu and listeners based on role.
-     * Entrants: Home, Saved, History, Inbox.
-     * Organizers/Admins: Home, Tools, Logs, Notifications.
-     */
     private void setupBottomNav() {
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
             bottomNav.getMenu().clear();
@@ -177,7 +167,12 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.organizerToolsFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
-                    showFragment(R.id.organizerLogsFragment, true);
+                    // Admin sees image/profile moderation; organizer sees activity logs
+                    if ("admin".equals(userRole)) {
+                        showFragment(R.id.adminLogsFragment, true);
+                    } else {
+                        showFragment(R.id.organizerLogsFragment, true);
+                    }
                     return true;
                 } else if (id == R.id.nav_notifications) {
                     showFragment(R.id.nav_inbox, true);
