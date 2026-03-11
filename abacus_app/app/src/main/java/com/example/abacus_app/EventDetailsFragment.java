@@ -5,11 +5,6 @@
  * any event card from the main browse list. Provides a button to view the
  * event's QR code via EventQrFragment. Bottom navigation is hidden on this
  * screen for a focused full-screen experience.
- *
- * Outstanding issues:
- * - Event data is not yet populated; fields will be bound from a Firestore
- *   document once Firebase integration is complete.
- * - Event ID and name passed to EventQrFragment are hardcoded test values.
  */
 package com.example.abacus_app;
 
@@ -32,20 +27,18 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class EventDetailsFragment extends Fragment {
 
-    // Args passed via Bundle from MainActivity
     public static final String ARG_EVENT_TITLE = "eventTitle";
     public static final String ARG_EVENT_ID    = "eventId";
 
-    // TODO: Replace with real event ID from Bundle when Himesh's Firestore is wired up
-    private static final String HARDCODED_EVENT_ID = "event_test_12345";
-
-    // Real user ID fetched from UserRepository — null until loaded
-    private String currentUserId = null;
+    private String currentEventId = null;
+    private String currentUserId  = null;
 
     private FirebaseFirestore db;
     private Button btnJoinWaitlist;
@@ -64,32 +57,42 @@ public class EventDetailsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // ── Teammate's original code (unchanged) ──────────────────────────────
 
-        // Back button → returns to home screen
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (!Navigation.findNavController(view).popBackStack()) {
-                // Nothing left to pop — go back to home
                 ((MainActivity) requireActivity()).showHome();
             }
         });
 
-        // QR button → EventQrFragment, passing event ID and name
-        // Replace hardcoded values with real Firestore event data later
-        ImageButton btnViewQr = view.findViewById(R.id.btn_view_qr);
-        btnViewQr.setOnClickListener(v -> {
-            Bundle args = new Bundle();
-            args.putString(EventQrFragment.ARG_EVENT_ID, "event_test_12345");
-            args.putString(EventQrFragment.ARG_EVENT_NAME, "Test Event");
-            Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
-        });
+        // ── Read args from Bundle ──────────────────────────────────────────────
 
-        // ── Show event title from Bundle ───────────────────────────────────────
         String eventTitle = getArguments() != null
                 ? getArguments().getString(ARG_EVENT_TITLE, "Event Details")
                 : "Event Details";
+
+        currentEventId = getArguments() != null
+                ? getArguments().getString(ARG_EVENT_ID, null)
+                : null;
+
+        // ── Show event title ───────────────────────────────────────────────────
         TextView tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
+
+        // ── QR button — uses real event ID and title ───────────────────────────
+        ImageButton btnViewQr = view.findViewById(R.id.btn_view_qr);
+        btnViewQr.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putString(EventQrFragment.ARG_EVENT_ID,   currentEventId != null ? currentEventId : "");
+            args.putString(EventQrFragment.ARG_EVENT_NAME, eventTitle);
+            Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
+        });
+
+        // ── Load full event details from Firestore ─────────────────────────────
+        if (currentEventId != null) {
+            loadEventDetails();
+        }
 
         // ── Waitlist logic (US 01.01.01, US 01.01.02) ─────────────────────────
 
@@ -98,11 +101,9 @@ public class EventDetailsFragment extends Fragment {
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
 
-        // Disable buttons until user ID is loaded
         btnJoinWaitlist.setEnabled(false);
         btnLeaveWaitlist.setEnabled(false);
 
-        // Get real user ID from Dyna's UserRepository, then load waitlist state
         UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
@@ -120,13 +121,83 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
+     * Loads full event details from Firestore and populates all UI fields
+     * including title, description, dates, waitlist capacity, and organizer name.
+     */
+    private void loadEventDetails() {
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(currentEventId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.exists()) return;
+                    Event event = snapshot.toObject(Event.class);
+                    if (event == null) return;
+
+                    // Description
+                    TextView tvDescription = getView() != null
+                            ? getView().findViewById(R.id.tv_description) : null;
+                    if (tvDescription != null && event.getDescription() != null) {
+                        tvDescription.setText(event.getDescription());
+                    }
+
+                    // Date range
+                    TextView tvDateTime = getView() != null
+                            ? getView().findViewById(R.id.tv_date_time) : null;
+                    if (tvDateTime != null && event.getRegistrationStart() != null) {
+                        SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+                        String start = sdf.format(event.getRegistrationStart().toDate());
+                        if (event.getRegistrationEnd() != null) {
+                            String end = sdf.format(event.getRegistrationEnd().toDate());
+                            tvDateTime.setText(start + " – " + end);
+                        } else {
+                            tvDateTime.setText(start);
+                        }
+                    }
+
+                    // Waitlist capacity
+                    if (tvWaitlistCount != null) {
+                        Integer capacity = event.getWaitlistCapacity();
+                        if (capacity == null) {
+                            tvWaitlistCount.setText("Unlimited spots");
+                        } else {
+                            tvWaitlistCount.setText("Capacity: " + capacity);
+                        }
+                    }
+
+                    // Organizer name — look up by organizerId in users/ collection
+                    String organizerId = event.getOrganizerId();
+                    if (organizerId != null) {
+                        FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(organizerId)
+                                .get()
+                                .addOnSuccessListener(userSnapshot -> {
+                                    TextView tvOrganizer = getView() != null
+                                            ? getView().findViewById(R.id.tv_organizer) : null;
+                                    if (tvOrganizer != null) {
+                                        if (userSnapshot.exists()) {
+                                            String name = userSnapshot.getString("name");
+                                            tvOrganizer.setText("Hosted by " +
+                                                    (name != null ? name : "Unknown"));
+                                        } else {
+                                            tvOrganizer.setText("Hosted by Unknown");
+                                        }
+                                    }
+                                });
+                    }
+                });
+    }
+
+    /**
      * Reads Firestore on load to decide which button to show.
      * AC 1 — Leave button visible if already on waitlist.
      * AC 4 — Leave button not shown if not on waitlist.
      */
     private void checkWaitlistStatus() {
+        if (currentEventId == null) return;
         db.collection("registrations")
-                .document(currentUserId + "_" + HARDCODED_EVENT_ID)
+                .document(currentUserId + "_" + currentEventId)
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
@@ -138,19 +209,19 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Fetches waitlistCount and waitlistCapacity from the event document
-     * and updates tv_waitlist_count. Called on load and after join/leave.
+     * Fetches waitlistCount from Firestore and updates tv_waitlist_count.
+     * Called on load and after join/leave.
      */
     private void loadWaitlistCount() {
+        if (currentEventId == null) return;
         db.collection("events")
-                .document(HARDCODED_EVENT_ID)
+                .document(currentEventId)
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists() && tvWaitlistCount != null) {
                         Long count    = snapshot.getLong("waitlistCount");
                         Long capacity = snapshot.getLong("waitlistCapacity");
                         if (count == null) count = 0L;
-
                         if (capacity == null || capacity == -1) {
                             tvWaitlistCount.setText(count + " on waiting list");
                         } else {
@@ -164,12 +235,12 @@ public class EventDetailsFragment extends Fragment {
 
     /**
      * Attempts to join the waiting list.
-     * AC 1 — adds registration + shows confirmation toast.
-     * AC 2 — prevents duplicate, shows error message from spec.
+     * AC 1 — added + confirmation toast.
+     * AC 2 — duplicate prevented + exact error message.
      * AC 3 — persisted in Firestore across app restarts.
      */
     private void joinWaitlist() {
-        if (currentUserId == null) {
+        if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
                     "Something went wrong. Please try again.",
                     Toast.LENGTH_SHORT).show();
@@ -177,9 +248,9 @@ public class EventDetailsFragment extends Fragment {
         }
 
         DocumentReference registrationRef = db.collection("registrations")
-                .document(currentUserId + "_" + HARDCODED_EVENT_ID);
+                .document(currentUserId + "_" + currentEventId);
         DocumentReference eventRef = db.collection("events")
-                .document(HARDCODED_EVENT_ID);
+                .document(currentEventId);
 
         registrationRef.get()
                 .addOnSuccessListener(snapshot -> {
@@ -193,7 +264,7 @@ public class EventDetailsFragment extends Fragment {
 
                     Map<String, Object> registration = new HashMap<>();
                     registration.put("userId", currentUserId);
-                    registration.put("eventId", HARDCODED_EVENT_ID);
+                    registration.put("eventId", currentEventId);
                     registration.put("status", "waitlisted");
                     registration.put("timestamp", System.currentTimeMillis());
 
@@ -220,9 +291,8 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Shows a confirmation dialog before leaving the waitlist.
-     * AC 2 — confirmation dialog shown when Leave is tapped.
-     * AC 5 — if cancelled, waitlist status is unchanged.
+     * Shows confirmation dialog before leaving.
+     * AC 2 — dialog shown. AC 5 — cancel leaves status unchanged.
      */
     private void showLeaveConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
@@ -234,11 +304,11 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Removes the registration from Firestore and decrements waitlistCount.
-     * AC 3 — entrant removed and waitlist count updated.
+     * Removes registration from Firestore and decrements waitlistCount.
+     * AC 3 — entrant removed and count updated.
      */
     private void leaveWaitlist() {
-        if (currentUserId == null) {
+        if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
                     "Something went wrong. Please try again.",
                     Toast.LENGTH_SHORT).show();
@@ -246,9 +316,9 @@ public class EventDetailsFragment extends Fragment {
         }
 
         DocumentReference registrationRef = db.collection("registrations")
-                .document(currentUserId + "_" + HARDCODED_EVENT_ID);
+                .document(currentUserId + "_" + currentEventId);
         DocumentReference eventRef = db.collection("events")
-                .document(HARDCODED_EVENT_ID);
+                .document(currentEventId);
 
         registrationRef.delete()
                 .addOnSuccessListener(unused -> {
