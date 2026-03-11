@@ -44,7 +44,6 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <!-- Profile button top-right -->
             <ImageButton
                 android:id="@+id/btn_profile"
                 android:layout_width="40dp"
@@ -52,7 +51,7 @@
                 android:background="#00FFFFFF"
                 android:contentDescription="Profile"
                 android:src="@drawable/ic_account_circle"
-                android:tint="#785A715A"
+                app:tint="#785A715A"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -109,30 +108,46 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- ===== CONTENT AREA: RecyclerView ===== -->
+    <!-- ===== BOTTOM NAVIGATION BAR ===== -->
+    <!-- Moved above NestedScrollView so CoordinatorLayout can measure it first -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@color/white"
+        android:fadingEdge="none"
+        android:hapticFeedbackEnabled="false"
+        app:itemBackground="@color/white"
+        app:itemIconTint="@color/black"
+        app:itemRippleColor="#00FFFFFF"
+        app:itemTextColor="@color/black"
+        app:menu="@menu/menu_bottom_nav" />
+
+    <!-- ===== CONTENT AREA ===== -->
+    <!-- layout_marginBottom pushes content above the nav bar -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/home_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_marginBottom="100dp"
         android:background="@color/light_grey"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="wrap_content">
 
-            <!-- Events RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_events"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:clipToPadding="false"
                 android:overScrollMode="never"
                 android:paddingTop="8dp"
-                android:paddingBottom="80dp"
+                android:paddingBottom="8dp"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-            <!-- Empty state: shown when no events match -->
             <LinearLayout
                 android:id="@+id/layout_empty_state"
                 android:layout_width="match_parent"
@@ -141,7 +156,6 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <!-- ↓ added android:id so MainActivity can update the message dynamically -->
                 <TextView
                     android:id="@+id/tv_empty_message"
                     android:layout_width="wrap_content"
@@ -164,12 +178,6 @@
 
     </androidx.core.widget.NestedScrollView>
 
-    <!--
-        FragmentContainerView sits on top of home content.
-        GONE by default — MainActivity shows/hides it when navigating
-        away from home (saved, history, inbox, profile, details).
-        When visible it covers the home UI completely.
-    -->
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host_fragment"
         android:name="androidx.navigation.fragment.NavHostFragment"
@@ -178,20 +186,5 @@
         android:visibility="gone"
         app:defaultNavHost="true"
         app:navGraph="@navigation/nav_graph" />
-
-    <!-- ===== BOTTOM NAVIGATION BAR ===== -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_nav"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="@color/white"
-        android:fadingEdge="none"
-        android:hapticFeedbackEnabled="false"
-        app:itemBackground="@color/white"
-        app:itemIconTint="@color/black"
-        app:itemRippleColor="#00FFFFFF"
-        app:itemTextColor="@color/black"
-        app:menu="@menu/menu_bottom_nav" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

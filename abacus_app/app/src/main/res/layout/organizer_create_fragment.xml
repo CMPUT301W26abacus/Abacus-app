@@ -246,17 +246,21 @@
                         android:background="@color/grey"
                         android:layout_margin="12dp" />
 
-                    <Button
-                        android:id="@+id/btn_upload_poster"
-                        style="@style/Widget.Material3.Button.TextButton"
+                    <EditText
+                        android:id="@+id/et_poster_url"
                         android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:gravity="start|center_vertical"
-                        android:paddingHorizontal="16dp"
-                        android:text="Pick Poster Image"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:layout_height="wrap_content"
+                        android:hint="Direct image URL (ends in .jpg or .png)"
                         android:textColor="@color/black" />
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Tip: On Imgur, right-click the image → 'Copy image address' to get a direct URL"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/grey"
+                        android:paddingHorizontal="4dp"
+                        android:paddingBottom="8dp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
