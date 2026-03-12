@@ -51,7 +51,6 @@ public class OrganizerManageFragment extends Fragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (currentMode == Mode.WAITLIST) {
-                // Go back to event list
                 showEventList();
             } else {
                 if (getActivity() instanceof MainActivity) {
@@ -70,7 +69,6 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText("My Events");
         tvCount.setText("");
 
-        // Load organizer's events using UUID
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
         if (uuid != null) {
@@ -91,16 +89,11 @@ public class OrganizerManageFragment extends Fragment {
             }
             tvCount.setText(eventList.size() + " event(s)");
 
-            // Simple adapter: show event titles, tap to open waitlist
-            List<String> titles = new ArrayList<>();
-            for (Event e : eventList) titles.add(e.getTitle() != null ? e.getTitle() : "Untitled");
-
-            recyclerView.setAdapter(new EventAdapter(titles, title -> {
-                // Find clicked event by title (stub — good enough for now)
+            recyclerView.setAdapter(new EventAdapter(eventList, title -> {
                 for (Event e : eventList) {
                     if (title.equals(e.getTitle())) {
                         selectedEventId = e.getEventId();
-                        showWaitlist(title, selectedEventId);
+                        showWaitlist(e.getTitle(), selectedEventId);
                         break;
                     }
                 }

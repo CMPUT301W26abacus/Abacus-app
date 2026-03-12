@@ -1,10 +1,5 @@
 /**
  * EventDetailsFragment.java
- *
- * Role: Displays the full details of a selected event. Accessible by tapping
- * any event card from the main browse list. Provides a button to view the
- * event's QR code via EventQrFragment. Bottom navigation is hidden on this
- * screen for a focused full-screen experience.
  */
 package com.example.abacus_app;
 
@@ -14,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,6 +19,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
+import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -76,16 +73,12 @@ public class EventDetailsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ── Teammate's original code (unchanged) ──────────────────────────────
-
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (!Navigation.findNavController(view).popBackStack()) {
                 ((MainActivity) requireActivity()).showHome();
             }
         });
-
-        // ── Read args from Bundle ──────────────────────────────────────────────
 
         String eventTitle = getArguments() != null
                 ? getArguments().getString(ARG_EVENT_TITLE, "Event Details")
@@ -95,11 +88,9 @@ public class EventDetailsFragment extends Fragment {
                 ? getArguments().getString(ARG_EVENT_ID, null)
                 : null;
 
-        // ── Show event title ───────────────────────────────────────────────────
         TextView tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
 
-        // ── QR button — uses real event ID and title ───────────────────────────
         ImageButton btnViewQr = view.findViewById(R.id.btn_view_qr);
         btnViewQr.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -108,12 +99,9 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
 
-        // ── Load full event details from Firestore ─────────────────────────────
         if (currentEventId != null) {
             loadEventDetails();
         }
-
-        // ── Waitlist logic (US 01.01.01, US 01.01.02) ─────────────────────────
 
         db               = FirebaseFirestore.getInstance();
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
@@ -139,10 +127,6 @@ public class EventDetailsFragment extends Fragment {
         btnLeaveWaitlist.setOnClickListener(v -> showLeaveConfirmationDialog());
     }
 
-    /**
-     * Loads full event details from Firestore and populates all UI fields
-     * including title, description, dates, waitlist capacity, and organizer name.
-     */
     private void loadEventDetails() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -153,14 +137,31 @@ public class EventDetailsFragment extends Fragment {
                     Event event = snapshot.toObject(Event.class);
                     if (event == null) return;
 
-                    // Description
+                    // ── Poster image ───────────────────────────────────────────
+                    ImageView ivPoster = getView() != null
+                            ? getView().findViewById(R.id.iv_event_poster) : null;
+                    if (ivPoster != null) {
+                        String posterUrl = event.getPosterImageUrl();
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this)
+                                    .load(posterUrl)
+                                    .placeholder(R.drawable.ic_event_poster)
+                                    .error(R.drawable.ic_event_poster)
+                                    .centerCrop()
+                                    .into(ivPoster);
+                        } else {
+                            ivPoster.setImageResource(R.drawable.ic_event_poster);
+                        }
+                    }
+
+                    // ── Description ────────────────────────────────────────────
                     TextView tvDescription = getView() != null
                             ? getView().findViewById(R.id.tv_description) : null;
                     if (tvDescription != null && event.getDescription() != null) {
                         tvDescription.setText(event.getDescription());
                     }
 
-                    // Date range
+                    // ── Date range ─────────────────────────────────────────────
                     TextView tvDateTime = getView() != null
                             ? getView().findViewById(R.id.tv_date_time) : null;
                     if (tvDateTime != null && event.getRegistrationStart() != null) {
@@ -174,7 +175,7 @@ public class EventDetailsFragment extends Fragment {
                         }
                     }
 
-                    // Waitlist capacity
+                    // ── Waitlist capacity ──────────────────────────────────────
                     if (tvWaitlistCount != null) {
                         Integer capacity = event.getWaitlistCapacity();
                         if (capacity == null) {
@@ -184,7 +185,7 @@ public class EventDetailsFragment extends Fragment {
                         }
                     }
 
-                    // Organizer name — look up by organizerId in users/ collection
+                    // ── Organizer name ─────────────────────────────────────────
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -208,11 +209,6 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
-    /**
-     * Reads Firestore on load to decide which button to show.
-     * AC 1 — Leave button visible if already on waitlist.
-     * AC 4 — Leave button not shown if not on waitlist.
-     */
     private void checkWaitlistStatus() {
         if (currentEventId == null) return;
         db.collection("registrations")
@@ -227,10 +223,6 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
-    /**
-     * Fetches waitlistCount from Firestore and updates tv_waitlist_count.
-     * Called on load and after join/leave.
-     */
     private void loadWaitlistCount() {
         if (currentEventId == null) return;
         db.collection("events")
@@ -252,12 +244,6 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
-    /**
-     * Attempts to join the waiting list.
-     * AC 1 — added + confirmation toast.
-     * AC 2 — duplicate prevented + exact error message.
-     * AC 3 — persisted in Firestore across app restarts.
-     */
     private void joinWaitlist() {
         if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
@@ -330,10 +316,6 @@ public class EventDetailsFragment extends Fragment {
                 );
     }
 
-    /**
-     * Shows confirmation dialog before leaving.
-     * AC 2 — dialog shown. AC 5 — cancel leaves status unchanged.
-     */
     private void showLeaveConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -343,10 +325,6 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
-    /**
-     * Removes registration from Firestore and decrements waitlistCount.
-     * AC 3 — entrant removed and count updated.
-     */
     private void leaveWaitlist() {
         if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),

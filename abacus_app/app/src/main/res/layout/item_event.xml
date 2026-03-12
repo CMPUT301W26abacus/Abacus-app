@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    item_event.xml
-    RecyclerView item layout for a single event.
-    Used in: EventsFragment (and any other screen reusing the event list).
--->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
@@ -22,9 +16,7 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <!-- Event Poster / Thumbnail -->
-        <!-- Place your event poster image here. Use Glide/Picasso to load dynamically. -->
-        <!-- Default placeholder icon: ic_event_poster (your asset) -->
+        <!-- Event Poster / Thumbnail — src and tint removed, Glide handles loading -->
         <ImageView
             android:id="@+id/iv_event_poster"
             android:layout_width="72dp"
@@ -33,11 +25,8 @@
             android:clipToOutline="true"
             android:contentDescription="Event poster"
             android:scaleType="centerCrop"
-            android:src="@drawable/ic_event_poster"
-            android:tint="#96F8F8F8"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
-        <!-- Note: Create bg_rounded_image as a shape drawable with cornerRadius="8dp" -->
 
         <!-- Event Title -->
         <TextView
@@ -54,7 +43,6 @@
             app:layout_constraintTop_toTopOf="@id/iv_event_poster" />
 
         <!-- Date & Time -->
-        <!-- Icon: ic_calendar (your asset) placed as drawableStart -->
         <TextView
             android:id="@+id/tv_event_datetime"
             android:layout_width="0dp"
@@ -69,13 +57,8 @@
             app:layout_constraintEnd_toStartOf="@id/btn_join_status"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_title" />
-        <!--
-            Set drawableStartCompat in code or XML to:
-            ic_calendar  — for date/time
-        -->
 
         <!-- Location -->
-        <!-- Icon: ic_location_pin (your asset) placed as drawableStart -->
         <TextView
             android:id="@+id/tv_event_location"
             android:layout_width="0dp"
@@ -91,22 +74,8 @@
             app:layout_constraintEnd_toStartOf="@id/btn_join_status"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_datetime" />
-        <!--
-            Set drawableStartCompat in code or XML to:
-            ic_location_pin  — for location
-        -->
 
-        <!-- Join Status Button -->
-        <!--
-            States (set programmatically in adapter):
-              - "Join"         → enabled, primary style
-              - "Joined"       → disabled or secondary style
-              - "Closed"       → disabled, muted style
-              - "Unavailable"  → disabled, muted style
-            Icon tip: you can place ic_heart or ic_waitlist as drawableStart on this button.
-            Currently mirrors the heart icon from the Figma mockup; swap to a pill-style
-            status chip by switching to com.google.android.material.chip.Chip if preferred.
-        -->
+        <!-- Join Status Button (hidden for admin) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_join_status"
             style="@style/Widget.Material3.Button.TonalButton"
@@ -122,6 +91,22 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Admin Delete Button (GONE by default, shown only for admin role) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_admin_delete"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            android:text="Delete"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:visibility="gone"
+            app:backgroundTint="#EF4444"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <ImageButton
             android:id="@+id/imageButton2"
             android:layout_width="wrap_content"
@@ -133,14 +118,6 @@
             app:layout_constraintStart_toEndOf="@+id/tv_event_title"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_favourite" />
-
-        <!--
-            To show a heart/save icon instead of a text button, replace MaterialButton with:
-            <ImageButton
-                android:id="@+id/btn_join_status"
-                android:src="@drawable/ic_heart"   ← your asset
-                ... />
-        -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

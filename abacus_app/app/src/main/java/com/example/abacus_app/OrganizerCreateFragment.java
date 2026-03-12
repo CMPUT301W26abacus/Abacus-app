@@ -1,6 +1,5 @@
 package com.example.abacus_app;
 
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,11 +8,8 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -35,24 +31,12 @@ import java.util.Date;
 public class OrganizerCreateFragment extends Fragment {
 
     private CreateEventViewModel viewModel;
-    private EditText etTitle, etDescription, etLimit;
-    private Button btnSetStart, btnSetEnd, btnUpload, btnCreate;
+    private EditText etTitle, etDescription, etLimit, etPosterUrl;
+    private Button btnSetStart, btnSetEnd, btnCreate;
     private MaterialSwitch switchGeo;
     private CheckBox cbLimit;
-    private ImageView ivPoster;
 
     private Timestamp startTimestamp, endTimestamp;
-    private Uri posterUri;
-
-    private final ActivityResultLauncher<String> imagePickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri != null) {
-                    posterUri = uri;
-                    ivPoster.setImageURI(uri);
-                }
-            }
-    );
 
     @Nullable
     @Override
@@ -60,18 +44,16 @@ public class OrganizerCreateFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_create_fragment, container, false);
 
-        viewModel = new ViewModelProvider(this).get(CreateEventViewModel.class);
-
+        viewModel     = new ViewModelProvider(this).get(CreateEventViewModel.class);
         etTitle       = view.findViewById(R.id.et_event_title);
         etDescription = view.findViewById(R.id.et_event_description);
         etLimit       = view.findViewById(R.id.et_waitlist_limit);
+        etPosterUrl   = view.findViewById(R.id.et_poster_url);
         btnSetStart   = view.findViewById(R.id.btn_set_start);
         btnSetEnd     = view.findViewById(R.id.btn_set_end);
-        btnUpload     = view.findViewById(R.id.btn_upload_poster);
         btnCreate     = view.findViewById(R.id.btn_create_event);
         switchGeo     = view.findViewById(R.id.switch_geo);
         cbLimit       = view.findViewById(R.id.cb_limit_waitlist);
-        ivPoster      = view.findViewById(R.id.iv_poster_preview);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
@@ -83,7 +65,6 @@ public class OrganizerCreateFragment extends Fragment {
         cbLimit.setOnCheckedChangeListener((v, isChecked) -> etLimit.setEnabled(isChecked));
         btnSetStart.setOnClickListener(v -> showDateTimePicker(true));
         btnSetEnd.setOnClickListener(v -> showDateTimePicker(false));
-        btnUpload.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
         btnCreate.setOnClickListener(v -> createEvent());
 
         observeViewModel();
@@ -91,14 +72,20 @@ public class OrganizerCreateFragment extends Fragment {
     }
 
     private void observeViewModel() {
+        viewModel.getIsSaving().observe(getViewLifecycleOwner(), saving -> {
+            btnCreate.setEnabled(!saving);
+            btnCreate.setText(saving ? "Creating…" : "Create Event");
+        });
+
         viewModel.getEventCreated().observe(getViewLifecycleOwner(), created -> {
             if (created) {
                 Toast.makeText(getContext(), "Event Created!", Toast.LENGTH_SHORT).show();
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                    ((MainActivity) getActivity()).showHome();
                 }
             }
         });
+
         viewModel.getError().observe(getViewLifecycleOwner(), err -> {
             if (err != null) Toast.makeText(getContext(), err, Toast.LENGTH_LONG).show();
         });
@@ -133,8 +120,6 @@ public class OrganizerCreateFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "DATE_PICKER");
     }
 
-
-
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
         String desc  = etDescription.getText().toString().trim();
@@ -154,13 +139,16 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        // Use real UUID instead of hardcoded string
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String organizerId = local.getUUIDSync();
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
-        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                limit, switchGeo.isChecked());
-        viewModel.createEvent(event, posterUri);
+        // Pass URL string directly — no Storage upload needed
+        String posterUrl = etPosterUrl.getText().toString().trim();
+
+        Event event = new Event(null, title, desc, organizerId,
+                startTimestamp, endTimestamp, limit, switchGeo.isChecked());
+
+        viewModel.createEvent(event, posterUrl);
     }
 }

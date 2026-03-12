@@ -28,6 +28,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentContainerView;
@@ -42,12 +43,12 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Source;
+import com.google.firebase.firestore.ListenerRegistration;
 
+import java.text.SimpleDateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -69,12 +70,13 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
-    // Full list loaded from Firestore — filtered copy shown in RecyclerView
     private final List<Event> allEvents = new ArrayList<>();
 
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
+
+    private ListenerRegistration eventsListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -168,55 +170,221 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
 
-        // ── Load real events from Firestore (replaces hardcoded list) ──────────
+        fetchRoleAndSetupNav(localDataSource);
+
         eventRepository = new EventRepository();
         loadEventsFromFirestore();
     }
 
-    // ── Firestore event loading ────────────────────────────────────────────────
+    // ── Role & Nav ────────────────────────────────────────────────────────────
 
-    /**
-     * Fetches all events from Firestore using Himesh's EventRepository.
-     * Forces a server fetch (bypasses local cache) so changes in Firestore
-     * are always reflected immediately.
-     * On success, stores them in allEvents and applies current filters.
-     * Shows empty state if Firestore returns nothing or fails.
-     */
+    private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
+        String uuid = localDataSource.getUUIDSync();
+
+        if (uuid != null) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uuid)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        String role = doc.getString("role");
+                        userRole = (role != null) ? role : "entrant";
+                        android.util.Log.d("MainActivity", "Role from Firestore: " + userRole + " for UUID: " + uuid);
+                        setupBottomNav();
+                        applyFilters();
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.w("MainActivity", "Firestore role fetch failed", e);
+                        String intentRole = getIntent().getStringExtra("role");
+                        userRole = (intentRole != null) ? intentRole : "entrant";
+                        setupBottomNav();
+                    });
+        } else {
+            userRole = "entrant";
+            setupBottomNav();
+        }
+    }
+
+    private void setupBottomNav() {
+        if ("organizer".equals(userRole) || "admin".equals(userRole)) {
+            bottomNav.getMenu().clear();
+            bottomNav.inflateMenu(R.menu.menu_bottom_nav_organizer);
+
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_tools) {
+                    showFragment(R.id.organizerToolsFragment, true);
+                    return true;
+                } else if (id == R.id.nav_logs) {
+                    if ("admin".equals(userRole)) {
+                        showFragment(R.id.adminLogsFragment, true);
+                    } else {
+                        showFragment(R.id.organizerLogsFragment, true);
+                    }
+                    return true;
+                } else if (id == R.id.nav_notifications) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+
+        } else {
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_saved) {
+                    showFragment(R.id.nav_saved, true);
+                    return true;
+                } else if (id == R.id.nav_history) {
+                    showFragment(R.id.nav_history, true);
+                    return true;
+                } else if (id == R.id.nav_inbox) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
+
+    // ── Firestore real-time event loading ─────────────────────────────────────
+
     private void loadEventsFromFirestore() {
         showLoadingState();
 
-        // Force fetch from server, bypassing Firestore local cache
-        FirebaseFirestore.getInstance()
+        eventsListener = FirebaseFirestore.getInstance()
                 .collection("events")
-                .get(Source.SERVER)
-                .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("MainActivity", "Firestore returned " + querySnapshot.size() + " events");
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        android.util.Log.e("MainActivity", "Listen failed: " + error.getMessage());
+                        applyFilters();
+                        return;
+                    }
+                    if (querySnapshot == null) return;
+
+                    android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        Event event = doc.toObject(Event.class);
-                        android.util.Log.d("MainActivity", "Event loaded: " + (event != null ? event.getTitle() : "null"));
-                        if (event != null) {
-                            allEvents.add(event);
+                        try {
+                            Event event = doc.toObject(Event.class);
+                            if (event != null) {
+                                if (event.getEventId() == null || event.getEventId().isEmpty()) {
+                                    event.setEventId(doc.getId());
+                                }
+                                android.util.Log.d("MainActivity", "Event: " + event.getTitle()
+                                        + " | posterUrl: " + event.getPosterImageUrl());
+                                allEvents.add(event);
+                            }
+                        } catch (Exception ex) {
+                            android.util.Log.w("MainActivity", "Skipping bad doc: " + doc.getId(), ex);
                         }
                     }
                     applyFilters();
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("MainActivity", "Failed to load events: " + e.getMessage());
-                    applyFilters(); // will show empty state
                 });
     }
 
-    // ── Filter logic ──────────────────────────────────────────────────────────
+    // ── Filter & Adapter ──────────────────────────────────────────────────────
+
+    private void applyFilters() {
+        List<Event> filtered = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+        for (Event event : allEvents) {
+            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
+
+            boolean keywordMatch = activeKeyword.isEmpty()
+                    || title.contains(activeKeyword)
+                    || description.contains(activeKeyword);
+
+            boolean dateMatch = true;
+            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
+                String eventDate = sdf.format(event.getRegistrationStart().toDate());
+                dateMatch = eventDate.equals(activeDate);
+            }
+
+            if (keywordMatch && dateMatch) filtered.add(event);
+        }
+
+        boolean isAdmin = "admin".equals(userRole);
+
+        recyclerView.setAdapter(new EventAdapter(
+                filtered,
+                eventTitle -> {
+                    String eventId = "";
+                    for (Event e : filtered) {
+                        if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
+                            eventId = e.getEventId() != null ? e.getEventId() : "";
+                            break;
+                        }
+                    }
+                    Bundle args = new Bundle();
+                    args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
+                    args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                    showFragment(R.id.eventDetailsFragment, false, args);
+                },
+                isAdmin ? this::confirmDeleteEvent : null,
+                isAdmin
+        ));
+
+        if (filtered.isEmpty()) {
+            recyclerView.setVisibility(View.GONE);
+            layoutEmptyState.setVisibility(View.VISIBLE);
+            TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+            if (tvEmpty != null) {
+                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+            }
+        } else {
+            recyclerView.setVisibility(View.VISIBLE);
+            layoutEmptyState.setVisibility(View.GONE);
+        }
+    }
+
+    // ── Admin event deletion ──────────────────────────────────────────────────
+
+    private void confirmDeleteEvent(Event event) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Event")
+                .setMessage("Remove \"" + event.getTitle() + "\"? This cannot be undone.")
+                .setPositiveButton("Delete", (d, w) -> softDeleteEvent(event))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void softDeleteEvent(Event event) {
+        if (event.getEventId() == null || event.getEventId().isEmpty()) {
+            android.util.Log.e("MainActivity", "Cannot delete event — eventId is null");
+            return;
+        }
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(event.getEventId())
+                .update("isDeleted", true)
+                .addOnSuccessListener(unused -> {
+                    allEvents.remove(event);
+                    applyFilters();
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("MainActivity", "Failed to delete event: " + e.getMessage()));
+    }
+
+    // ── Bottom sheet filter ───────────────────────────────────────────────────
 
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
 
-        TextInputEditText etKeyword  = dialog.findViewById(R.id.et_keyword);
-        Button btnPickDate           = dialog.findViewById(R.id.btn_pick_date);
-        Button btnApply              = dialog.findViewById(R.id.btn_apply_filters);
-        Button btnClear              = dialog.findViewById(R.id.btn_clear_filters);
+        TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
+        Button btnPickDate          = dialog.findViewById(R.id.btn_pick_date);
+        Button btnApply             = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear             = dialog.findViewById(R.id.btn_clear_filters);
 
         if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
 
@@ -230,7 +398,8 @@ public class MainActivity extends AppCompatActivity {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
-                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH),
+                }, cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH),
                         cal.get(Calendar.DAY_OF_MONTH)).show();
             });
         }
@@ -263,57 +432,7 @@ public class MainActivity extends AppCompatActivity {
      * Date matches events whose registrationStart falls on the selected date.
      * Both filters must match when both are active (AND logic).
      */
-    private void applyFilters() {
-        List<Event> filtered = new ArrayList<>();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        for (Event event : allEvents) {
-            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
-            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
-
-            boolean keywordMatch = activeKeyword.isEmpty()
-                    || title.contains(activeKeyword)
-                    || description.contains(activeKeyword);
-
-            boolean dateMatch = true;
-            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
-                String eventDate = sdf.format(event.getRegistrationStart().toDate());
-                dateMatch = eventDate.equals(activeDate);
-            }
-
-            if (keywordMatch && dateMatch) filtered.add(event);
-        }
-
-        List<String> titles = new ArrayList<>();
-        for (Event e : filtered) titles.add(e.getTitle());
-
-        recyclerView.setAdapter(new EventAdapter(titles, eventTitle -> {
-            String eventId = "";
-            for (Event e : filtered) {
-                if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
-                    eventId = e.getEventId();
-                    break;
-                }
-            }
-            Bundle args = new Bundle();
-            args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
-            args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-            showFragment(R.id.eventDetailsFragment, false, args);
-        }));
-
-        if (filtered.isEmpty()) {
-            recyclerView.setVisibility(View.GONE);
-            layoutEmptyState.setVisibility(View.VISIBLE);
-            TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
-            if (tvEmpty != null) {
-                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
-            }
-        } else {
-            recyclerView.setVisibility(View.VISIBLE);
-            layoutEmptyState.setVisibility(View.GONE);
-        }
-    }
+    // (Duplicate applyFilters removed — original implementation above is used.)
 
     /** Shows empty state while Firestore is loading. */
     private void showLoadingState() {
@@ -323,7 +442,7 @@ public class MainActivity extends AppCompatActivity {
         if (tvEmpty != null) tvEmpty.setText("Loading events...");
     }
 
-    // ── Teammate's original methods (unchanged) ───────────────────────────────
+    // ── Navigation ────────────────────────────────────────────────────────────
 
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
@@ -352,6 +471,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (eventsListener != null) eventsListener.remove();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -364,9 +493,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public NavController getNavController() {
-        return navController;
-    }
+    public NavController getNavController() { return navController; }
+    public String getUserRole()             { return userRole; }
 
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
