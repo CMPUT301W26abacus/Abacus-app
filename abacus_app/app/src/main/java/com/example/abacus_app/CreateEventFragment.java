@@ -145,6 +145,7 @@ public class CreateEventFragment extends Fragment {
             }
         }
 
+        // Replace "ORGANIZER_ID" with actual ID if available, or fetch it from preferences/auth
         Event event = new Event(null, title, desc, "ORGANIZER_ID", startTimestamp, endTimestamp, limit, switchGeo.isChecked());
         viewModel.createEvent(event, posterUri);
     }
