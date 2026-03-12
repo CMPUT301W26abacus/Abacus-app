@@ -8,12 +8,6 @@
  * Design pattern: Uses ZXing's DecoratedBarcodeView for camera handling and
  * decoding. The fragment pauses/resumes the scanner with the fragment lifecycle
  * to avoid camera resource leaks.
- *
- * Outstanding issues:
- * - After scanning, currently just logs the result and navigates to event details.
- *   Once Firebase is integrated, use the scanned event ID to fetch the real
- *   Firestore document before navigating.
- * - Camera permission is requested at runtime; if denied the scanner will not work.
  */
 package com.example.abacus_app;
 
@@ -44,7 +38,6 @@ public class MainQrScanFragment extends Fragment {
     private DecoratedBarcodeView barcodeScanner;
     private boolean scanned = false; // prevent multiple navigations from one scan
 
-    // Runtime camera permission launcher
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
                 if (granted) {
@@ -70,11 +63,9 @@ public class MainQrScanFragment extends Fragment {
 
         barcodeScanner = view.findViewById(R.id.barcode_scanner);
 
-        // Back button
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> ((MainActivity) requireActivity()).showHome());
 
-        // Check camera permission then start scanner
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startScanning();
@@ -98,16 +89,15 @@ public class MainQrScanFragment extends Fragment {
 
                 String scannedEventId = result.getText();
 
-                // TODO: use scannedEventId to fetch event from Firestore
-                // For now pass it directly to EventDetailsFragment as the event ID
+                // Pass event ID to EventDetailsFragment
+                // TODO: fetch real event title from Firestore using scannedEventId
                 Bundle args = new Bundle();
-                args.putString(EventQrFragment.ARG_EVENT_ID, scannedEventId);
-                args.putString(EventQrFragment.ARG_EVENT_NAME, "Scanned Event");
+                args.putString(EventDetailsFragment.ARG_EVENT_ID, scannedEventId);
+                args.putString(EventDetailsFragment.ARG_EVENT_TITLE, "Scanned Event");
 
-                // Navigate to event details via MainActivity's NavController
-                ((MainActivity) requireActivity()).showHome();
-                ((MainActivity) requireActivity()).getNavController()
-                        .navigate(R.id.eventDetailsFragment);
+                // showFragment makes NavHost visible and navigates in one call
+                ((MainActivity) requireActivity())
+                        .showFragment(R.id.eventDetailsFragment, false, args);
             }
 
             @Override

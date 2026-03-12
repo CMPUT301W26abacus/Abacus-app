@@ -1,9 +1,5 @@
 /**
  * MainActivity.java
- *
- * Role: Entry point and primary controller for the Abacus application.
- * Implements the home screen (event browse list) directly and manages
- * fragment-based navigation for all other screens via a NavHostFragment overlay.
  */
 package com.example.abacus_app;
 
@@ -19,6 +15,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentContainerView;
@@ -36,7 +33,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Source;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -59,12 +56,13 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
-    // Full list loaded from Firestore — filtered copy shown in RecyclerView
     private final List<Event> allEvents = new ArrayList<>();
 
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
+
+    private ListenerRegistration eventsListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,7 +136,6 @@ public class MainActivity extends AppCompatActivity {
 
         fetchRoleAndSetupNav(localDataSource);
 
-        // Load real events from Firestore
         eventRepository = new EventRepository();
         loadEventsFromFirestore();
     }
@@ -158,6 +155,7 @@ public class MainActivity extends AppCompatActivity {
                         userRole = (role != null) ? role : "entrant";
                         android.util.Log.d("MainActivity", "Role from Firestore: " + userRole + " for UUID: " + uuid);
                         setupBottomNav();
+                        applyFilters();
                     })
                     .addOnFailureListener(e -> {
                         android.util.Log.w("MainActivity", "Firestore role fetch failed", e);
@@ -219,33 +217,129 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Firestore event loading ───────────────────────────────────────────────
+    // ── Firestore real-time event loading ─────────────────────────────────────
 
     private void loadEventsFromFirestore() {
         showLoadingState();
 
-        FirebaseFirestore.getInstance()
+        eventsListener = FirebaseFirestore.getInstance()
                 .collection("events")
-                .get(Source.SERVER)
-                .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("MainActivity", "Firestore returned " + querySnapshot.size() + " events");
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        android.util.Log.e("MainActivity", "Listen failed: " + error.getMessage());
+                        applyFilters();
+                        return;
+                    }
+                    if (querySnapshot == null) return;
+
+                    android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        Event event = doc.toObject(Event.class);
-                        android.util.Log.d("MainActivity", "Event loaded: " + (event != null ? event.getTitle() : "null"));
-                        if (event != null) {
-                            allEvents.add(event);
+                        try {
+                            Event event = doc.toObject(Event.class);
+                            if (event != null) {
+                                if (event.getEventId() == null || event.getEventId().isEmpty()) {
+                                    event.setEventId(doc.getId());
+                                }
+                                android.util.Log.d("MainActivity", "Event: " + event.getTitle()
+                                        + " | posterUrl: " + event.getPosterImageUrl());
+                                allEvents.add(event);
+                            }
+                        } catch (Exception ex) {
+                            android.util.Log.w("MainActivity", "Skipping bad doc: " + doc.getId(), ex);
                         }
                     }
                     applyFilters();
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("MainActivity", "Failed to load events: " + e.getMessage());
-                    applyFilters(); // will show empty state
                 });
     }
 
-    // ── Filter logic ──────────────────────────────────────────────────────────
+    // ── Filter & Adapter ──────────────────────────────────────────────────────
+
+    private void applyFilters() {
+        List<Event> filtered = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+        for (Event event : allEvents) {
+            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
+
+            boolean keywordMatch = activeKeyword.isEmpty()
+                    || title.contains(activeKeyword)
+                    || description.contains(activeKeyword);
+
+            boolean dateMatch = true;
+            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
+                String eventDate = sdf.format(event.getRegistrationStart().toDate());
+                dateMatch = eventDate.equals(activeDate);
+            }
+
+            if (keywordMatch && dateMatch) filtered.add(event);
+        }
+
+        boolean isAdmin = "admin".equals(userRole);
+
+        recyclerView.setAdapter(new EventAdapter(
+                filtered,
+                eventTitle -> {
+                    String eventId = "";
+                    for (Event e : filtered) {
+                        if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
+                            eventId = e.getEventId() != null ? e.getEventId() : "";
+                            break;
+                        }
+                    }
+                    Bundle args = new Bundle();
+                    args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
+                    args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                    showFragment(R.id.eventDetailsFragment, false, args);
+                },
+                isAdmin ? this::confirmDeleteEvent : null,
+                isAdmin
+        ));
+
+        if (filtered.isEmpty()) {
+            recyclerView.setVisibility(View.GONE);
+            layoutEmptyState.setVisibility(View.VISIBLE);
+            TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
+            if (tvEmpty != null) {
+                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+            }
+        } else {
+            recyclerView.setVisibility(View.VISIBLE);
+            layoutEmptyState.setVisibility(View.GONE);
+        }
+    }
+
+    // ── Admin event deletion ──────────────────────────────────────────────────
+
+    private void confirmDeleteEvent(Event event) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Event")
+                .setMessage("Remove \"" + event.getTitle() + "\"? This cannot be undone.")
+                .setPositiveButton("Delete", (d, w) -> softDeleteEvent(event))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void softDeleteEvent(Event event) {
+        if (event.getEventId() == null || event.getEventId().isEmpty()) {
+            android.util.Log.e("MainActivity", "Cannot delete event — eventId is null");
+            return;
+        }
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(event.getEventId())
+                .update("isDeleted", true)
+                .addOnSuccessListener(unused -> {
+                    allEvents.remove(event);
+                    applyFilters();
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("MainActivity", "Failed to delete event: " + e.getMessage()));
+    }
+
+    // ── Bottom sheet filter ───────────────────────────────────────────────────
 
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
@@ -296,58 +390,6 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    private void applyFilters() {
-        List<Event> filtered = new ArrayList<>();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        for (Event event : allEvents) {
-            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
-            String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
-
-            boolean keywordMatch = activeKeyword.isEmpty()
-                    || title.contains(activeKeyword)
-                    || description.contains(activeKeyword);
-
-            boolean dateMatch = true;
-            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
-                String eventDate = sdf.format(event.getRegistrationStart().toDate());
-                dateMatch = eventDate.equals(activeDate);
-            }
-
-            if (keywordMatch && dateMatch) filtered.add(event);
-        }
-
-        List<String> titles = new ArrayList<>();
-        for (Event e : filtered) titles.add(e.getTitle());
-
-        recyclerView.setAdapter(new EventAdapter(titles, eventTitle -> {
-            String eventId = "";
-            for (Event e : filtered) {
-                if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
-                    eventId = e.getEventId();
-                    break;
-                }
-            }
-            Bundle args = new Bundle();
-            args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
-            args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-            showFragment(R.id.eventDetailsFragment, false, args);
-        }));
-
-        if (filtered.isEmpty()) {
-            recyclerView.setVisibility(View.GONE);
-            layoutEmptyState.setVisibility(View.VISIBLE);
-            TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
-            if (tvEmpty != null) {
-                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
-            }
-        } else {
-            recyclerView.setVisibility(View.VISIBLE);
-            layoutEmptyState.setVisibility(View.GONE);
-        }
-    }
-
     private void showLoadingState() {
         recyclerView.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);
@@ -384,6 +426,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (eventsListener != null) eventsListener.remove();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -397,7 +449,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public NavController getNavController() { return navController; }
-    public String getUserRole() { return userRole; }
+    public String getUserRole()             { return userRole; }
 
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
