@@ -12,6 +12,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
+        android:name=".AbacusApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -20,18 +21,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Abacusapp">
-        <activity
-            android:name=".MainActivity"
+
+        <!-- TODO: Add the activity for Splash -->
+        <activity android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
+        <!-- MainActivity has NO intent filter -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false">
+        </activity>
 
-        <!-- TODO: Add the activity for Splash -->
+        <!-- TODO: Add the activity for Login -->
+        <activity android:name=".LoginActivity"/>
+
+        <!-- TODO: Add the activity for Register -->
+        <activity android:name=".RegisterActivity"/>
 
         <!-- TODO: Add the service for FCM -->
 
