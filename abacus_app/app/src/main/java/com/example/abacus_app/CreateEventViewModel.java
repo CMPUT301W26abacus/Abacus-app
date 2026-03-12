@@ -25,12 +25,26 @@ public class CreateEventViewModel extends ViewModel {
     private final MutableLiveData<String>  error        = new MutableLiveData<>();
     private final MutableLiveData<Boolean> eventCreated = new MutableLiveData<>(false);
 
+    /**
+     * Constructs a new CreateEventViewModel and initializes repositories.
+     */
     public CreateEventViewModel() {
         this.eventRepository = new EventRepository();
     }
 
+    /**
+     * @return Observable status of whether a save operation is in progress.
+     */
     public LiveData<Boolean> getIsSaving()     { return isSaving; }
+
+    /**
+     * @return Observable error messages to be displayed in the UI.
+     */
     public LiveData<String>  getError()        { return error; }
+
+    /**
+     * @return Observable trigger for successful event creation.
+     */
     public LiveData<Boolean> getEventCreated() { return eventCreated; }
 
     /**

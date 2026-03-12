@@ -139,16 +139,13 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
+        // Use real UUID instead of hardcoded string
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String organizerId = local.getUUIDSync();
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
-        // Pass URL string directly — no Storage upload needed
-        String posterUrl = etPosterUrl.getText().toString().trim();
-
-        Event event = new Event(null, title, desc, organizerId,
-                startTimestamp, endTimestamp, limit, switchGeo.isChecked());
-
-        viewModel.createEvent(event, posterUrl);
+        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
+                limit, switchGeo.isChecked());
+        viewModel.createEvent(event, posterUri);
     }
 }

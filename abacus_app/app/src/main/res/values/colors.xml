@@ -10,4 +10,5 @@
     <color name="claude_clay">#C96A3A</color>
     <color name="claude_warm_white">#FAF7F2</color>
     <color name="claude_muted">#7A7168</color>
+    <color name="error_red">#B00020</color> <!-- Added to fix build error in item_entrant.xml -->
 </resources>
