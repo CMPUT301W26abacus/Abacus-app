@@ -34,7 +34,7 @@ public class WaitlistAdapter extends RecyclerView.Adapter<WaitlistAdapter.Waitli
     @Override
     public void onBindViewHolder(@NonNull WaitlistViewHolder holder, int position) {
         WaitlistEntry entry = entries.get(position);
-        holder.tvName.setText("User: " + entry.getUserId());
+        holder.tvName.setText("User: " + entry.getUserID());
         holder.tvStatus.setText("Status: " + entry.getStatus());
         
         // Cancel button visibility logic (e.g. only if not already cancelled)
