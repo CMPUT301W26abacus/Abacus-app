@@ -10,6 +10,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -42,7 +44,6 @@ public class AdminLogsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // FIX: Use requireActivity() so this instance matches what AdminTabFragment observes
         viewModel = new ViewModelProvider(requireActivity()).get(AdminViewModel.class);
 
         viewModel.getProfiles().observe(getViewLifecycleOwner(), users ->
@@ -59,7 +60,14 @@ public class AdminLogsFragment extends Fragment {
             tab.setText(position == 0 ? "Images" : "Profiles");
         }).attach();
 
-        // Load data into the shared activity-scoped ViewModel
+        // Apply actual nav bar height as bottom padding at runtime — no hardcoded values
+        ViewCompat.setOnApplyWindowInsetsListener(viewPager, (v, insets) -> {
+            int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+            v.setPadding(0, 0, 0, navBarHeight);
+            ((ViewGroup) v).setClipToPadding(false);
+            return insets;
+        });
+
         viewModel.loadImages();
         viewModel.loadProfiles();
 
@@ -130,16 +138,14 @@ public class AdminLogsFragment extends Fragment {
             View         layoutEmpty = view.findViewById(R.id.layout_empty);
             rv.setLayoutManager(new LinearLayoutManager(getContext()));
 
-            // Same activity scope as AdminLogsFragment — shares the same instance
-            AdminViewModel vm = new ViewModelProvider(requireActivity())
-                    .get(AdminViewModel.class);
+            AdminViewModel vm = new ViewModelProvider(requireActivity()).get(AdminViewModel.class);
 
             if (tab == TAB_IMAGES) {
                 List<Event> imageList = new ArrayList<>();
                 AdminImageAdapter adapter = new AdminImageAdapter(imageList, event ->
                         confirmDelete(
-                                "Remove this image?",
-                                "This will remove the poster from the event.",
+                                "Remove poster image?",
+                                "This will remove the poster from the event but keep the event itself.",
                                 () -> vm.deleteImage(event.getEventId())));
                 rv.setAdapter(adapter);
 

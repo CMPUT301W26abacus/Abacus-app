@@ -146,6 +146,7 @@ public class OrganizerCreateFragment extends Fragment {
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 limit, switchGeo.isChecked());
-        viewModel.createEvent(event, posterUri);
+        String posterUrl = etPosterUrl.getText().toString().trim();
+        viewModel.createEvent(event, posterUrl);
     }
 }

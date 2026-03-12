@@ -13,12 +13,12 @@ import java.util.List;
 /**
  * Manages UI state and business logic for tracking entrants and finalizing the lottery.
  * Responsible for loading event-specific waitlists and managing entrant status.
- * 
+ *
  * @author Himesh
  */
 public class ManageEventViewModel extends ViewModel {
 
-    private final RegistrationRemoteDataSource registrationDataSource;
+    private final RegistrationRepository registrationRepository;
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     private final MutableLiveData<List<WaitlistEntry>> entrants  = new MutableLiveData<>(new ArrayList<>());
@@ -27,35 +27,27 @@ public class ManageEventViewModel extends ViewModel {
     private final MutableLiveData<Boolean>             isLoading = new MutableLiveData<>(false);
 
     /**
-     * Constructs the ViewModel and initializes the remote data source.
+     * Constructs the ViewModel and initializes the repository.
      */
     public ManageEventViewModel() {
-        this.registrationDataSource = new RegistrationRemoteDataSource();
+        this.registrationRepository = new RegistrationRepository();
     }
 
-    /**
-     * @return List of entrants currently on the waitlist.
-     */
+    /** @return List of entrants currently on the waitlist. */
     public LiveData<List<WaitlistEntry>> getEntrants()  { return entrants; }
-    
-    /**
-     * @return List of events managed by the current organizer.
-     */
+
+    /** @return List of events managed by the current organizer. */
     public LiveData<List<Event>>         getEvents()    { return events; }
-    
-    /**
-     * @return Any error message encountered during data operations.
-     */
+
+    /** @return Any error message encountered during data operations. */
     public LiveData<String>              getError()     { return error; }
-    
-    /**
-     * @return Loading status indicator.
-     */
+
+    /** @return Loading status indicator. */
     public LiveData<Boolean>             getIsLoading() { return isLoading; }
 
-    /** 
-     * Loads all events for the given organizer UUID. 
-     * 
+    /**
+     * Loads all events for the given organizer UUID.
+     *
      * @param organizerId The unique device/organizer ID.
      */
     public void loadOrganizerEvents(String organizerId) {
@@ -78,42 +70,42 @@ public class ManageEventViewModel extends ViewModel {
                 });
     }
 
-    /** 
-     * Loads the waitlist for a specific event. 
-     * 
+    /**
+     * Loads the waitlist for a specific event.
+     *
      * @param eventId The ID of the event to fetch the waitlist for.
      */
     public void loadWaitlist(String eventId) {
         isLoading.setValue(true);
-        registrationDataSource.getWaitlist(eventId).addOnSuccessListener(querySnapshot -> {
-            List<WaitlistEntry> list = new ArrayList<>();
-            for (DocumentSnapshot doc : querySnapshot) {
-                WaitlistEntry entry = doc.toObject(WaitlistEntry.class);
-                if (entry != null) list.add(entry);
+        registrationRepository.getAllEntries(eventId, waitlist -> {
+            if (waitlist != null) {
+                entrants.setValue(new ArrayList<>(waitlist));
+            } else {
+                error.setValue("Failed to load waitlist");
             }
-            entrants.setValue(list);
             isLoading.setValue(false);
-        }).addOnFailureListener(e -> {
-            isLoading.setValue(false);
-            error.setValue("Failed to load waitlist: " + e.getMessage());
         });
     }
 
     /**
      * Cancels an entrant's registration for an event.
      * US 02.06.04 implementation.
-     * 
+     *
      * @param eventId The event ID.
-     * @param userId The ID of the user to cancel.
+     * @param userId  The ID of the user to cancel.
      */
     public void cancelEntrant(String eventId, String userId) {
-        registrationDataSource.updateStatus(eventId, userId, WaitlistEntry.STATUS_CANCELLED);
+        registrationRepository.cancelEntrant(userId, eventId, err -> {
+            if (err != null) {
+                error.setValue("Failed to cancel entrant: " + err.getMessage());
+            }
+        });
     }
 
     /**
      * Formats and exports the final list of enrolled entrants to a CSV file.
      * US 02.06.05 implementation.
-     * 
+     *
      * @param entries The list of waitlist entries to export.
      */
     public void exportToCSV(List<WaitlistEntry> entries) {

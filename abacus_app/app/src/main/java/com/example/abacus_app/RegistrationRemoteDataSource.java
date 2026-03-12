@@ -4,7 +4,12 @@ import android.util.Log;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.*;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
@@ -17,17 +22,6 @@ import java.util.concurrent.ExecutionException;
  *
  * @author Team Abacus, Kaylee Crocker
  * @version 1.0
- */
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.firestore.CollectionReference;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QuerySnapshot;
-
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * Handles all remote data operations (Firestore) for events and waitlists.
  */
 public class RegistrationRemoteDataSource {
 
@@ -51,167 +45,147 @@ public class RegistrationRemoteDataSource {
     }
 
     /**
-     * Checks whether or not a specific user is on the waitlist of a specific event by searching
-     * for their document in the database.
+     * Checks whether or not a specific user is on the waitlist of a specific event.
      *
-     * @param userID the unique ID of the user in the database
+     * @param userID  the unique ID of the user in the database
      * @param eventID the unique ID of the event in the database
      * @return true if user is on waitlist, false otherwise
      * @throws Exception something went wrong
      */
     public boolean isUserOnWaitlistSync(String userID, String eventID) throws Exception {
-
         DocumentSnapshot doc = Tasks.await(
-                firestore.collection("events")
+                getCollectionRef(eventID)
                         .document(userID)
-                        .collection("waitlist")
-                        .document(eventID)
                         .get()
         );
-    private final FirebaseFirestore db;
-    private final CollectionReference eventsRef;
-
-    public RegistrationRemoteDataSource() {
-        db = FirebaseFirestore.getInstance();
-        eventsRef = db.collection("events");
-    }
-
-    /**
-     * Saves a new event to Firestore.
-     */
-    public Task<Void> createEvent(Event event) {
-        String id = eventsRef.document().getId();
-        event.setEventId(id);
-        return eventsRef.document(id).set(event);
-    }
-
-    /**
-     * Updates an existing event's details.
-     */
-    public Task<Void> updateEvent(Event event) {
-        return eventsRef.document(event.getEventId()).set(event);
-    }
-
-    /**
-     * Joins the waitlist for a specific event.
-     */
-    public void joinWaitlist(String eventID, WaitlistEntry entry) {
-        eventsRef.document(eventID).collection("waitlist")
-                .document(entry.getUserId()).set(entry);
-    }
-
         return doc.exists();
     }
 
     /**
-     * Returns a WaitlistEntry object containing the data associated with the entry of a single
-     * user for a single event.
+     * Returns a WaitlistEntry object for a single user on a single event.
      *
-     * @param userID the unique ID of the user in the database
+     * @param userID  the unique ID of the user in the database
      * @param eventID the unique ID of the event in the database
-     * @return the WaitlistEntry containing the status, joinTime, lotteryNumber, etc...
+     * @return the WaitlistEntry or null if not found
      * @throws Exception something went wrong
      */
     public WaitlistEntry getUserWaitlistEntry(String userID, String eventID) throws Exception {
-
         DocumentSnapshot doc = Tasks.await(
                 getCollectionRef(eventID)
                         .document(userID)
                         .get()
         );
-
         if (doc.exists()) {
             return doc.toObject(WaitlistEntry.class);
         }
-
         return null;
     }
 
+    /**
+     * Returns the number of entries on the waitlist for an event.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @return size of the waitlist
+     * @throws Exception something went wrong
+     */
     public int getWaitlistSizeSync(String eventID) throws Exception {
-
         Log.d("mytagRDS", "Running from RDS...");
-
         QuerySnapshot snapshot = Tasks.await(
                 getCollectionRef(eventID).get(Source.SERVER)
         );
-
         return snapshot.size();
     }
 
+    /**
+     * Adds a WaitlistEntry to the waitlist subcollection of an event.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param entry   the WaitlistEntry to add
+     * @throws Exception something went wrong
+     */
     public void joinWaitlistSync(String eventID, WaitlistEntry entry) throws Exception {
-
-        DocumentReference docRef =
-                getCollectionRef(eventID)
-                        .document(entry.getUserID());
-
+        DocumentReference docRef = getCollectionRef(eventID).document(entry.getUserID());
         Tasks.await(docRef.set(entry));
     }
 
+    /**
+     * Removes a user's entry from the waitlist subcollection.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId  the unique ID of the user in the database
+     * @throws Exception something went wrong
+     */
     public void removeWaitlistEntrySync(String eventId, String userId) throws Exception {
-
-        DocumentReference docRef =
-                getCollectionRef(eventId)
-                        .document(userId);
-
+        DocumentReference docRef = getCollectionRef(eventId).document(userId);
         Tasks.await(docRef.delete());
     }
 
+    /**
+     * Updates the status field of a single waitlist entry.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId  the unique ID of the user in the database
+     * @param status  the new status string
+     * @throws Exception something went wrong
+     */
     public void updateUserEntryStatusSync(String eventId, String userId, String status) throws Exception {
-
-        DocumentReference docRef =
-                getCollectionRef(eventId)
-                        .document(userId);
-
+        DocumentReference docRef = getCollectionRef(eventId).document(userId);
         Tasks.await(docRef.update("status", status));
     }
 
+    /**
+     * Returns all waitlist entries for a specific event.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @return list of all WaitlistEntry objects
+     * @throws Exception something went wrong
+     */
     public ArrayList<WaitlistEntry> getEntriesSync(String eventID) throws Exception {
-
-        QuerySnapshot snapshot = Tasks.await(
-                getCollectionRef(eventID).get()
-        );
+        QuerySnapshot snapshot = Tasks.await(getCollectionRef(eventID).get());
 
         ArrayList<WaitlistEntry> waitlist = new ArrayList<>();
-
         for (DocumentSnapshot doc : snapshot.getDocuments()) {
             String userID = doc.getString("userID");
             String status = doc.getString("status");
             Long lotteryNumberLong = doc.getLong("lotteryNumber");
             int lotteryNumber = lotteryNumberLong != null ? lotteryNumberLong.intValue() : 0;
             Timestamp joinTime = doc.getTimestamp("joinTime");
-
-            WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
-            waitlist.add(entry);
+            waitlist.add(new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime));
         }
-
         return waitlist;
     }
 
+    /**
+     * Returns all waitlist entries for a specific event filtered by status.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param status  the status to filter by
+     * @return filtered list of WaitlistEntry objects
+     * @throws Exception something went wrong
+     */
     public ArrayList<WaitlistEntry> getEntriesWithStatusSync(String eventID, String status) throws Exception {
-
-        QuerySnapshot snapshot = Tasks.await(
-                getCollectionRef(eventID).get()
-        );
+        QuerySnapshot snapshot = Tasks.await(getCollectionRef(eventID).get());
 
         ArrayList<WaitlistEntry> waitlist = new ArrayList<>();
-
         for (DocumentSnapshot doc : snapshot.getDocuments()) {
-            if (doc.getString("status").equals(status)) {
+            if (status.equals(doc.getString("status"))) {
                 String userID = doc.getString("userID");
                 Long lotteryNumberLong = doc.getLong("lotteryNumber");
                 int lotteryNumber = lotteryNumberLong != null ? lotteryNumberLong.intValue() : 0;
                 Timestamp joinTime = doc.getTimestamp("joinTime");
-
-                WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
-                waitlist.add(entry);
+                waitlist.add(new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime));
             }
         }
-
         return waitlist;
     }
 
+    /**
+     * Returns all waitlist entries associated with a single user across all events.
+     *
+     * @param userID the unique ID of the user in the database
+     * @return list of all WaitlistEntry objects for the user
+     */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
-
         try {
             QuerySnapshot snapshot = Tasks.await(
                     firestore.collectionGroup("waitlist")
@@ -220,47 +194,19 @@ public class RegistrationRemoteDataSource {
             );
 
             ArrayList<WaitlistEntry> history = new ArrayList<>();
-
             for (DocumentSnapshot doc : snapshot.getDocuments()) {
                 String eventID = doc.getString("eventID");
                 String status = doc.getString("status");
                 Long lotteryNumLong = doc.getLong("lotteryNumber");
                 int lotteryNumber = lotteryNumLong != null ? lotteryNumLong.intValue() : 0;
                 Timestamp joinTime = doc.getTimestamp("joinTime");
-
-                WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
-                history.add(entry);
+                history.add(new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime));
             }
-
             return history;
 
         } catch (Exception e) {
             Log.e("RDS", "query failed", e);
         }
-
         return null;
-    /**
-     * Updates the status field of a single waitlist entry.
-     */
-    public void updateStatus(String eventID, String userID, String status) {
-        Map<String, Object> update = new HashMap<>();
-        update.put("status", status);
-        eventsRef.document(eventID).collection("waitlist")
-                .document(userID).update(update);
-    }
-
-    /**
-     * Removes a user from the waitlist entirely.
-     */
-    public void deleteFromWaitlist(String eventID, String userID) {
-        eventsRef.document(eventID).collection("waitlist")
-                .document(userID).delete();
-    }
-
-    /**
-     * Fetches all waitlisted entrants for a specific event.
-     */
-    public Task<QuerySnapshot> getWaitlist(String eventID) {
-        return eventsRef.document(eventID).collection("waitlist").get();
     }
 }
