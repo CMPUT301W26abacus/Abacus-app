@@ -144,8 +144,7 @@ public class OrganizerCreateFragment extends Fragment {
         String organizerId = local.getUUIDSync();
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
-        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                limit, switchGeo.isChecked());
+        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp, limit,0, switchGeo.isChecked());
         String posterUrl = etPosterUrl.getText().toString().trim();
         viewModel.createEvent(event, posterUrl);
     }

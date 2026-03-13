@@ -12,6 +12,8 @@ import android.util.Log;
 
 import com.google.firebase.Timestamp;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -237,12 +239,56 @@ public class RegistrationRepository {
         });
     }
 
-    public void runLottery() {
+    /**
+     * Runs the lottery that fairly selects which users to invite to an event. Each entrant is
+     * given a lottery number upon joining the waitlist. The lottery loads in all waitlisted
+     * entrants, sorts them in order of ascending lottery numbers, and invites entrants starting
+     * from the front of the list until the event capacity is reached. Random assignment of lottery
+     * numbers ensures that each entrant has an equal chance of being selected.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
+     */
+    public void runLottery(String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+           try {
+               ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_WAITLISTED);
+               EventRemoteDataSource eventrepo = new EventRemoteDataSource();
+               int eventCapacity = eventrepo.getEventById(eventID).getEventCapacity();
 
+               Collections.sort(entries);
+
+               for (int i = 0; i < eventCapacity; i++) {
+                   remoteDataSource.updateUserEntryStatusSync(eventID, entries.get(i).getUserID(), WaitlistEntry.STATUS_INVITED);
+               }
+               mainHandler.post(() -> callback.onComplete(null));
+
+           } catch (Exception e) {
+               mainHandler.post(() -> callback.onComplete(e));
+           }
+        });
     }
 
-    public void drawReplacement() {
+    /**
+     * Invites the next waitlisted user with the lowest lottery number.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
+     */
+    public void drawReplacement(String eventID, EntryCallback callback) {
+        executor.submit(() -> {
+            try {
+                ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_WAITLISTED);
+                Collections.sort(entries);
 
+                WaitlistEntry replacement = entries.get(0);
+
+                mainHandler.post(() -> callback.onResult(replacement));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
     }
 
     /**

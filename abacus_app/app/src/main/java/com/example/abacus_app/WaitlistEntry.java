@@ -9,7 +9,7 @@ import com.google.firebase.Timestamp;
  * @author Team Abacus, Kaylee Crocker
  * @version 1.0
  */
-public class WaitlistEntry {
+public class WaitlistEntry implements Comparable<WaitlistEntry> {
 
     /**
      * Indicates that an entrant is on the waitlist but has not been invited.
@@ -97,5 +97,10 @@ public class WaitlistEntry {
      */
     public Timestamp getJoinTime() {
         return joinTime;
+    }
+
+    @Override
+    public int compareTo(WaitlistEntry other) {
+        return this.getLotteryNumber() - other.getLotteryNumber();
     }
 }

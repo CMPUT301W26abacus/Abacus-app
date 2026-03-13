@@ -1,10 +1,13 @@
 package com.example.abacus_app;
 
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
+
+import java.util.concurrent.ExecutionException;
 
 /**
  * Handles direct Firestore communication for the events collection.
@@ -25,8 +28,12 @@ public class EventRemoteDataSource {
         return eventsRef.document(id).set(event);
     }
 
-    public Task<DocumentSnapshot> getEventById(String eventId) {
-        return eventsRef.document(eventId).get();
+    public Event getEventById(String eventId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot doc = Tasks.await(eventsRef.document(eventId).get());
+        if (doc.exists()) {
+            return doc.toObject(Event.class);
+        }
+        return null;
     }
 
     public Task<QuerySnapshot> getAllEvents() {
