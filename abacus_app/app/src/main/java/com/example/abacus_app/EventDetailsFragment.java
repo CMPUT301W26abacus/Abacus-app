@@ -274,7 +274,7 @@ public class EventDetailsFragment extends Fragment {
                         if (capacity == null || capacity == -1) {
                             tvWaitlistCount.setText(count + " on waiting list");
                         } else {
-                            long spotsLeft = capacity - count;
+                            long spotsLeft = Math.max(0, capacity - count);
                             tvWaitlistCount.setText(
                                     count + " on waiting list · " + spotsLeft + " spots left");
                         }
