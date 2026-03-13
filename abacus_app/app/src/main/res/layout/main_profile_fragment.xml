@@ -27,6 +27,7 @@
 
             <!-- Avatar + name card -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/cardAvatar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
@@ -114,6 +115,7 @@
 
             <!-- Fields card -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/cardFields"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"

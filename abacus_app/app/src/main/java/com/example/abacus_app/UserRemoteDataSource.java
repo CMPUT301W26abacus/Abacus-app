@@ -114,6 +114,25 @@ public class UserRemoteDataSource {
     }
 
     /**
+     * Hard-deletes all waitlist entries across every event for the given user.
+     * Uses a collectionGroup query then a batched delete.
+     * Blocks — call on background thread.
+     */
+    public void deleteWaitlistEntriesForUser(String userId) throws Exception {
+        com.google.firebase.firestore.QuerySnapshot snapshot = com.google.android.gms.tasks.Tasks.await(
+                db.collectionGroup("waitlist")
+                        .whereEqualTo("userID", userId)
+                        .get());
+        if (snapshot.isEmpty()) return;
+
+        com.google.firebase.firestore.WriteBatch batch = db.batch();
+        for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot.getDocuments()) {
+            batch.delete(doc.getReference());
+        }
+        com.google.android.gms.tasks.Tasks.await(batch.commit());
+    }
+
+    /**
      * Safely retrieves a String value from a Firestore DocumentSnapshot.
      * Returns an empty string if the value is null or not a String.
      * @param snap Firestore DocumentSnapshot

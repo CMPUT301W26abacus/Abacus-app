@@ -47,7 +47,10 @@ public class ProfileFragment extends Fragment {
     private Button      btnDelete;
     private Button      btnLogout;
     private Button      btnLinkAccount;
-    private View    tvGuestBanner;
+    private View        tvGuestBanner;
+    private View        cardAvatar;
+    private View        cardFields;
+    private TextView    labelSection;
     private View        dangerDivider;
     private TextView    labelDanger;
 
@@ -84,6 +87,9 @@ public class ProfileFragment extends Fragment {
         btnLogout        = view.findViewById(R.id.btnLogout);
         btnLinkAccount   = view.findViewById(R.id.btnLinkAccount);
         tvGuestBanner    = view.findViewById(R.id.tvGuestBanner);
+        cardAvatar       = view.findViewById(R.id.cardAvatar);
+        cardFields       = view.findViewById(R.id.cardFields);
+        labelSection     = view.findViewById(R.id.labelSection);
         dangerDivider    = view.findViewById(R.id.dangerDivider);
         labelDanger      = view.findViewById(R.id.labelDanger);
 
@@ -168,13 +174,6 @@ public class ProfileFragment extends Fragment {
             }
         });
 
-        viewModel.getLogoutComplete().observe(getViewLifecycleOwner(), done -> {
-            if (done != null && done) {
-                Intent intent = new Intent(requireContext(), LoginActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-            }
-        });
 
         etName.addTextChangedListener(new SimpleTextWatcher() {
             @Override public void afterTextChanged(Editable s) {
@@ -226,6 +225,9 @@ public class ProfileFragment extends Fragment {
      *           encouraging the user to link an account.
      */
     private void showGuestUI() {
+        cardAvatar.setVisibility(View.GONE);
+        labelSection.setVisibility(View.GONE);
+        cardFields.setVisibility(View.GONE);
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
         btnSave.setVisibility(View.GONE);
@@ -233,9 +235,6 @@ public class ProfileFragment extends Fragment {
         btnDelete.setVisibility(View.GONE);
         dangerDivider.setVisibility(View.GONE);
         labelDanger.setVisibility(View.GONE);
-        etName.setEnabled(false);
-        etEmail.setEnabled(false);
-        etPhone.setEnabled(false);
     }
 
     /**
@@ -244,6 +243,9 @@ public class ProfileFragment extends Fragment {
      * @implNote This method enables editable fields and buttons, and hides the guest banner.
      */
     private void showLoggedInUI() {
+        cardAvatar.setVisibility(View.VISIBLE);
+        labelSection.setVisibility(View.VISIBLE);
+        cardFields.setVisibility(View.VISIBLE);
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
         btnSave.setVisibility(View.VISIBLE);

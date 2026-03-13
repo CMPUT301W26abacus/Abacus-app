@@ -31,8 +31,6 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<Boolean> _isGuest      = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _toastMessage = new MutableLiveData<>(null);
     private final MutableLiveData<Boolean> _profileDeleted = new MutableLiveData<>(false);
-    private final MutableLiveData<Boolean> _logoutComplete = new MutableLiveData<>(false);
-
     public LiveData<String>  getName()                 { return _name; }
     public LiveData<String>  getEmail()                { return _email; }
     public LiveData<String>  getPhone()                { return _phone; }
@@ -44,7 +42,6 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<Boolean> getIsGuest()       { return _isGuest; }
     public LiveData<String>  getToastMessage()  { return _toastMessage; }
     public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
-    public LiveData<Boolean> getLogoutComplete() { return _logoutComplete; }
     private UserRepository userRepository;
 
     /**
@@ -115,6 +112,12 @@ public class ProfileViewModel extends ViewModel {
 
                 boolean guest = user.isGuest() || user.getLastLoginAt() == 0;
                 _isGuest.postValue(guest);
+            } else {
+                // No UUID in storage — device is a guest regardless of the activity intent
+                _name.postValue("");
+                _email.postValue("");
+                _phone.postValue("");
+                _isGuest.postValue(true);
             }
         });
     }
@@ -174,6 +177,7 @@ public class ProfileViewModel extends ViewModel {
                 _name.postValue("");
                 _email.postValue("");
                 _phone.postValue("");
+                _isGuest.postValue(true);
                 _profileDeleted.postValue(true);
                 _toastMessage.postValue("Profile deleted");
             } else {
@@ -183,9 +187,9 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
-     * Clears the local UUID, signs out of Firebase Auth, and signals the
-     * fragment to navigate to LoginActivity. The next app launch will start
-     * fresh with a new anonymous identity rather than reloading the old profile.
+     * Clears the local UUID and signs out of Firebase Auth, then resets all
+     * profile state to guest so the profile screen shows the guest UI in-place
+     * without navigating away.
      */
     public void logout() {
         if (userRepository != null) {
@@ -193,7 +197,11 @@ public class ProfileViewModel extends ViewModel {
         } else {
             FirebaseAuth.getInstance().signOut();
         }
-        _logoutComplete.setValue(true);
+        _name.setValue("");
+        _email.setValue("");
+        _phone.setValue("");
+        _isGuest.setValue(true);
+        _toastMessage.setValue("Logged out");
     }
 
     public void clearToast() {

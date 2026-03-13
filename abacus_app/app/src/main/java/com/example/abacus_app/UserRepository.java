@@ -180,10 +180,12 @@ public class UserRepository {
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = localDataSource.getUUIDSync();
-                android.util.Log.d("UserRepository", "Saving profile for UUID: " + uuid + 
+                // getOrCreateUUID ensures a UUID always exists — critical for the
+                // registration flow where MainActivity hasn't run yet to create one.
+                String uuid = getOrCreateUUID();
+                android.util.Log.d("UserRepository", "Saving profile for UUID: " + uuid +
                     ", data: " + profileData.toString());
-                
+
                 if (uuid != null) {
                     remoteDataSource.updateUserSync(uuid, profileData);
                     android.util.Log.d("UserRepository", "Profile saved successfully");
@@ -219,7 +221,19 @@ public class UserRepository {
                 String uuid = localDataSource.getUUIDSync();
                 if (uuid != null) {
                     remoteDataSource.deleteUserSync(uuid);
+                    remoteDataSource.deleteWaitlistEntriesForUser(uuid);
                 }
+
+                // Delete Firebase Auth account so the email can be re-registered
+                com.google.firebase.auth.FirebaseUser authUser =
+                        FirebaseAuth.getInstance().getCurrentUser();
+                if (authUser != null) {
+                    com.google.android.gms.tasks.Tasks.await(authUser.delete());
+                }
+
+                // Clear local session so the next launch starts as a fresh guest
+                localDataSource.clearDeviceId();
+
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 e.printStackTrace();

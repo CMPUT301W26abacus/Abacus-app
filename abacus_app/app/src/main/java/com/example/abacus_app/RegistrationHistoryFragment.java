@@ -245,7 +245,7 @@ public class RegistrationHistoryFragment extends Fragment {
 
             userRepository.getCurrentUserId(userId -> {
                 if (userId == null) {
-                    callback.onResult(new ArrayList<>(), new Exception("User not authenticated"));
+                    callback.onResult(new ArrayList<>(), null);
                     return;
                 }
 
