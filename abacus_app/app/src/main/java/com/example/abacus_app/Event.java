@@ -9,7 +9,7 @@ import java.io.Serializable;
  * capacity limits, and organizer settings.
  * 
  * @author Himesh
- * @version 1.0
+ * @version 1.1
  */
 public class Event implements Serializable {
     private String eventId;
@@ -19,6 +19,7 @@ public class Event implements Serializable {
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
     private Integer waitlistCapacity; // null means no limit
+    private Integer eventCapacity;    // Max people who can attend the event
     private boolean geoRequired;
     private String posterImageUrl;
     private String qrCodeUrl;
@@ -37,7 +38,7 @@ public class Event implements Serializable {
      * @param organizerId       The ID of the organizer who created it.
      * @param registrationStart When entrants can start joining the waitlist.
      * @param registrationEnd   When registration closes.
-     * @param waitlistCapacity  Max entrants allowed (null if unlimited).
+     * @param waitlistCapacity  Max entrants allowed in the waitlist (null if unlimited).
      * @param geoRequired       Whether entrants must provide geolocation.
      */
     public Event(String eventId, String title, String description, String organizerId, 
@@ -51,6 +52,16 @@ public class Event implements Serializable {
         this.registrationEnd = registrationEnd;
         this.waitlistCapacity = waitlistCapacity;
         this.geoRequired = geoRequired;
+    }
+
+    /**
+     * Full constructor including event capacity.
+     */
+    public Event(String eventId, String title, String description, String organizerId,
+                 Timestamp registrationStart, Timestamp registrationEnd,
+                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired) {
+        this(eventId, title, description, organizerId, registrationStart, registrationEnd, waitlistCapacity, geoRequired);
+        this.eventCapacity = eventCapacity;
     }
 
     /**
@@ -122,6 +133,16 @@ public class Event implements Serializable {
      * @param waitlistCapacity sets waitlist size limit.
      */
     public void setWaitlistCapacity(Integer waitlistCapacity) { this.waitlistCapacity = waitlistCapacity; }
+
+    /**
+     * @return max number of attendees for the event.
+     */
+    public Integer getEventCapacity() { return eventCapacity; }
+
+    /**
+     * @param eventCapacity sets the max number of attendees.
+     */
+    public void setEventCapacity(Integer eventCapacity) { this.eventCapacity = eventCapacity; }
 
     /**
      * @return true if geolocation is mandatory.
