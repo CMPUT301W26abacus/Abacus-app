@@ -27,9 +27,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 public class EventDetailsFragment extends Fragment {
 
