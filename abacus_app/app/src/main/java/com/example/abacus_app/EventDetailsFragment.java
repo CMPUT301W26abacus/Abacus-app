@@ -315,20 +315,39 @@ public class EventDetailsFragment extends Fragment {
                         return;
                     }
 
-                    Map<String, Object> registration = new HashMap<>();
-                    registration.put("userId", currentUserId);
-                    registration.put("eventId", currentEventId);
-                    registration.put("status", "waitlisted");
-                    registration.put("timestamp", System.currentTimeMillis());
+                    // Check if waitlist is full before joining
+                    db.collection("events").document(currentEventId).get()
+                            .addOnSuccessListener(eventSnapshot -> {
+                                Long count    = eventSnapshot.getLong("waitlistCount");
+                                Long capacity = eventSnapshot.getLong("waitlistCapacity");
+                                if (count == null) count = 0L;
+                                if (capacity != null && capacity != -1 && count >= capacity) {
+                                    Toast.makeText(requireContext(),
+                                            "This waiting list is full.",
+                                            Toast.LENGTH_LONG).show();
+                                    return;
+                                }
 
-                    registrationRef.set(registration)
-                            .addOnSuccessListener(unused -> {
-                                eventRef.update("waitlistCount", FieldValue.increment(1));
-                                Toast.makeText(requireContext(),
-                                        "You have joined the waiting list!",
-                                        Toast.LENGTH_SHORT).show();
-                                showLeaveButton();
-                                loadWaitlistCount();
+                                Map<String, Object> registration = new HashMap<>();
+                                registration.put("userId", currentUserId);
+                                registration.put("eventId", currentEventId);
+                                registration.put("status", "waitlisted");
+                                registration.put("timestamp", System.currentTimeMillis());
+
+                                registrationRef.set(registration)
+                                        .addOnSuccessListener(unused -> {
+                                            eventRef.update("waitlistCount", FieldValue.increment(1));
+                                            Toast.makeText(requireContext(),
+                                                    "You have joined the waiting list!",
+                                                    Toast.LENGTH_SHORT).show();
+                                            showLeaveButton();
+                                            loadWaitlistCount();
+                                        })
+                                        .addOnFailureListener(e ->
+                                                Toast.makeText(requireContext(),
+                                                        "Something went wrong. Please try again.",
+                                                        Toast.LENGTH_SHORT).show()
+                                        );
                             })
                             .addOnFailureListener(e ->
                                     Toast.makeText(requireContext(),
