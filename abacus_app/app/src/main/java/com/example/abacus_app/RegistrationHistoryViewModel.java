@@ -1,10 +1,10 @@
 package com.example.abacus_app;
 
-import android.util.Log;
-
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,123 +16,136 @@ import java.util.List;
  * Maps raw status strings to human-readable display labels before exposing
  * them to the fragment.
  *
- * Used by: MainHistoryFragment
+ * Used by: RegistrationHistoryFragment
  */
-public class MainHistoryViewModel extends ViewModel {
+public class RegistrationHistoryViewModel extends ViewModel {
 
-    private static final String TAG = "MainHistoryViewModel";
-    private final RegistrationRepository registrationRepository;
-
-    // State
     private final MutableLiveData<List<RegistrationHistoryItem>> registrations = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>("");
 
-    public MainHistoryViewModel(RegistrationRepository registrationRepository) {
-        this.registrationRepository = registrationRepository;
+    private final RegistrationRepository repository;
+
+    public RegistrationHistoryViewModel(RegistrationRepository repository) {
+        this.repository = repository;
     }
 
-    /**
-     * Loads the user's registration history from the repository.
-     */
+    // ─── Public API ──────────────────────────────────────────────────────────────
+
+    public LiveData<List<RegistrationHistoryItem>> getRegistrations() { return registrations; }
+    public LiveData<Boolean> getIsLoading()                           { return isLoading; }
+    public LiveData<String> getErrorMessage()                         { return errorMessage; }
+
+    /** Initial load — skips fetch if data is already present. */
     public void loadRegistrationHistory() {
-        Log.d(TAG, "Loading registration history...");
+        List<RegistrationHistoryItem> current = registrations.getValue();
+        if (current != null && !current.isEmpty()) return;
+        fetchHistory();
+    }
+
+    /** Force re-fetch (called on swipe-to-refresh). */
+    public void refresh() {
+        fetchHistory();
+    }
+
+    // ─── Private ─────────────────────────────────────────────────────────────────
+
+    private void fetchHistory() {
         isLoading.setValue(true);
         errorMessage.setValue("");
 
-        registrationRepository.getHistoryForUser((registrationList, error) -> {
-            Log.d(TAG, "Registration history callback received");
+        repository.getHistoryForUser((registrationList, error) -> {
             isLoading.postValue(false);
-            if (error == null && registrationList != null) {
-                Log.d(TAG, "Successfully loaded " + registrationList.size() + " registrations");
-                List<RegistrationHistoryItem> historyItems = new ArrayList<>();
-                for (Registration registration : registrationList) {
-                    historyItems.add(new RegistrationHistoryItem(
-                            registration.getEventTitle(),
-                            mapStatusToDisplayLabel(registration.getStatus()),
-                            registration.getRegisteredAt()
-                    ));
-                }
-                registrations.postValue(historyItems);
-            } else {
-                String errorMsg = error != null ? error.getMessage() : "Failed to load registration history";
-                Log.e(TAG, "Failed to load registration history: " + errorMsg);
-                errorMessage.postValue(errorMsg);
-                registrations.postValue(new ArrayList<>()); // Show empty state
+
+            if (error != null || registrationList == null) {
+                String msg = error != null ? error.getMessage() : "Failed to load registration history";
+                errorMessage.postValue(msg);
+                registrations.postValue(new ArrayList<>());
+                return;
             }
+
+            List<RegistrationHistoryItem> items = new ArrayList<>();
+            for (Registration r : registrationList) {
+                items.add(new RegistrationHistoryItem(
+                        r.getEventId(),
+                        r.getEventTitle(),
+                        r.getPosterImageUrl(),
+                        mapStatus(r.getStatus()),
+                        r.getRegisteredAt()
+                ));
+            }
+            registrations.postValue(items);
         });
     }
 
-    /**
-     * Refreshes the registration history.
-     */
-    public void refresh() {
-        Log.d(TAG, "Refreshing registration history...");
-        loadRegistrationHistory();
-    }
-
-
-    public LiveData<List<RegistrationHistoryItem>> getRegistrations() {
-        return registrations;
-    }
-
-    public LiveData<Boolean> getIsLoading() {
-        return isLoading;
-    }
-
-    public LiveData<String> getErrorMessage() {
-        return errorMessage;
-    }
-
-
-    /**
-     * Maps raw status strings to human-readable display labels as per specification.
-     */
-    private String mapStatusToDisplayLabel(String status) {
+    /** Maps raw Firestore status strings to human-readable labels. */
+    private static String mapStatus(String status) {
         if (status == null) return "Unknown";
-        
         switch (status.toLowerCase()) {
-            case "waitlisted":
-                return "On Waitlist";
-            case "selected":
-                return "Selected!";
-            case "accepted":
-                return "Enrolled";
-            case "declined":
-                return "Declined";
-            case "cancelled":
-                return "Cancelled";
-            default:
-                return status; // Return original if not recognized
+            case "waitlisted": return "On Waitlist";
+            case "invited":    // Firestore status when user is drawn in lottery
+            case "selected":   return "Selected!";
+            case "accepted":   return "Enrolled";
+            case "declined":   return "Declined";
+            case "cancelled":  return "Cancelled";
+            default:           return status;
         }
     }
 
-    /**
-     * Represents a single registration history item for display.
-     */
+    // ─── Data Models ─────────────────────────────────────────────────────────────
+
+    /** Raw data object returned by the repository. */
+    public static class Registration {
+        private String eventId;
+        private String eventTitle;
+        private String posterImageUrl;
+        private String status;
+        private long registeredAt;
+
+        public Registration() {}
+
+        public Registration(String eventId, String eventTitle, String posterImageUrl,
+                            String status, long registeredAt) {
+            this.eventId        = eventId;
+            this.eventTitle     = eventTitle;
+            this.posterImageUrl = posterImageUrl;
+            this.status         = status;
+            this.registeredAt   = registeredAt;
+        }
+
+        public String getEventId()        { return eventId; }
+        public String getEventTitle()     { return eventTitle; }
+        public String getPosterImageUrl() { return posterImageUrl; }
+        public String getStatus()         { return status; }
+        public long   getRegisteredAt()   { return registeredAt; }
+    }
+
+    /** Display-ready item consumed by the RecyclerView adapter. */
     public static class RegistrationHistoryItem {
+        private final String eventId;
         private final String eventTitle;
+        private final String posterImageUrl;
         private final String statusLabel;
-        private final long timestamp;
+        private final long   timestamp;
 
-        public RegistrationHistoryItem(String eventTitle, String statusLabel, long timestamp) {
-            this.eventTitle = eventTitle;
-            this.statusLabel = statusLabel;
-            this.timestamp = timestamp;
+        public RegistrationHistoryItem(String eventId, String eventTitle, String posterImageUrl,
+                                       String statusLabel, long timestamp) {
+            this.eventId        = eventId;
+            this.eventTitle     = eventTitle;
+            this.posterImageUrl = posterImageUrl;
+            this.statusLabel    = statusLabel;
+            this.timestamp      = timestamp;
         }
 
-        public String getEventTitle() { return eventTitle; }
-        public String getStatusLabel() { return statusLabel; }
-        public long getTimestamp() { return timestamp; }
+        public String getEventId()        { return eventId; }
+        public String getEventTitle()     { return eventTitle; }
+        public String getPosterImageUrl() { return posterImageUrl; }
+        public String getStatusLabel()    { return statusLabel; }
+        public long   getTimestamp()      { return timestamp; }
     }
 
-    /**
-     * Interface for RegistrationRepository that our ViewModel expects.
-     * 
-     * Currently bridged to Kaylee's RegistrationRepository via RegistrationRepositoryAdapter
-     * in MainHistoryFragment. Once Kaylee's interface matches this exactly, we can use
-     * her repository directly.
-     */
+    // ─── Repository Interface ────────────────────────────────────────────────────
+
     public interface RegistrationRepository {
         void getHistoryForUser(HistoryCallback callback);
 
@@ -141,32 +154,23 @@ public class MainHistoryViewModel extends ViewModel {
         }
     }
 
-    /**
-     * Registration data model for our ViewModel.
-     * 
-     * Currently using our own model, but this should eventually be replaced
-     * with Kaylee's Registration model or WaitlistEntry model when her schema
-     * is finalized.
-     */
-    public static class Registration {
-        private String eventTitle;
-        private String status;
-        private long registeredAt;
+    // ─── Factory ─────────────────────────────────────────────────────────────────
 
-        public Registration() {} // Firestore requires empty constructor
+    public static class Factory implements ViewModelProvider.Factory {
+        private final RegistrationRepository repository;
 
-        public Registration(String eventTitle, String status, long registeredAt) {
-            this.eventTitle = eventTitle;
-            this.status = status;
-            this.registeredAt = registeredAt;
+        public Factory(RegistrationRepository repository) {
+            this.repository = repository;
         }
 
-        public String getEventTitle() { return eventTitle; }
-        public String getStatus() { return status; }
-        public long getRegisteredAt() { return registeredAt; }
-
-        public void setEventTitle(String eventTitle) { this.eventTitle = eventTitle; }
-        public void setStatus(String status) { this.status = status; }
-        public void setRegisteredAt(long registeredAt) { this.registeredAt = registeredAt; }
+        @NonNull
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+            if (modelClass.isAssignableFrom(RegistrationHistoryViewModel.class)) {
+                return (T) new RegistrationHistoryViewModel(repository);
+            }
+            throw new IllegalArgumentException("Unknown ViewModel class");
+        }
     }
 }
