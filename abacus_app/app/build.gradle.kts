@@ -105,7 +105,7 @@ dependencies {
 
     // Mockito for mocking Firebase and other dependencies
     testImplementation("org.mockito:mockito-core:5.8.0")
-    testImplementation("org.mockito:mockito-inline:5.2.0")   // mocks final classes (Firebase)
+    testImplementation("org.mockito:mockito-inline:5.8.0")   // mocks final classes (Firebase)
     androidTestImplementation("org.mockito:mockito-android:5.8.0")
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
 
