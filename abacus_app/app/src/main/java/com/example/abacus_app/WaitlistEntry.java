@@ -6,7 +6,7 @@ import com.google.firebase.firestore.Exclude;
  * Entity class for a waitlist entry.
  * Fields match the Firestore 'registrations' collection.
  */
-public class WaitlistEntry {
+public class WaitlistEntry implements Comparable<WaitlistEntry> {
 
     /** Status constants */
     public static final String STATUS_WAITLISTED = "waitlisted";
@@ -21,86 +21,48 @@ public class WaitlistEntry {
     private Long timestamp;
     private Integer lotteryNumber;
 
-    // Transient fields for UI
-    @Exclude
-    private String userName;
-    @Exclude
-    private String userEmail;
+    // Transient fields for UI display
+    @Exclude private String userName;
+    @Exclude private String userEmail;
 
     /** Required no-arg constructor for Firestore */
     public WaitlistEntry() {}
 
     public WaitlistEntry(String userId, String eventId, String status, Integer lotteryNumber, Long timestamp) {
-        this.userId = userId;
-        this.eventId = eventId;
-        this.status = status;
+        this.userId        = userId;
+        this.eventId       = eventId;
+        this.status        = status;
         this.lotteryNumber = lotteryNumber;
-        this.timestamp = timestamp;
+        this.timestamp     = timestamp;
     }
 
-    public String getUserId() {
-        return userId;
-    }
+    public String getUserId()              { return userId; }
+    public void   setUserId(String v)      { this.userId = v; }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
+    public String getEventId()             { return eventId; }
+    public void   setEventId(String v)     { this.eventId = v; }
 
-    public String getEventId() {
-        return eventId;
-    }
+    public String getStatus()              { return status; }
+    public void   setStatus(String v)      { this.status = v; }
 
-    public void setEventId(String eventId) {
-        this.eventId = eventId;
-    }
+    public Long   getTimestamp()           { return timestamp; }
+    public void   setTimestamp(Long v)     { this.timestamp = v; }
 
-    public String getStatus() {
-        return status;
-    }
+    public Integer getLotteryNumber()          { return lotteryNumber; }
+    public void    setLotteryNumber(Integer v) { this.lotteryNumber = v; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    @Exclude public String getUserName()             { return userName; }
+    @Exclude public void   setUserName(String v)     { this.userName = v; }
 
-    public Long getTimestamp() {
-        return timestamp;
-    }
+    @Exclude public String getUserEmail()            { return userEmail; }
+    @Exclude public void   setUserEmail(String v)    { this.userEmail = v; }
 
-    public void setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
-    }
+    // Compatibility getters for code using uppercase ID
+    @Exclude public String getUserID()  { return userId; }
+    @Exclude public String getEventID() { return eventId; }
 
-    public Integer getLotteryNumber() {
-        return lotteryNumber;
+    @Override
+    public int compareTo(WaitlistEntry other) {
+        return Integer.compare(this.getLotteryNumber(), other.getLotteryNumber());
     }
-
-    public void setLotteryNumber(Integer lotteryNumber) {
-        this.lotteryNumber = lotteryNumber;
-    }
-
-    @Exclude
-    public String getUserName() {
-        return userName;
-    }
-
-    @Exclude
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    @Exclude
-    public String getUserEmail() {
-        return userEmail;
-    }
-
-    @Exclude
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
-    }
-
-    // Compatibility getters for existing code that might use uppercase ID
-    @Exclude
-    public String getUserID() { return userId; }
-    @Exclude
-    public String getEventID() { return eventId; }
 }

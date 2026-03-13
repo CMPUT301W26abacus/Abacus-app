@@ -23,10 +23,6 @@ public class EventRepository {
         return remoteDataSource.getAllEvents();
     }
 
-    public Task<QuerySnapshot> getEventsByOrganizer(String organizerId) {
-        return remoteDataSource.getEventsByOrganizer(organizerId);
-    }
-
     public Task<DocumentSnapshot> getEventById(String eventId) {
         return remoteDataSource.getEventById(eventId);
     }
