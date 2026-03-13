@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Activity for user login forexisting users.using Firebase Auth.
+ * Activity for user login for existing users, using Firebase Auth.
  *
  * Responsibilities:
  * - Handles user login using Firebase Auth.
