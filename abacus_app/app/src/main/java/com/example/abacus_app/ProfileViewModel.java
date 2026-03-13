@@ -4,6 +4,8 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.google.firebase.auth.FirebaseAuth;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,6 +31,7 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<Boolean> _isGuest      = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _toastMessage = new MutableLiveData<>(null);
     private final MutableLiveData<Boolean> _profileDeleted = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> _logoutComplete = new MutableLiveData<>(false);
 
     public LiveData<String>  getName()                 { return _name; }
     public LiveData<String>  getEmail()                { return _email; }
@@ -41,6 +44,7 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<Boolean> getIsGuest()       { return _isGuest; }
     public LiveData<String>  getToastMessage()  { return _toastMessage; }
     public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
+    public LiveData<Boolean> getLogoutComplete() { return _logoutComplete; }
     private UserRepository userRepository;
 
     /**
@@ -176,6 +180,20 @@ public class ProfileViewModel extends ViewModel {
                 _toastMessage.postValue("Error deleting profile: " + error.getMessage());
             }
         });
+    }
+
+    /**
+     * Clears the local UUID, signs out of Firebase Auth, and signals the
+     * fragment to navigate to LoginActivity. The next app launch will start
+     * fresh with a new anonymous identity rather than reloading the old profile.
+     */
+    public void logout() {
+        if (userRepository != null) {
+            userRepository.clearLocalSession();
+        } else {
+            FirebaseAuth.getInstance().signOut();
+        }
+        _logoutComplete.setValue(true);
     }
 
     public void clearToast() {

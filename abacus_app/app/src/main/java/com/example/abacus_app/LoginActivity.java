@@ -54,7 +54,6 @@ public class LoginActivity extends AppCompatActivity {
         Button btnSignIn    = findViewById(R.id.btnSignIn);
         TextView tvForgot   = findViewById(R.id.tvForgot);
         TextView tvSignUp   = findViewById(R.id.tvSignUp);
-        Button btnSSO       = findViewById(R.id.btnSSO);
 
         btnSignIn.setOnClickListener(v -> {
             String email    = etEmail.getText().toString().trim();
@@ -80,8 +79,7 @@ public class LoginActivity extends AppCompatActivity {
                     .addOnSuccessListener(authResult -> {
                         FirebaseUser user = authResult.getUser();
                         if (user != null) {
-                            linkAuthUserToProfile(user);
-                            fetchRoleAndNavigate();
+                            restoreIdentityThenNavigate(user);
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -123,9 +121,6 @@ public class LoginActivity extends AppCompatActivity {
 
         tvSignUp.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
-
-        btnSSO.setOnClickListener(v ->
-                Toast.makeText(this, "SSO tapped", Toast.LENGTH_SHORT).show());
     }
 
     /**
@@ -171,13 +166,42 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
-    private void linkAuthUserToProfile(FirebaseUser authUser) {
-        if (authUser == null) return;
-
-        Map<String, Object> updates = new HashMap<>();
-        if (authUser.getEmail() != null) {
-            updates.put("email", authUser.getEmail());
+    /**
+     * Looks up the user's existing Firestore document by email, restores their
+     * UUID to SharedPreferences (so history is preserved), updates profile fields,
+     * then navigates to MainActivity. Everything is chained so navigation only
+     * happens after the UUID is fully restored.
+     */
+    private void restoreIdentityThenNavigate(FirebaseUser authUser) {
+        if (authUser == null || authUser.getEmail() == null) {
+            fetchRoleAndNavigate();
+            return;
         }
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .whereEqualTo("email", authUser.getEmail())
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        // Restore the UUID that owns this account's history
+                        String existingUuid = querySnapshot.getDocuments().get(0).getId();
+                        localDataSource.saveDeviceId(existingUuid);
+                        android.util.Log.d("LoginActivity",
+                                "Restored UUID: " + existingUuid + " for " + authUser.getEmail());
+                    }
+                    updateProfileFields(authUser);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LoginActivity", "UUID lookup failed, proceeding anyway", e);
+                    updateProfileFields(authUser);
+                });
+    }
+
+    private void updateProfileFields(FirebaseUser authUser) {
+        Map<String, Object> updates = new HashMap<>();
+        if (authUser.getEmail() != null) updates.put("email", authUser.getEmail());
         if (authUser.getDisplayName() != null && !authUser.getDisplayName().isEmpty()) {
             updates.put("name", authUser.getDisplayName());
         }
@@ -187,11 +211,10 @@ public class LoginActivity extends AppCompatActivity {
         userRepository.saveProfileAsync(updates, error -> {
             if (error != null) {
                 android.util.Log.e("LoginActivity", "Failed to update profile: " + error.getMessage());
-            } else {
-                if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
-                    syncNameFromFirestoreToAuth(authUser);
-                }
+            } else if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
+                syncNameFromFirestoreToAuth(authUser);
             }
+            fetchRoleAndNavigate();
         });
     }
 

@@ -84,12 +84,15 @@ public class UserRepository {
             try {
                 User existing = remoteDataSource.getUserSync(uuid);
                 if (existing == null) {
-                    // Create user data as a Map<String, Object>
                     java.util.Map<String, Object> userData = new java.util.HashMap<>();
-                    userData.put("uid", uuid);
-                    userData.put("email", "");
-                    userData.put("name", "New User");
-                    userData.put("createdAt", Timestamp.now().toString());
+                    userData.put("deviceId", uuid);
+                    userData.put("uid",      uuid);   // kept for backward compat
+                    userData.put("email",    "");
+                    userData.put("name",     "New User");
+                    userData.put("createdAt", Timestamp.now());
+                    userData.put("role",      "entrant");
+                    userData.put("notificationsEnabled", true);
+                    userData.put("isGuest",  true);
 
                     remoteDataSource.createUserSync(uuid, userData);
                 }
@@ -233,6 +236,16 @@ public class UserRepository {
         deleteProfileAsync(callback);
     }
 
+
+    /**
+     * Clears the locally stored UUID and signs out of Firebase Auth.
+     * After this call the device has no identity; the next call to
+     * initializeUser() will generate a fresh UUID and anonymous session.
+     */
+    public void clearLocalSession() {
+        localDataSource.clearDeviceId();
+        FirebaseAuth.getInstance().signOut();
+    }
 
     public interface UserCallback {
         void onResult(User user);

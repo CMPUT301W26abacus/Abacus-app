@@ -45,6 +45,7 @@ public class ProfileFragment extends Fragment {
     private TextView    tvEmailError;
     private Button      btnSave;
     private Button      btnDelete;
+    private Button      btnLogout;
     private Button      btnLinkAccount;
     private View    tvGuestBanner;
     private View        dangerDivider;
@@ -80,6 +81,7 @@ public class ProfileFragment extends Fragment {
         tvEmailError     = view.findViewById(R.id.tvEmailError);
         btnSave          = view.findViewById(R.id.btnSaveProfile);
         btnDelete        = view.findViewById(R.id.btnDeleteProfile);
+        btnLogout        = view.findViewById(R.id.btnLogout);
         btnLinkAccount   = view.findViewById(R.id.btnLinkAccount);
         tvGuestBanner    = view.findViewById(R.id.tvGuestBanner);
         dangerDivider    = view.findViewById(R.id.dangerDivider);
@@ -166,6 +168,14 @@ public class ProfileFragment extends Fragment {
             }
         });
 
+        viewModel.getLogoutComplete().observe(getViewLifecycleOwner(), done -> {
+            if (done != null && done) {
+                Intent intent = new Intent(requireContext(), LoginActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+            }
+        });
+
         etName.addTextChangedListener(new SimpleTextWatcher() {
             @Override public void afterTextChanged(Editable s) {
                 viewModel.setName(s.toString());
@@ -195,6 +205,14 @@ public class ProfileFragment extends Fragment {
                         .setNegativeButton("Cancel", null)
                         .show());
 
+        btnLogout.setOnClickListener(v ->
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Log out")
+                        .setMessage("Are you sure you want to log out?")
+                        .setPositiveButton("Log out", (dialog, which) -> viewModel.logout())
+                        .setNegativeButton("Cancel", null)
+                        .show());
+
         btnLinkAccount.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), LoginActivity.class)));
 
@@ -211,6 +229,7 @@ public class ProfileFragment extends Fragment {
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
         btnSave.setVisibility(View.GONE);
+        btnLogout.setVisibility(View.GONE);
         btnDelete.setVisibility(View.GONE);
         dangerDivider.setVisibility(View.GONE);
         labelDanger.setVisibility(View.GONE);
@@ -228,6 +247,7 @@ public class ProfileFragment extends Fragment {
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
         btnSave.setVisibility(View.VISIBLE);
+        btnLogout.setVisibility(View.VISIBLE);
         btnDelete.setVisibility(View.VISIBLE);
         dangerDivider.setVisibility(View.VISIBLE);
         labelDanger.setVisibility(View.VISIBLE);

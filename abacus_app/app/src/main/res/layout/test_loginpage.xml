@@ -203,67 +203,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/orRow"
-            android:layout_width="0dp"
-            android:layout_height="24dp"
-            android:layout_marginHorizontal="24dp"
-            android:layout_marginTop="20dp"
-            app:layout_constraintTop_toBottomOf="@id/btnSignIn"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <View
-                android:id="@+id/orLineLeft"
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:background="#E5E7EB"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/tvOr"/>
-
-            <TextView
-                android:id="@+id/tvOr"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="or"
-                android:textColor="#9CA3AF"
-                android:textSize="12sp"
-                android:paddingHorizontal="12dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
-
-            <View
-                android:id="@+id/orLineRight"
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:background="#E5E7EB"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toEndOf="@id/tvOr"
-                app:layout_constraintEnd_toEndOf="parent"/>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- SSO button — ghost style -->
-        <Button
-            android:id="@+id/btnSSO"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginHorizontal="24dp"
-            android:layout_marginTop="12dp"
-            android:text="Continue with SSO"
-            android:textColor="#374151"
-            android:textSize="14sp"
-            android:backgroundTint="#F9FAFB"
-            android:strokeColor="#E5E7EB"
-            app:layout_constraintTop_toBottomOf="@id/orRow"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
         <View
             android:id="@+id/footerDivider"
             android:layout_width="0dp"
@@ -271,7 +210,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="32dp"
             android:background="#F3F4F6"
-            app:layout_constraintTop_toBottomOf="@id/btnSSO"
+            app:layout_constraintTop_toBottomOf="@id/btnSignIn"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 

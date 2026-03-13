@@ -36,6 +36,8 @@ public class User {
     }
 
     public String    getUid()         { return uid; }
+    /** Alias for {@link #getUid()} — spec names this field deviceId. */
+    public String    getDeviceId()    { return uid; }
     public String    getEmail()       { return email; }
     public String    getName()        { return name; }
     public String    getPhone()       { return phone; }
