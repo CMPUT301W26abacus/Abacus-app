@@ -186,7 +186,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
 
                         <CheckBox
                             android:id="@+id/cb_limit_waitlist"
@@ -204,6 +205,39 @@
                             android:layout_marginStart="12dp"
                             android:enabled="false"
                             android:hint="e.g. 50"
+                            android:inputType="number"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"
+                            android:textColor="@color/black"
+                            android:textColorHint="@color/grey" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/grey"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Event Capacity"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"
+                            android:textColor="@color/black" />
+
+                        <EditText
+                            android:id="@+id/et_event_capacity"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:hint="e.g. 20"
                             android:inputType="number"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black"

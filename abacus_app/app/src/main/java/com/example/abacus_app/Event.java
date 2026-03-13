@@ -9,7 +9,7 @@ import java.io.Serializable;
  * capacity limits, and organizer settings.
  * 
  * @author Himesh
- * @version 1.0
+ * @version 1.1
  */
 public class Event implements Serializable {
     private String eventId;
@@ -19,6 +19,7 @@ public class Event implements Serializable {
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
     private Integer waitlistCapacity; // null means no limit
+    private Integer eventCapacity;    // Number of attendees to be selected
     private boolean geoRequired;
     private String posterImageUrl;
     private String qrCodeUrl;
@@ -37,12 +38,13 @@ public class Event implements Serializable {
      * @param organizerId       The ID of the organizer who created it.
      * @param registrationStart When entrants can start joining the waitlist.
      * @param registrationEnd   When registration closes.
-     * @param waitlistCapacity  Max entrants allowed (null if unlimited).
+     * @param waitlistCapacity  Max entrants allowed on waitlist (null if unlimited).
+     * @param eventCapacity     Number of attendees to be selected via lottery.
      * @param geoRequired       Whether entrants must provide geolocation.
      */
     public Event(String eventId, String title, String description, String organizerId, 
                  Timestamp registrationStart, Timestamp registrationEnd, 
-                 Integer waitlistCapacity, boolean geoRequired) {
+                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired) {
         this.eventId = eventId;
         this.title = title;
         this.description = description;
@@ -50,106 +52,41 @@ public class Event implements Serializable {
         this.registrationStart = registrationStart;
         this.registrationEnd = registrationEnd;
         this.waitlistCapacity = waitlistCapacity;
+        this.eventCapacity = eventCapacity;
         this.geoRequired = geoRequired;
     }
 
-    /**
-     * @return the unique ID of the event.
-     */
+    // Getters and Setters
     public String getEventId() { return eventId; }
-    
-    /**
-     * @param eventId sets the unique ID of the event.
-     */
     public void setEventId(String eventId) { this.eventId = eventId; }
 
-    /**
-     * @return the display title.
-     */
     public String getTitle() { return title; }
-    
-    /**
-     * @param title sets the display title.
-     */
     public void setTitle(String title) { this.title = title; }
 
-    /**
-     * @return the event description.
-     */
     public String getDescription() { return description; }
-    
-    /**
-     * @param description sets the event description.
-     */
     public void setDescription(String description) { this.description = description; }
 
-    /**
-     * @return the organizer's ID.
-     */
     public String getOrganizerId() { return organizerId; }
-    
-    /**
-     * @param organizerId sets the organizer's ID.
-     */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
 
-    /**
-     * @return start of registration period.
-     */
     public Timestamp getRegistrationStart() { return registrationStart; }
-    
-    /**
-     * @param registrationStart sets registration start time.
-     */
     public void setRegistrationStart(Timestamp registrationStart) { this.registrationStart = registrationStart; }
 
-    /**
-     * @return end of registration period.
-     */
     public Timestamp getRegistrationEnd() { return registrationEnd; }
-    
-    /**
-     * @param registrationEnd sets registration end time.
-     */
     public void setRegistrationEnd(Timestamp registrationEnd) { this.registrationEnd = registrationEnd; }
 
-    /**
-     * @return max waitlist size (null if no limit).
-     */
     public Integer getWaitlistCapacity() { return waitlistCapacity; }
-    
-    /**
-     * @param waitlistCapacity sets waitlist size limit.
-     */
     public void setWaitlistCapacity(Integer waitlistCapacity) { this.waitlistCapacity = waitlistCapacity; }
 
-    /**
-     * @return true if geolocation is mandatory.
-     */
+    public Integer getEventCapacity() { return eventCapacity; }
+    public void setEventCapacity(Integer eventCapacity) { this.eventCapacity = eventCapacity; }
+
     public boolean isGeoRequired() { return geoRequired; }
-    
-    /**
-     * @param geoRequired sets geolocation requirement.
-     */
     public void setGeoRequired(boolean geoRequired) { this.geoRequired = geoRequired; }
 
-    /**
-     * @return public URL of the poster image.
-     */
     public String getPosterImageUrl() { return posterImageUrl; }
-    
-    /**
-     * @param posterImageUrl sets the poster image URL.
-     */
     public void setPosterImageUrl(String posterImageUrl) { this.posterImageUrl = posterImageUrl; }
 
-    /**
-     * @return public URL of the promotional QR code.
-     */
     public String getQrCodeUrl() { return qrCodeUrl; }
-    
-    /**
-     * @param qrCodeUrl sets the promotional QR code URL.
-     */
     public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }
 }

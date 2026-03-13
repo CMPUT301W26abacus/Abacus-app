@@ -34,7 +34,7 @@ import java.util.Date;
 public class CreateEventFragment extends Fragment {
 
     private CreateEventViewModel viewModel;
-    private EditText etTitle, etDescription, etLimit;
+    private EditText etTitle, etDescription, etLimit, etEventCapacity;
     private Button btnSetStart, btnSetEnd, btnUpload, btnCreate;
     private MaterialSwitch switchGeo;
     private CheckBox cbLimit;
@@ -63,6 +63,7 @@ public class CreateEventFragment extends Fragment {
         etTitle = view.findViewById(R.id.et_event_title);
         etDescription = view.findViewById(R.id.et_event_description);
         etLimit = view.findViewById(R.id.et_waitlist_limit);
+        etEventCapacity = view.findViewById(R.id.et_event_capacity);
         btnSetStart = view.findViewById(R.id.btn_set_start);
         btnSetEnd = view.findViewById(R.id.btn_set_end);
         btnUpload = view.findViewById(R.id.btn_upload_poster);
@@ -129,24 +130,39 @@ public class CreateEventFragment extends Fragment {
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
         String desc = etDescription.getText().toString().trim();
+        String capacityStr = etEventCapacity.getText().toString().trim();
         
-        if (title.isEmpty() || startTimestamp == null || endTimestamp == null) {
-            Toast.makeText(getContext(), "Please fill all required fields", Toast.LENGTH_SHORT).show();
+        if (title.isEmpty() || startTimestamp == null || endTimestamp == null || capacityStr.isEmpty()) {
+            Toast.makeText(getContext(), "Please fill all required fields (Title, Dates, Event Capacity)", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Integer limit = null;
+        // Bug Fix: Check if registration end date is after start date
+        if (endTimestamp.compareTo(startTimestamp) <= 0) {
+            Toast.makeText(getContext(), "Registration end date must be after start date", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Integer eventCapacity;
+        try {
+            eventCapacity = Integer.parseInt(capacityStr);
+        } catch (NumberFormatException e) {
+            Toast.makeText(getContext(), "Invalid event capacity", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Integer waitlistLimit = null;
         if (cbLimit.isChecked()) {
             try {
-                limit = Integer.parseInt(etLimit.getText().toString());
+                waitlistLimit = Integer.parseInt(etLimit.getText().toString());
             } catch (NumberFormatException e) {
-                Toast.makeText(getContext(), "Invalid limit", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Invalid waitlist limit", Toast.LENGTH_SHORT).show();
                 return;
             }
         }
 
         // Replace "ORGANIZER_ID" with actual ID if available, or fetch it from preferences/auth
-        Event event = new Event(null, title, desc, "ORGANIZER_ID", startTimestamp, endTimestamp, limit, switchGeo.isChecked());
+        Event event = new Event(null, title, desc, "ORGANIZER_ID", startTimestamp, endTimestamp, waitlistLimit, eventCapacity, switchGeo.isChecked());
         viewModel.createEvent(event, posterUri);
     }
 }
