@@ -257,20 +257,11 @@ public class RegistrationRepository {
     public void runLottery(String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // Fetch event capacity directly from Firestore
-                DocumentSnapshot eventDoc = Tasks.await(
-                        FirebaseFirestore.getInstance()
-                                .collection("events")
-                                .document(eventID)
-                                .get());
-
-                if (!eventDoc.exists()) {
-                    mainHandler.post(() -> callback.onComplete(new Exception("Event not found")));
-                    return;
-                }
-
-                Long capacityLong = eventDoc.getLong("eventCapacity");
-                int eventCapacity = capacityLong != null ? capacityLong.intValue() : 0;
+                // unnecessary to fetch directly, there is already a method that does exactly this
+                // should use EventRemoteDataSource method, do not re-write methods
+                EventRemoteDataSource eventrepo = new EventRemoteDataSource();
+                Event event = eventrepo.getEventById(eventID);
+                int eventCapacity = event.getEventCapacity() != null ? event.getEventCapacity() : 0;
 
                 ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(
                         eventID, WaitlistEntry.STATUS_WAITLISTED);
@@ -330,6 +321,13 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets the WaitlistEntry associated with a single user for a signle event.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getUserEntry(String userID, String eventID, EntryCallback callback) {
         executor.submit(() -> {
             try {
@@ -348,6 +346,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event, regardless of entry status.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getAllEntries(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -360,6 +364,12 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "waitlisted".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
     public void getWaitlisted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -373,6 +383,30 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Gets all entries on the waitlist of a specific event with status "invited".
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param callback callback called when the operation completes
+     */
+    public void getInvited(String eventID, WaitlistCallback callback) {
+        executor.submit(() -> {
+            try {
+                // execute logic
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_INVITED);
+                mainHandler.post(() -> callback.onResult(waitlist));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Gets all waitlist entries associated with a single user across all events.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param callback callback called when the operation completes
+     */
     public void getHistoryForUser(String userID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
