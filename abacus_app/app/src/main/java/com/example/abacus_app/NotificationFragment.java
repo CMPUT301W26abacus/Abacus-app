@@ -15,8 +15,16 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 /**
- * Fragment to display a list of notifications for the entrant.
- * Implements US 01.04.01 and US 01.04.02 by showing win/lose notifications.
+ * UI Fragment class responsible for displaying a list of notifications to the user.
+ * This fragment acts as the View in the MVVM/MVC architectural pattern.
+ * It observes notification data from the {@link NotificationRepository} and updates the {@link NotificationAdapter}.
+ *
+ * Role: Provides the "Inbox" interface where entrants can view win/loss notifications for events.
+ * Design Pattern: Observer (via the repository's listener) and View in a layered architecture.
+ *
+ * Outstanding Issues:
+ * - Currently lacks a "mark as read" or "delete" functionality for notifications.
+ * - Background color is hardcoded to white, which may conflict with future dark mode support.
  */
 public class NotificationFragment extends Fragment {
 
@@ -25,6 +33,14 @@ public class NotificationFragment extends Fragment {
     private NotificationAdapter adapter;
     private String currentUserId;
 
+    /**
+     * Inflates the fragment layout, initializes the RecyclerView, and sets up the repository.
+     *
+     * @param inflater           The LayoutInflater object that can be used to inflate any views in the fragment.
+     * @param container          The parent view that the fragment's UI should be attached to.
+     * @param savedInstanceState If non-null, this fragment is being re-constructed from a previous saved state.
+     * @return The View for the fragment's UI.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -51,6 +67,10 @@ public class NotificationFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Begins listening for real-time notification updates for the current user.
+     * This method leverages the repository to establish a stream of data from the remote data source.
+     */
     private void startListening() {
         if (currentUserId == null) {
             Log.e(TAG, "Cannot start listening: currentUserId is null");

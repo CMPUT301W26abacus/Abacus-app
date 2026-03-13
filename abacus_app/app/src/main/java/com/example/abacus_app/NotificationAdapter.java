@@ -12,10 +12,20 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Adapter class for the RecyclerView in NotificationFragment.
+ * This class follows the Adapter design pattern to bind Notification data to UI components.
+ * It manages a list of Notification objects and provides the logic for displaying them in a list.
+ */
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.NotificationViewHolder> {
 
     private List<Notification> notifications = new ArrayList<>();
 
+    /**
+     * Updates the data set of the adapter and refreshes the UI.
+     *
+     * @param notifications The new list of notifications to display.
+     */
     public void setNotifications(List<Notification> notifications) {
         this.notifications = notifications;
         notifyDataSetChanged();
@@ -43,10 +53,19 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         return notifications.size();
     }
 
+    /**
+     * ViewHolder class for individual notification items.
+     * Holds references to the views within each item layout.
+     */
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView;
         TextView timestampTextView;
 
+        /**
+         * Constructs a ViewHolder and initializes its view references.
+         *
+         * @param itemView The root view of the notification item layout.
+         */
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);
