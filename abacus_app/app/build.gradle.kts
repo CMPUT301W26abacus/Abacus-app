@@ -97,7 +97,7 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.13")
     testImplementation(libs.ext.junit)
     testImplementation(libs.runner)
     androidTestImplementation(libs.ext.junit)
@@ -105,7 +105,6 @@ dependencies {
 
     // Mockito for mocking Firebase and other dependencies
     testImplementation("org.mockito:mockito-core:5.8.0")
-    testImplementation("org.mockito:mockito-inline:5.8.0")   // mocks final classes (Firebase)
     androidTestImplementation("org.mockito:mockito-android:5.8.0")
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
 

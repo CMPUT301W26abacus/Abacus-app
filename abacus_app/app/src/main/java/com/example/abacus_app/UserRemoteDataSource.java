@@ -11,6 +11,24 @@ import com.google.firebase.firestore.WriteBatch;
 
 import java.util.Map;
 
+/**
+ * The only class that directly touches the Firestore {@code users/} collection.
+ *
+ * <p>All Firestore reads and writes for user documents are routed through this
+ * class. It exposes synchronous, blocking methods (suffixed {@code Sync}) that
+ * must be called on a background thread, plus spec-named aliases that delegate
+ * to those implementations.
+ *
+ * <p>Helper methods ({@link #getString}, {@link #getBoolean}, {@link #getLong})
+ * provide null-safe field extraction so the caller never needs to cast raw
+ * {@code Object} values returned by Firestore document snapshots.
+ *
+ * <p>Architecture layer: Remote Data Source<br>
+ * Used by: {@link UserRepository}
+ *
+ * @see UserRepository
+ * Ref: US 01.02.01–04
+ */
 public class UserRemoteDataSource {
 
     private static final String TAG        = "UserRemoteDataSource";

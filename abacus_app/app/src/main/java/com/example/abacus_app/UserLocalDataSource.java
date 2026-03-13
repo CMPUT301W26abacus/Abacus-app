@@ -4,12 +4,18 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 /**
- * Architecture Layer: Local Data Source
+ * The only class that directly reads and writes to {@link SharedPreferences}
+ * for user-related persistence.
  *
- * Stores and retrieves user-related data using SharedPreferences.
- * Replaces the Kotlin DataStore implementation with a pure Java equivalent.
+ * <p>Responsible exclusively for persisting the device UUID locally so it
+ * survives app restarts. Returns {@code null} from {@link #getDeviceId()} when
+ * no UUID has been saved yet (first launch or after {@link #clearDeviceId()}).
  *
- * Used by: UserRepository
+ * <p>Architecture layer: Local Data Source<br>
+ * Used by: {@link UserRepository}
+ *
+ * @see UserRepository
+ * Ref: US 01.07.01
  */
 public class UserLocalDataSource {
 
