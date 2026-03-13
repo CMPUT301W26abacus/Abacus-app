@@ -4,6 +4,7 @@
     <color name="white">#F5F5F7</color>
     <color name="grey">#6E6E73</color>
     <color name="light_grey">#FFFFFF</color>
+    <color name="surface_tint">#F2F1F0</color>
     <color name="orange">#C96A3A</color>
     <color name="claude_ink">#1A1714</color>
     <color name="claude_cream">#F5F0E8</color>
