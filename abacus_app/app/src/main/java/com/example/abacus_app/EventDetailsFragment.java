@@ -5,6 +5,17 @@
  * any event card from the main browse list. Provides buttons to view the
  * event's QR code, lottery guidelines, and join/leave the waiting list.
  * Bottom navigation is hidden on this screen for a focused experience.
+ *
+ * Design pattern: Fragment (View layer). Logic lives directly in the fragment
+ * with no ViewModel, consistent with the rest of the project architecture.
+ *
+ * Outstanding issues:
+ * - waitlistCount is read directly from the event document as a Long rather
+ *   than through a dedicated field on Event.java (Himesh's model does not
+ *   include this field yet).
+ * - tv_location is not populated because Event.java has no location field.
+ * - Organizer name lookup makes a second Firestore read on every load;
+ *   could be cached once the user model is stable.
  */
 package com.example.abacus_app;
 
@@ -36,7 +47,10 @@ import java.util.Map;
 
 public class EventDetailsFragment extends Fragment {
 
+    /** Bundle key for the event title passed from MainActivity. */
     public static final String ARG_EVENT_TITLE = "eventTitle";
+
+    /** Bundle key for the Firestore event document ID passed from MainActivity. */
     public static final String ARG_EVENT_ID    = "eventId";
 
     private String currentEventId = null;
@@ -91,11 +105,11 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
 
-        // ── Lottery Guidelines button (US lottery guidelines) ──────────────────
+        // ── Lottery Guidelines button ──────────────────────────────────────────
         Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
         btnLotteryGuidelines.setOnClickListener(v -> {
             Bundle args = new Bundle();
-            args.putString(com.example.abacus_app.LotteryGuidelinesFragment.ARG_EVENT_ID,
+            args.putString(LotteryGuidelinesFragment.ARG_EVENT_ID,
                     currentEventId != null ? currentEventId : "");
             Navigation.findNavController(view).navigate(R.id.lotteryGuidelinesFragment, args);
         });
@@ -131,6 +145,14 @@ public class EventDetailsFragment extends Fragment {
         btnLeaveWaitlist.setOnClickListener(v -> showLeaveConfirmationDialog());
     }
 
+    /**
+     * Loads full event details from Firestore and populates all UI fields
+     * including poster image, description, date range, waitlist capacity,
+     * and organizer name.
+     *
+     * Organizer name is resolved by a secondary lookup in the users/ collection
+     * using the event's organizerId field.
+     */
     private void loadEventDetails() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -189,7 +211,7 @@ public class EventDetailsFragment extends Fragment {
                         }
                     }
 
-                    // Organizer name
+                    // ── Organizer name ─────────────────────────────────────────
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -213,6 +235,13 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Checks Firestore to determine whether the current user is already on the
+     * waiting list for this event, then shows the appropriate button.
+     *
+     * US 01.01.01 AC 1 — Leave button shown if already on waitlist.
+     * US 01.01.02 AC 4 — Join button shown if not on waitlist.
+     */
     private void checkWaitlistStatus() {
         if (currentEventId == null) return;
         db.collection("registrations")
@@ -227,6 +256,11 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Fetches the current waitlist count and capacity from Firestore and
+     * updates the tv_waitlist_count TextView. Called on load and after
+     * any join or leave action.
+     */
     private void loadWaitlistCount() {
         if (currentEventId == null) return;
         db.collection("events")
@@ -248,6 +282,16 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
+    /**
+     * Attempts to add the current user to the waiting list for this event.
+     *
+     * Creates a registration document at registrations/{userId}_{eventId}
+     * and increments the event's waitlistCount field atomically.
+     *
+     * US 01.01.01 AC 1 — Adds entrant and shows confirmation toast.
+     * US 01.01.01 AC 2 — Prevents duplicate registration with error toast.
+     * US 01.01.01 AC 3 — Registration persisted in Firestore across restarts.
+     */
     private void joinWaitlist() {
         if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
@@ -299,6 +343,12 @@ public class EventDetailsFragment extends Fragment {
                 );
     }
 
+    /**
+     * Shows a confirmation dialog before removing the user from the waiting list.
+     *
+     * US 01.01.02 AC 2 — Confirmation dialog shown before removal.
+     * US 01.01.02 AC 5 — Cancelling leaves waitlist status unchanged.
+     */
     private void showLeaveConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -308,6 +358,13 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Removes the current user's registration from Firestore and decrements
+     * the event's waitlistCount field atomically.
+     *
+     * US 01.01.02 AC 1 — Removes entrant from waiting list.
+     * US 01.01.02 AC 3 — Waitlist count updated after removal.
+     */
     private void leaveWaitlist() {
         if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
@@ -337,11 +394,19 @@ public class EventDetailsFragment extends Fragment {
                 );
     }
 
+    /**
+     * Shows the Join Waiting List button and hides the Leave button.
+     * Called when the user is confirmed to not be on the waitlist.
+     */
     private void showJoinButton() {
         btnJoinWaitlist.setVisibility(View.VISIBLE);
         btnLeaveWaitlist.setVisibility(View.GONE);
     }
 
+    /**
+     * Shows the Leave Waiting List button and hides the Join button.
+     * Called when the user is confirmed to be on the waitlist.
+     */
     private void showLeaveButton() {
         btnJoinWaitlist.setVisibility(View.GONE);
         btnLeaveWaitlist.setVisibility(View.VISIBLE);

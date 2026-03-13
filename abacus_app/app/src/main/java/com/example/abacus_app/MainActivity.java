@@ -1,5 +1,23 @@
 /**
  * MainActivity.java
+ *
+ * Role: The single Activity that hosts all fragments via the Navigation
+ * component. Responsible for loading and displaying the event browse list,
+ * applying keyword and date filters, managing bottom navigation, and
+ * routing to event detail, profile, QR scan, and organizer/admin screens.
+ *
+ * Design pattern: Activity as host. Fragment navigation is handled through
+ * the Jetpack NavController. No ViewModel is used — filter state and event
+ * data are held directly in the Activity, consistent with the project's
+ * architecture decisions.
+ *
+ * Outstanding issues:
+ * - The event list is not paginated; very large event collections may cause
+ *   performance issues.
+ * - Role detection makes a Firestore read on every launch; could be cached
+ *   locally once the UserRepository stabilizes.
+ * - Guest users see the full event list but cannot join waitlists; the UI
+ *   does not currently indicate guest-mode restrictions on the browse screen.
  */
 package com.example.abacus_app;
 
@@ -38,6 +56,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -142,6 +161,13 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Role & Nav ────────────────────────────────────────────────────────────
 
+    /**
+     * Fetches the current user's role from Firestore and sets up the bottom
+     * navigation menu accordingly. Falls back to "entrant" if the fetch fails
+     * or if no UUID is available (guest mode).
+     *
+     * @param localDataSource used to retrieve the locally stored UUID
+     */
     private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
         String uuid = localDataSource.getUUIDSync();
 
@@ -169,6 +195,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Configures the bottom navigation bar based on the user's role.
+     * Organizers and admins see a tools/logs menu; entrants see the
+     * standard saved/history/inbox menu.
+     */
     private void setupBottomNav() {
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
             bottomNav.getMenu().clear();
@@ -219,6 +250,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Firestore real-time event loading ─────────────────────────────────────
 
+    /**
+     * Attaches a real-time Firestore snapshot listener to the events collection.
+     * Updates allEvents and re-applies filters on every change.
+     * The listener is removed in onDestroy to prevent memory leaks.
+     */
     private void loadEventsFromFirestore() {
         showLoadingState();
 
@@ -255,9 +291,21 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Filter & Adapter ──────────────────────────────────────────────────────
 
+    /**
+     * Filters allEvents by the active keyword, date, and expiry, then binds
+     * the result to the RecyclerView via EventAdapter. Shows an empty state
+     * view if no events match.
+     *
+     * Filtering rules:
+     * - Keyword: matches event title or description (case-insensitive).
+     * - Date: matches events whose registrationStart falls on the selected date.
+     * - Expiry: events whose registrationEnd has passed are always hidden.
+     *   (US 01.01.03 — entrants only see active, open events)
+     */
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        Date now = new Date();
 
         for (Event event : allEvents) {
             String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
@@ -273,7 +321,13 @@ public class MainActivity extends AppCompatActivity {
                 dateMatch = eventDate.equals(activeDate);
             }
 
-            if (keywordMatch && dateMatch) filtered.add(event);
+            // Hide events whose registration period has ended
+            boolean notExpired = true;
+            if (event.getRegistrationEnd() != null) {
+                notExpired = event.getRegistrationEnd().toDate().after(now);
+            }
+
+            if (keywordMatch && dateMatch && notExpired) filtered.add(event);
         }
 
         boolean isAdmin = "admin".equals(userRole);
@@ -313,6 +367,12 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Admin event deletion ──────────────────────────────────────────────────
 
+    /**
+     * Shows a confirmation dialog before soft-deleting an event.
+     * Only called when the current user has the admin role.
+     *
+     * @param event the event to be deleted
+     */
     private void confirmDeleteEvent(Event event) {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Event")
@@ -322,6 +382,12 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Soft-deletes an event by setting its isDeleted field to true in Firestore.
+     * The event is immediately removed from the local list and the adapter refreshed.
+     *
+     * @param event the event to soft-delete
+     */
     private void softDeleteEvent(Event event) {
         if (event.getEventId() == null || event.getEventId().isEmpty()) {
             android.util.Log.e("MainActivity", "Cannot delete event — eventId is null");
@@ -341,6 +407,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Bottom sheet filter ───────────────────────────────────────────────────
 
+    /**
+     * Displays the filter bottom sheet dialog. Allows the user to filter events
+     * by keyword and/or registration start date. Applies or clears filters on
+     * button tap and dismisses the dialog.
+     */
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
@@ -390,6 +461,10 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * Shows a loading placeholder in the event list area while Firestore
+     * data is being fetched.
+     */
     private void showLoadingState() {
         recyclerView.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);
@@ -399,10 +474,24 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
+    /**
+     * Navigates to a fragment without passing arguments.
+     *
+     * @param destinationId nav graph destination ID
+     * @param showBottomNav whether to keep the bottom nav visible
+     */
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
+    /**
+     * Navigates to a fragment, optionally passing a Bundle of arguments.
+     * Hides the home content and app bar during fragment display.
+     *
+     * @param destinationId nav graph destination ID
+     * @param showBottomNav whether to keep the bottom nav visible
+     * @param args          optional Bundle passed to the destination fragment
+     */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
@@ -412,6 +501,10 @@ public class MainActivity extends AppCompatActivity {
         navController.navigate(destinationId, args);
     }
 
+    /**
+     * Returns to the home event browse screen, restoring the app bar and
+     * bottom navigation.
+     */
     public void showHome() {
         clearBackStack();
         navHostFragment.setVisibility(View.GONE);
@@ -420,6 +513,9 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setVisibility(View.VISIBLE);
     }
 
+    /**
+     * Pops all entries off the navigation back stack.
+     */
     private void clearBackStack() {
         while (navController.getCurrentBackStackEntry() != null) {
             if (!navController.popBackStack()) break;
@@ -436,6 +532,12 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Recursively sets the text and hint color of all TextViews inside a
+     * ViewGroup to black. Used to fix the SearchBar text color.
+     *
+     * @param viewGroup the root ViewGroup to traverse
+     */
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -448,13 +550,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Returns the NavController used for fragment navigation.
+     *
+     * @return the NavController
+     */
     public NavController getNavController() { return navController; }
-    public String getUserRole()             { return userRole; }
 
+    /**
+     * Returns the current user's role ("entrant", "organizer", or "admin").
+     *
+     * @return the user role string
+     */
+    public String getUserRole() { return userRole; }
+
+    /**
+     * Called by EventDetailsFragment when a guest user tries to join a waitlist.
+     * Shows a prompt to sign in or register.
+     */
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
     }
 
+    /**
+     * Displays a dialog prompting the user to sign in or register.
+     *
+     * @param message the message to display in the dialog body
+     */
     private void showLoginPrompt(String message) {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Sign in required")
@@ -467,6 +589,10 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Redirects to the SplashActivity and clears the back stack.
+     * Called when no authenticated user is found and the app is not in guest mode.
+     */
     private void goToSplash() {
         Intent intent = new Intent(this, SplashActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

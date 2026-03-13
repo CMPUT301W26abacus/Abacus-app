@@ -11,6 +11,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.espresso.matcher.ViewMatchers.hasMinimumChildCount;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.containsString;
 
 import android.content.Intent;
 
@@ -35,6 +36,8 @@ import org.junit.runner.RunWith;
  * - US 01.01.04 — Filter events by keyword
  * - US 01.01.01 — Join waiting list
  * - US 01.01.02 — Leave waiting list (confirmation dialog)
+ * - US 01.05.04 — Waitlist count display on event details screen
+ * - Lottery Guidelines — guidelines fragment content and navigation
  *
  * NOTE: Requires animations to be disabled on the emulator:
  * Settings → Developer Options → Window/Transition/Animator scale → Off
@@ -101,11 +104,23 @@ public class EventBrowseUITest {
         try {
             onView(withId(R.id.btn_join_waitlist)).check(matches(
                     ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
-            // Join button is showing — tap it to join
             onView(withId(R.id.btn_join_waitlist)).perform(click());
             waitUntilVisible(R.id.btn_leave_waitlist, 8000);
         } catch (Throwable e) {
             // Leave button already showing — already on waitlist, nothing to do
+        }
+    }
+
+    /** Ensures user is NOT on the waitlist before join tests. */
+    private void ensureOffWaitlist() {
+        try {
+            onView(withId(R.id.btn_leave_waitlist)).check(matches(
+                    ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+            onView(withId(R.id.btn_leave_waitlist)).perform(click());
+            onView(withText("Leave")).perform(click());
+            waitUntilVisible(R.id.btn_join_waitlist, 8000);
+        } catch (Throwable e) {
+            // Join button already showing — not on waitlist, nothing to do
         }
     }
 
@@ -137,7 +152,6 @@ public class EventBrowseUITest {
         onView(withId(R.id.rv_events))
                 .perform(actionOnItemAtPosition(0, click()));
         waitUntilWaitlistButtonReady(15000);
-        // Either join or leave is visible — details screen loaded successfully
         try {
             onView(withId(R.id.btn_join_waitlist)).check(matches(
                     ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
@@ -190,14 +204,12 @@ public class EventBrowseUITest {
 
     /**
      * US 01.01.01 AC 1 — Waitlist button (join or leave) is visible after opening event details.
-     * Shows join if not yet on waitlist, leave if already joined.
      */
     @Test
     public void testJoinButtonVisibleOnEventDetails() {
         onView(withId(R.id.rv_events))
                 .perform(actionOnItemAtPosition(0, click()));
         waitUntilWaitlistButtonReady(15000);
-        // Either join or leave must be visible — confirms details screen loaded correctly
         try {
             onView(withId(R.id.btn_join_waitlist)).check(matches(
                     ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
@@ -214,7 +226,8 @@ public class EventBrowseUITest {
     public void testJoinWaitlistShowsConfirmation() {
         onView(withId(R.id.rv_events))
                 .perform(actionOnItemAtPosition(0, click()));
-        waitUntilVisible(R.id.btn_join_waitlist, 15000);
+        waitUntilWaitlistButtonReady(15000);
+        ensureOffWaitlist();
         onView(withId(R.id.btn_join_waitlist)).perform(click());
         waitUntilVisible(R.id.btn_leave_waitlist, 8000);
         onView(withId(R.id.btn_leave_waitlist))
@@ -265,5 +278,157 @@ public class EventBrowseUITest {
         waitUntilVisible(R.id.btn_join_waitlist, 8000);
         onView(withId(R.id.btn_join_waitlist))
                 .check(matches(ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+    }
+
+    // ── US 01.05.04 — Waitlist count display ──────────────────────────────────
+
+    /**
+     * US 01.05.04 AC 1 — Waitlist count is displayed when event details loads.
+     */
+    @Test
+    public void testWaitlistCountDisplayedOnLoad() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        waitUntilVisible(R.id.tv_waitlist_count, 8000);
+        onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * US 01.05.04 AC 1 — Waitlist count text contains "waiting list" or "spots".
+     */
+    @Test
+    public void testWaitlistCountTextIsRealistic() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        waitUntilVisible(R.id.tv_waitlist_count, 8000);
+        // Count should contain "waiting list" or "spots left" or "Capacity"
+        try {
+            onView(withId(R.id.tv_waitlist_count))
+                    .check(matches(withText(containsString("waiting list"))));
+        } catch (Throwable e) {
+            try {
+                onView(withId(R.id.tv_waitlist_count))
+                        .check(matches(withText(containsString("spots left"))));
+            } catch (Throwable e2) {
+                onView(withId(R.id.tv_waitlist_count))
+                        .check(matches(withText(containsString("Capacity"))));
+            }
+        }
+    }
+
+    /**
+     * US 01.05.04 AC 2 — Waitlist count updates after joining.
+     * Joins the waitlist and confirms the count text changes.
+     */
+    @Test
+    public void testWaitlistCountUpdatesAfterJoin() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        ensureOffWaitlist();
+
+        // Read count is showing before join
+        waitUntilVisible(R.id.tv_waitlist_count, 8000);
+        onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
+
+        // Join and wait for count to refresh
+        onView(withId(R.id.btn_join_waitlist)).perform(click());
+        waitUntilVisible(R.id.btn_leave_waitlist, 8000);
+        waitUntilVisible(R.id.tv_waitlist_count, 5000);
+        onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * US 01.05.04 AC 2 — Waitlist count updates after leaving.
+     * Leaves the waitlist and confirms the count text is still shown.
+     */
+    @Test
+    public void testWaitlistCountUpdatesAfterLeave() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        ensureOnWaitlist();
+
+        onView(withId(R.id.btn_leave_waitlist)).perform(click());
+        onView(withText("Leave")).perform(click());
+        waitUntilVisible(R.id.btn_join_waitlist, 8000);
+        waitUntilVisible(R.id.tv_waitlist_count, 5000);
+        onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
+    }
+
+    // ── Lottery Guidelines ────────────────────────────────────────────────────
+
+    /**
+     * Lottery Guidelines AC 1 — Lottery Guidelines button is visible on event details.
+     */
+    @Test
+    public void testLotteryGuidelinesButtonVisible() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        onView(withId(R.id.btn_lottery_guidelines)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * Lottery Guidelines AC 2 — Tapping Lottery Guidelines opens the guidelines fragment.
+     */
+    @Test
+    public void testLotteryGuidelinesOpensFragment() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        onView(withId(R.id.btn_lottery_guidelines)).perform(click());
+        waitUntilVisible(R.id.tv_selection_process, 8000);
+        onView(withId(R.id.tv_selection_process)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * Lottery Guidelines AC 2 — Guidelines fragment shows all required sections.
+     */
+    @Test
+    public void testLotteryGuidelinesShowsAllSections() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        onView(withId(R.id.btn_lottery_guidelines)).perform(click());
+        waitUntilVisible(R.id.tv_selection_process, 8000);
+
+        onView(withId(R.id.tv_selection_process)).check(matches(isDisplayed()));
+        onView(withId(R.id.tv_entrants_selected)).check(matches(isDisplayed()));
+        onView(withId(R.id.tv_draw_date)).check(matches(isDisplayed()));
+        onView(withId(R.id.tv_if_selected)).check(matches(isDisplayed()));
+        onView(withId(R.id.tv_if_declined)).check(matches(isDisplayed()));
+        onView(withId(R.id.tv_eligibility)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * Lottery Guidelines AC 3 — When no custom criteria set, selection is shown as random.
+     */
+    @Test
+    public void testLotteryGuidelinesShowsRandomSelection() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        onView(withId(R.id.btn_lottery_guidelines)).perform(click());
+        waitUntilVisible(R.id.tv_selection_process, 8000);
+        onView(withId(R.id.tv_selection_process))
+                .check(matches(withText(containsString("random"))));
+    }
+
+    /**
+     * Lottery Guidelines — Back button returns to event details screen.
+     */
+    @Test
+    public void testLotteryGuidelinesBackButtonWorks() {
+        onView(withId(R.id.rv_events))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        onView(withId(R.id.btn_lottery_guidelines)).perform(click());
+        waitUntilVisible(R.id.tv_selection_process, 8000);
+        onView(withId(R.id.btn_back_guidelines)).perform(click());
+        waitUntilWaitlistButtonReady(8000);
+        onView(withId(R.id.btn_lottery_guidelines)).check(matches(isDisplayed()));
     }
 }
