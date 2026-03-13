@@ -69,4 +69,11 @@
         android:name="com.example.abacus_app.AdminLogsFragment"
         android:label="Admin Logs" />
 
+
+    <!-- Opened from Lottery Guidelines button on Event Details -->
+    <fragment
+        android:id="@+id/lotteryGuidelinesFragment"
+        android:name="com.example.abacus_app.LotteryGuidelinesFragment"
+        android:label="Lottery Guidelines" />
+
 </navigation>
