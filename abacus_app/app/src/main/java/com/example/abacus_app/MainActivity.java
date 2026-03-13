@@ -22,6 +22,7 @@
 package com.example.abacus_app;
 
 import android.app.DatePickerDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -81,6 +82,14 @@ public class MainActivity extends AppCompatActivity {
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
+
+    /**
+     * Resolved user identifier passed into EventAdapter for join-status checks.
+     * For authenticated users: their Firebase UUID.
+     * For guests: their sanitised email key (GuestSignUpFragment.emailToKey).
+     * Null until resolved asynchronously.
+     */
+    private String resolvedUserKey = null;
 
     private ListenerRegistration eventsListener;
 
@@ -174,15 +183,16 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
 
-        // Wait for profile to load to set up navigation
+        // ── Resolve user key for join-status checks ────────────────────────────
+        resolveUserKey();
+
+        // ── Wait for profile to load to set up navigation ──────────────────────
         userRepository.getProfile(user -> {
             if (user != null) {
-                userRole = (user.getRole() != null && !user.getRole().isEmpty()) ? user.getRole() : "entrant";
-
-                // SHOW USER ID IN TOAST TO CONFIRM DOCUMENT
+                userRole = (user.getRole() != null && !user.getRole().isEmpty())
+                        ? user.getRole() : "entrant";
                 Toast.makeText(this, "Logged in as: " + user.getUid(), Toast.LENGTH_LONG).show();
                 android.util.Log.d("MainActivity", "User Role: " + userRole + " | ID: " + user.getUid());
-
                 runOnUiThread(this::setupBottomNav);
             } else {
                 runOnUiThread(this::setupBottomNav);
@@ -191,6 +201,39 @@ public class MainActivity extends AppCompatActivity {
 
         eventRepository = new EventRepository();
         loadEventsFromFirestore();
+    }
+
+    // ── User key resolution ───────────────────────────────────────────────────
+
+    /**
+     * Resolves the key used to look up registrations in Firestore.
+     *
+     * Authenticated users: resolves via UserRepository (UUID).
+     * Guests: reads the stored email from SharedPreferences and sanitises it
+     *         via GuestSignUpFragment.emailToKey — matching the doc ID format
+     *         written by GuestSignUpFragment.
+     *
+     * Once resolved, re-applies filters so the adapter is rebuilt with the key.
+     */
+    private void resolveUserKey() {
+        if (isGuest) {
+            String guestEmail = getSharedPreferences(
+                    GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
+                    .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
+            if (guestEmail != null) {
+                resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
+            }
+            // applyFilters will be called by loadEventsFromFirestore when data arrives;
+            // if events are already loaded, re-apply now so button states update.
+            if (!allEvents.isEmpty()) applyFilters();
+        } else {
+            UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
+            UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+            new UserRepository(local, remote).getCurrentUserId(uuid -> {
+                resolvedUserKey = uuid;
+                if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
+            });
+        }
     }
 
     private void setupBottomNav() {
@@ -264,19 +307,19 @@ public class MainActivity extends AppCompatActivity {
 
                     android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc
+                            : querySnapshot.getDocuments()) {
                         try {
                             Event event = doc.toObject(Event.class);
                             if (event != null) {
                                 if (event.getEventId() == null || event.getEventId().isEmpty()) {
                                     event.setEventId(doc.getId());
                                 }
-                                android.util.Log.d("MainActivity", "Event: " + event.getTitle()
-                                        + " | posterUrl: " + event.getPosterImageUrl());
                                 allEvents.add(event);
                             }
                         } catch (Exception ex) {
-                            android.util.Log.w("MainActivity", "Skipping bad doc: " + doc.getId(), ex);
+                            android.util.Log.w("MainActivity",
+                                    "Skipping bad doc: " + doc.getId(), ex);
                         }
                     }
                     applyFilters();
@@ -287,14 +330,10 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Filters allEvents by the active keyword, date, and expiry, then binds
-     * the result to the RecyclerView via EventAdapter. Shows an empty state
-     * view if no events match.
+     * the result to the RecyclerView via EventAdapter.
      *
-     * Filtering rules:
-     * - Keyword: matches event title or description (case-insensitive).
-     * - Date: matches events whose registrationStart falls on the selected date.
-     * - Expiry: events whose registrationEnd has passed are always hidden.
-     *   (US 01.01.03 — entrants only see active, open events)
+     * The resolved userKey and isGuest flag are passed into the adapter so each
+     * card can independently check its own join status from Firestore.
      */
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
@@ -302,7 +341,7 @@ public class MainActivity extends AppCompatActivity {
         Date now = new Date();
 
         for (Event event : allEvents) {
-            String title       = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
             boolean keywordMatch = activeKeyword.isEmpty()
@@ -315,7 +354,6 @@ public class MainActivity extends AppCompatActivity {
                 dateMatch = eventDate.equals(activeDate);
             }
 
-            // Hide events whose registration period has ended
             boolean notExpired = true;
             if (event.getRegistrationEnd() != null) {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
@@ -324,11 +362,12 @@ public class MainActivity extends AppCompatActivity {
             if (keywordMatch && dateMatch && notExpired) filtered.add(event);
         }
 
-        boolean isAdmin = "admin".equals(userRole);
+        boolean isAdminUser = "admin".equals(userRole);
 
         recyclerView.setAdapter(new EventAdapter(
                 filtered,
-                eventTitle -> {
+                (eventTitle, autoJoin) -> {
+                    // Resolve eventId from filtered list
                     String eventId = "";
                     for (Event e : filtered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
@@ -339,10 +378,13 @@ public class MainActivity extends AppCompatActivity {
                     Bundle args = new Bundle();
                     args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
                     args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                    args.putBoolean(EventDetailsFragment.ARG_AUTO_JOIN, autoJoin);
                     showFragment(R.id.eventDetailsFragment, false, args);
                 },
-                isAdmin ? this::confirmDeleteEvent : null,
-                isAdmin
+                isAdminUser ? this::confirmDeleteEvent : null,
+                isAdminUser,
+                resolvedUserKey,   // null until resolved — adapter handles gracefully
+                isGuest
         ));
 
         if (filtered.isEmpty()) {
@@ -359,14 +401,34 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Admin event deletion ──────────────────────────────────────────────────
+    // ── onResume: refresh join states when returning from EventDetailsFragment ─
 
     /**
-     * Shows a confirmation dialog before soft-deleting an event.
-     * Only called when the current user has the admin role.
+     * Called when the user navigates back to the home screen (e.g. after
+     * joining or leaving a waitlist in EventDetailsFragment). Re-applies
+     * filters so all card join buttons reflect the latest Firestore state.
      *
-     * @param event the event to be deleted
+     * For guests, also re-reads the stored email in case they just joined
+     * for the first time and the key wasn't available on first load.
      */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (isGuest && resolvedUserKey == null) {
+            // Guest may have just completed sign-up — try resolving again
+            String guestEmail = getSharedPreferences(
+                    GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
+                    .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
+            if (guestEmail != null) {
+                resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
+            }
+        }
+        // Rebuild adapter so join buttons re-query Firestore with latest state
+        if (!allEvents.isEmpty()) applyFilters();
+    }
+
+    // ── Admin event deletion ──────────────────────────────────────────────────
+
     private void confirmDeleteEvent(Event event) {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Event")
@@ -387,7 +449,8 @@ public class MainActivity extends AppCompatActivity {
                     applyFilters();
                 })
                 .addOnFailureListener(e ->
-                        android.util.Log.e("MainActivity", "Failed to delete event: " + e.getMessage()));
+                        android.util.Log.e("MainActivity",
+                                "Failed to delete event: " + e.getMessage()));
     }
 
     // ── Bottom sheet filter ───────────────────────────────────────────────────
@@ -441,15 +504,6 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    /**
-     * Filters allEvents (real Firestore events) using active keyword and/or date.
-     * Keyword matches title and description (case-insensitive).
-     * Date matches events whose registrationStart falls on the selected date.
-     * Both filters must match when both are active (AND logic).
-     */
-    // (Duplicate applyFilters removed — original implementation above is used.)
-
-    /** Shows empty state while Firestore is loading. */
     private void showLoadingState() {
         recyclerView.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);
@@ -459,24 +513,10 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    /**
-     * Navigates to a fragment without passing arguments.
-     *
-     * @param destinationId nav graph destination ID
-     * @param showBottomNav whether to keep the bottom nav visible
-     */
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
-    /**
-     * Navigates to a fragment, optionally passing a Bundle of arguments.
-     * Hides the home content and app bar during fragment display.
-     *
-     * @param destinationId nav graph destination ID
-     * @param showBottomNav whether to keep the bottom nav visible
-     * @param args          optional Bundle passed to the destination fragment
-     */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
         navHostFragment.setVisibility(View.VISIBLE);
@@ -486,10 +526,6 @@ public class MainActivity extends AppCompatActivity {
         navController.navigate(destinationId, args);
     }
 
-    /**
-     * Returns to the home event browse screen, restoring the app bar and
-     * bottom navigation.
-     */
     public void showHome() {
         clearBackStack();
         navHostFragment.setVisibility(View.GONE);
@@ -498,9 +534,6 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * Pops all entries off the navigation back stack.
-     */
     private void clearBackStack() {
         while (navController.getCurrentBackStackEntry() != null) {
             if (!navController.popBackStack()) break;
@@ -517,12 +550,6 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Recursively sets the text and hint color of all TextViews inside a
-     * ViewGroup to black. Used to fix the SearchBar text color.
-     *
-     * @param viewGroup the root ViewGroup to traverse
-     */
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -535,33 +562,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Returns the NavController used for fragment navigation.
-     *
-     * @return the NavController
-     */
     public NavController getNavController() { return navController; }
 
-    /**
-     * Returns the current user's role ("entrant", "organizer", or "admin").
-     *
-     * @return the user role string
-     */
     public String getUserRole() { return userRole; }
 
-    /**
-     * Called by EventDetailsFragment when a guest user tries to join a waitlist.
-     * Shows a prompt to sign in or register.
-     */
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
     }
 
-    /**
-     * Displays a dialog prompting the user to sign in or register.
-     *
-     * @param message the message to display in the dialog body
-     */
     private void showLoginPrompt(String message) {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Sign in required")
@@ -574,10 +582,6 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Redirects to the SplashActivity and clears the back stack.
-     * Called when no authenticated user is found and the app is not in guest mode.
-     */
     private void goToSplash() {
         Intent intent = new Intent(this, SplashActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
