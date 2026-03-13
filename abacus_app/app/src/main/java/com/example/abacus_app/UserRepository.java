@@ -15,17 +15,15 @@ import java.util.concurrent.Executors;
  * Architecture Layer: Repository
  *
  * Coordinates user initialization and synchronization between
- * local database storage and Firebase Firestore.
- *
- * Used by: ProfileFragment, ProfileViewModel, MainActivity
+ * local SharedPreferences storage and Firebase Firestore.
  */
 public class UserRepository {
 
     private final UserLocalDataSource  localDataSource;
     private final UserRemoteDataSource remoteDataSource;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor    = Executors.newSingleThreadExecutor();
+    private final Handler         mainHandler = new Handler(Looper.getMainLooper());
 
     public UserRepository(UserLocalDataSource localDataSource,
                           UserRemoteDataSource remoteDataSource) {
@@ -33,7 +31,6 @@ public class UserRepository {
         this.remoteDataSource = remoteDataSource;
     }
 
-    /** Returns existing UUID or creates and persists a new one. */
     private String getOrCreateUUID() {
         String uuid = localDataSource.getUUIDSync();
         if (uuid == null) {
@@ -43,24 +40,15 @@ public class UserRepository {
         return uuid;
     }
 
-    /**
-     * Initializes the user: ensures a UUID exists, signs in anonymously with
-     * Firebase Auth, and creates a Firestore document if one doesn't exist yet.
-     * This is the main entry point that should be called on app launch.
-     */
     public void initializeUserAsync() {
         executor.submit(() -> {
             try {
                 String uuid = getOrCreateUUID();
                 FirebaseAuth auth = FirebaseAuth.getInstance();
 
-                // Check if user is already authenticated
                 if (auth.getCurrentUser() != null) {
-                    // User is already authenticated (either anonymous or with email/password)
-                    // Just ensure Firestore document exists
                     ensureFirestoreDocumentExists(uuid);
                 } else {
-                    // No authenticated user, sign in anonymously
                     auth.signInAnonymously()
                             .addOnCompleteListener(task -> {
                                 if (task.isSuccessful()) {
@@ -75,24 +63,22 @@ public class UserRepository {
         });
     }
 
-    /**
-     * Ensures that a Firestore document exists for the given UUID.
-     * Creates a new document if one doesn't exist.
-     */
     private void ensureFirestoreDocumentExists(String uuid) {
         executor.submit(() -> {
             try {
                 User existing = remoteDataSource.getUserSync(uuid);
                 if (existing == null) {
                     java.util.Map<String, Object> userData = new java.util.HashMap<>();
-                    userData.put("deviceId", uuid);
-                    userData.put("uid",      uuid);   // kept for backward compat
-                    userData.put("email",    "");
-                    userData.put("name",     "New User");
-                    userData.put("createdAt", Timestamp.now());
-                    userData.put("role",      "entrant");
+                    userData.put("uid", uuid);
+                    userData.put("email", "");
+                    userData.put("name", "New User");
+                    userData.put("createdAt", Timestamp.now().toString());
+                    
+                    // Added default fields
+                    userData.put("role", "entrant");
                     userData.put("notificationsEnabled", true);
-                    userData.put("isGuest",  true);
+                    userData.put("isGuest", true);
+                    userData.put("isDeleted", false);
 
                     remoteDataSource.createUserSync(uuid, userData);
                 }
@@ -102,18 +88,10 @@ public class UserRepository {
         });
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls initializeUserAsync() internally.
-     */
     public void initializeUser() {
         initializeUserAsync();
     }
 
-    /**
-     * Retrieves the current device UUID and returns it via callback on the main thread.
-     * This is the implementation for getCurrentUserId() from specification.
-     */
     public void getCurrentUserIdAsync(StringCallback callback) {
         executor.submit(() -> {
             String uuid = localDataSource.getUUIDSync();
@@ -121,119 +99,58 @@ public class UserRepository {
         });
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls getCurrentUserIdAsync() internally.
-     */
     public void getCurrentUserId(StringCallback callback) {
         getCurrentUserIdAsync(callback);
     }
 
-    /**
-     * Fetches the user profile from Firestore and returns it via callback on the main thread.
-     * This is the implementation for getProfile() from specification.
-     */
     public void getProfileAsync(UserCallback callback) {
         executor.submit(() -> {
             try {
                 String uuid = localDataSource.getUUIDSync();
-                android.util.Log.d("UserRepository", "Getting profile for UUID: " + uuid);
-                
                 if (uuid == null) {
-                    android.util.Log.w("UserRepository", "No UUID found, returning null");
                     mainHandler.post(() -> callback.onResult(null));
                     return;
                 }
                 
                 User user = remoteDataSource.getUserSync(uuid);
-                if (user != null) {
-                    android.util.Log.d("UserRepository", "Retrieved user: " + user.getName() + 
-                        " (" + user.getEmail() + "), isGuest: " + user.isGuest());
-                } else {
-                    android.util.Log.w("UserRepository", "No user document found for UUID: " + uuid);
-                }
-                
                 mainHandler.post(() -> callback.onResult(user));
             } catch (Exception e) {
-                android.util.Log.e("UserRepository", "Error getting profile", e);
                 e.printStackTrace();
                 mainHandler.post(() -> callback.onResult(null));
             }
         });
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls getProfileAsync() internally.
-     */
     public void getProfile(UserCallback callback) {
         getProfileAsync(callback);
     }
 
-    /**
-     * Saves profile fields to Firestore for the current user.
-     * This is the implementation for saveProfile() from specification.
-     *
-     * @param profileData Map of field names → values to update.
-     * @param callback    Called on the main thread when done (null on success, exception on error).
-     */
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // getOrCreateUUID ensures a UUID always exists — critical for the
-                // registration flow where MainActivity hasn't run yet to create one.
-                String uuid = getOrCreateUUID();
-                android.util.Log.d("UserRepository", "Saving profile for UUID: " + uuid +
-                    ", data: " + profileData.toString());
-
+                String uuid = localDataSource.getUUIDSync();
                 if (uuid != null) {
                     remoteDataSource.updateUserSync(uuid, profileData);
-                    android.util.Log.d("UserRepository", "Profile saved successfully");
-                } else {
-                    android.util.Log.w("UserRepository", "No UUID found, cannot save profile");
                 }
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
-                android.util.Log.e("UserRepository", "Error saving profile", e);
                 e.printStackTrace();
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls saveProfileAsync() internally.
-     */
     public void saveProfile(Map<String, Object> profileData, VoidCallback callback) {
         saveProfileAsync(profileData, callback);
     }
 
-    /**
-     * Soft-deletes the current user's profile in Firestore.
-     * This is the implementation for deleteProfile() from specification.
-     *
-     * @param callback Called on the main thread when done (null on success, exception on error).
-     */
     public void deleteProfileAsync(VoidCallback callback) {
         executor.submit(() -> {
             try {
                 String uuid = localDataSource.getUUIDSync();
                 if (uuid != null) {
                     remoteDataSource.deleteUserSync(uuid);
-                    remoteDataSource.deleteWaitlistEntriesForUser(uuid);
                 }
-
-                // Delete Firebase Auth account so the email can be re-registered
-                com.google.firebase.auth.FirebaseUser authUser =
-                        FirebaseAuth.getInstance().getCurrentUser();
-                if (authUser != null) {
-                    com.google.android.gms.tasks.Tasks.await(authUser.delete());
-                }
-
-                // Clear local session so the next launch starts as a fresh guest
-                localDataSource.clearDeviceId();
-
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -242,23 +159,8 @@ public class UserRepository {
         });
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls deleteProfileAsync() internally.
-     */
     public void deleteProfile(VoidCallback callback) {
         deleteProfileAsync(callback);
-    }
-
-
-    /**
-     * Clears the locally stored UUID and signs out of Firebase Auth.
-     * After this call the device has no identity; the next call to
-     * initializeUser() will generate a fresh UUID and anonymous session.
-     */
-    public void clearLocalSession() {
-        localDataSource.clearDeviceId();
-        FirebaseAuth.getInstance().signOut();
     }
 
     public interface UserCallback {
@@ -270,7 +172,6 @@ public class UserRepository {
     }
 
     public interface VoidCallback {
-        /** @param error null on success, non-null if something went wrong. */
         void onComplete(Exception error);
     }
 }

@@ -1,112 +1,106 @@
 package com.example.abacus_app;
-import com.google.firebase.Timestamp;
+
+import com.google.firebase.firestore.Exclude;
 
 /**
- *  Entity class that hold the data related to a single waitlist entry, including the user that
- *  joined the waitlist, the event they joined, their current status, their lotto number, and the
- *  timestamp of when they joined.
- *
- * @author Team Abacus, Kaylee Crocker
- * @version 1.0
+ * Entity class for a waitlist entry.
+ * Fields match the Firestore 'registrations' collection.
  */
 public class WaitlistEntry {
 
-    /**
-     * Indicates that an entrant is on the waitlist but has not been invited.
-     */
-    /**
-     * Indicates that an entrant is on the waitlist but has not been invited.
-     */
+    /** Status constants */
     public static final String STATUS_WAITLISTED = "waitlisted";
-    /**
-     * Indicates that an entrant is invited to register for the event.
-     */
-    public static final String STATUS_INVITED = "invited";
-    /**
-     * Indicates that an entrant has accepted their invitation and registered for the event.
-     */
-    public static final String STATUS_ACCEPTED = "accepted";
-    /**
-     * Indicated that an entrant was invited but has chosen not to register for the event.
-     */
-    public static final String STATUS_DECLINED = "declined";
-    /**
-     * Indicates that an entrant has been removed from participating in the event by the organizer.
-     */
-    public static final String STATUS_CANCELLED = "cancelled";
+    public static final String STATUS_INVITED    = "invited";
+    public static final String STATUS_ACCEPTED   = "accepted";
+    public static final String STATUS_DECLINED   = "declined";
+    public static final String STATUS_CANCELLED  = "cancelled";
 
-    private String userID;
-    private String eventID;
-    private String status; // "WAITLISTED", "INVITED", "ACCEPTED", "DECLINED", "CANCELLED"
-    private Integer lotteryNumber; // randomly assigned; used for lotto draw
-    private Timestamp joinTime;
+    private String userId;
+    private String eventId;
+    private String status;
+    private Long timestamp;
+    private Integer lotteryNumber;
 
-    /**
-     * Default constructor required for Firebase. Do not use.
-     */
+    // Transient fields for UI
+    @Exclude
+    private String userName;
+    @Exclude
+    private String userEmail;
+
+    /** Required no-arg constructor for Firestore */
     public WaitlistEntry() {}
 
-    /**
-     * Constructs an entry.
-     *
-     * @param userID the unique ID of the user in the database
-     * @param status the current waitlist status of the entrant
-     * @param lotteryNumber a random int used for fair lottery draw (hidden)
-     * @param joinTime the timestamp at which the user joined the waitlist
-     */
-    public WaitlistEntry(String userID, String eventID, String status, Integer lotteryNumber, Timestamp joinTime) {
-        this.userID = userID;
-        this.eventID = eventID;
+    public WaitlistEntry(String userId, String eventId, String status, Integer lotteryNumber, Long timestamp) {
+        this.userId = userId;
+        this.eventId = eventId;
         this.status = status;
         this.lotteryNumber = lotteryNumber;
-        this.joinTime = joinTime;
+        this.timestamp = timestamp;
     }
 
-    /**
-     * Gets the user ID of the entrant.
-     * @return the unique ID of the user in the database
-     */
-    public String getUserID() {
-        return userID;
+    public String getUserId() {
+        return userId;
     }
 
-    /**
-     * Gets the event ID of the event.
-     * @return the unique ID of the event in the database
-     */
-    public String getEventID() {
-        return eventID;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
-    /**
-     * Gets the current status of the entrant.
-     * @return the current waitlist status of the entrant
-     */
-    /**
-     * Gets the current status of the entrant.
-     * @return the current waitlist status of the entrant
-     */
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
     public String getStatus() {
         return status;
     }
 
-    /**
-     * Gets the lottery number of the entrant. Should NOT be displayed to user.
-     * @return a random int used for fair lottery draw (hidden)
-     */
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Long timestamp) {
+        this.timestamp = timestamp;
+    }
+
     public Integer getLotteryNumber() {
         return lotteryNumber;
     }
 
-    /**
-     * Gets the waitlist join time of the entrant.
-     * @return the timestamp at which the user joined the waitlist
-     */
-    /**
-     * Gets the waitlist join time of the entrant.
-     * @return the timestamp at which the user joined the waitlist
-     */
-    public Timestamp getJoinTime() {
-        return joinTime;
+    public void setLotteryNumber(Integer lotteryNumber) {
+        this.lotteryNumber = lotteryNumber;
     }
+
+    @Exclude
+    public String getUserName() {
+        return userName;
+    }
+
+    @Exclude
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    @Exclude
+    public String getUserEmail() {
+        return userEmail;
+    }
+
+    @Exclude
+    public void setUserEmail(String userEmail) {
+        this.userEmail = userEmail;
+    }
+
+    // Compatibility getters for existing code that might use uppercase ID
+    @Exclude
+    public String getUserID() { return userId; }
+    @Exclude
+    public String getEventID() { return eventId; }
 }

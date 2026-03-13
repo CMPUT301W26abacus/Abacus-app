@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,6 +35,7 @@ public class ManageEventFragment extends Fragment {
     private WaitlistAdapter adapter;
     private final List<WaitlistEntry> entries = new ArrayList<>();
     private TextView tvEventName, tvCount;
+    private Button btnDrawLottery;
 
     public static ManageEventFragment newInstance(String eventId, String eventTitle) {
         ManageEventFragment fragment = new ManageEventFragment();
@@ -65,12 +67,23 @@ public class ManageEventFragment extends Fragment {
         tvEventName  = view.findViewById(R.id.tv_event_name);
         tvCount      = view.findViewById(R.id.tv_waitlist_count);
         recyclerView = view.findViewById(R.id.rv_waitlist);
+        btnDrawLottery = view.findViewById(R.id.btn_draw_lottery);
+        
+        view.findViewById(R.id.btn_back).setOnClickListener(v -> {
+            if (getActivity() != null) getActivity().onBackPressed();
+        });
 
         if (eventTitle != null) tvEventName.setText(eventTitle);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new WaitlistAdapter(entries);
         recyclerView.setAdapter(adapter);
+
+        btnDrawLottery.setOnClickListener(v -> {
+            if (eventId != null) {
+                viewModel.drawLottery(eventId);
+            }
+        });
 
         observeViewModel();
 
@@ -92,7 +105,20 @@ public class ManageEventFragment extends Fragment {
         });
 
         viewModel.getError().observe(getViewLifecycleOwner(), err -> {
-            if (err != null) Toast.makeText(getContext(), err, Toast.LENGTH_SHORT).show();
+            if (err != null && !err.isEmpty()) {
+                Toast.makeText(getContext(), err, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        viewModel.getLotteryCompleted().observe(getViewLifecycleOwner(), completed -> {
+            if (completed != null && completed) {
+                Toast.makeText(getContext(), "Lottery draw completed and notifications sent!", Toast.LENGTH_LONG).show();
+            }
+        });
+
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
+            btnDrawLottery.setEnabled(!loading);
+            btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
         });
     }
 }
