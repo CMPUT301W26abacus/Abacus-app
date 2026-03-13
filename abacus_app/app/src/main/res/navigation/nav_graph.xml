@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
     app:startDestination="@id/nav_saved">
 
@@ -68,5 +69,19 @@
         android:id="@+id/adminLogsFragment"
         android:name="com.example.abacus_app.AdminLogsFragment"
         android:label="Admin Logs" />
+
+
+    <!-- Opened from Lottery Guidelines button on Event Details -->
+    <fragment
+        android:id="@+id/lotteryGuidelinesFragment"
+        android:name="com.example.abacus_app.LotteryGuidelinesFragment"
+        android:label="Lottery Guidelines" />
+
+    <fragment
+        android:id="@+id/guestSignUpFragment"
+        android:name="com.example.abacus_app.GuestSignUpFragment"
+        android:label="Join as Guest"
+        tools:layout="@layout/fragment_guest_sign_up"/>
+
 
 </navigation>

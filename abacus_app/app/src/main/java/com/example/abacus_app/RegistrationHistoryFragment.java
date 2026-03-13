@@ -40,6 +40,10 @@ import java.util.concurrent.Executors;
  * Displays a scrollable list of the current user's past event registrations
  * and their lottery outcomes. Shows an empty state when no registrations exist.
  *
+ * Guest support: When the app is running in guest mode the repository reads
+ * the stored guest email from SharedPreferences and queries Firestore by
+ * guestEmail instead of userId. The rest of the display pipeline is identical.
+ *
  * Used by: MainActivity navigation
  */
 public class RegistrationHistoryFragment extends Fragment {
@@ -90,7 +94,8 @@ public class RegistrationHistoryFragment extends Fragment {
     }
 
     private void setupViewModel() {
-        FirebaseRegistrationRepository repository = new FirebaseRegistrationRepository(requireContext());
+        FirebaseRegistrationRepository repository =
+                new FirebaseRegistrationRepository(requireContext());
         viewModel = new ViewModelProvider(this,
                 new RegistrationHistoryViewModel.Factory(repository))
                 .get(RegistrationHistoryViewModel.class);
@@ -98,7 +103,7 @@ public class RegistrationHistoryFragment extends Fragment {
         viewModel.getRegistrations().observe(getViewLifecycleOwner(), registrations -> {
             adapter.setItems(registrations);
             emptyStateLayout.setVisibility(registrations.isEmpty() ? View.VISIBLE : View.GONE);
-            recyclerView.setVisibility(registrations.isEmpty() ? View.GONE : View.VISIBLE);
+            recyclerView.setVisibility(registrations.isEmpty() ? View.GONE  : View.VISIBLE);
         });
 
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
@@ -118,15 +123,17 @@ public class RegistrationHistoryFragment extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(() -> viewModel.refresh());
     }
 
-    // ─── Adapter ─────────────────────────────────────────────────────────────────
+    // ─── Adapter ──────────────────────────────────────────────────────────────
 
-    private static class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHolder> {
+    private static class HistoryAdapter
+            extends RecyclerView.Adapter<HistoryAdapter.ViewHolder> {
 
         interface OnEventClickListener {
             void onEventClick(String eventId, String eventTitle);
         }
 
-        private List<RegistrationHistoryViewModel.RegistrationHistoryItem> items = new ArrayList<>();
+        private List<RegistrationHistoryViewModel.RegistrationHistoryItem> items =
+                new ArrayList<>();
         private final OnEventClickListener clickListener;
 
         HistoryAdapter(OnEventClickListener clickListener) {
@@ -154,9 +161,7 @@ public class RegistrationHistoryFragment extends Fragment {
         }
 
         @Override
-        public int getItemCount() {
-            return items.size();
-        }
+        public int getItemCount() { return items.size(); }
 
         static class ViewHolder extends RecyclerView.ViewHolder {
             private final TextView titleView, dateTimeView, locationView;
@@ -177,13 +182,17 @@ public class RegistrationHistoryFragment extends Fragment {
             void bind(RegistrationHistoryViewModel.RegistrationHistoryItem item) {
                 titleView.setText(item.getEventTitle());
                 dateTimeView.setText(item.getStatusLabel());
-                locationView.setText("Registered on " + new SimpleDateFormat("MMM dd, yyyy",
-                        Locale.getDefault()).format(new Date(item.getTimestamp())));
+                locationView.setText("Registered on " + new SimpleDateFormat(
+                        "MMM dd, yyyy", Locale.getDefault())
+                        .format(new Date(item.getTimestamp())));
 
                 statusButton.setText(item.getStatusLabel());
                 statusButton.setEnabled(false);
-                statusButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                        ContextCompat.getColor(itemView.getContext(), statusColor(item.getStatusLabel()))));
+                statusButton.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(
+                                ContextCompat.getColor(
+                                        itemView.getContext(),
+                                        statusColor(item.getStatusLabel()))));
 
                 String posterUrl = item.getPosterImageUrl();
                 if (posterUrl != null && !posterUrl.isEmpty()) {
@@ -217,12 +226,13 @@ public class RegistrationHistoryFragment extends Fragment {
         }
     }
 
-    // ─── Firebase Repository ──────────────────────────────────────────────────────
+    // ─── Firebase Repository ──────────────────────────────────────────────────
 
     private static class FirebaseRegistrationRepository
             implements RegistrationHistoryViewModel.RegistrationRepository {
 
         private static final String TAG = "FirebaseRegRepo";
+
         private final Context context;
         private final RegistrationRemoteDataSource dataSource;
         private final FirebaseFirestore firestore;
@@ -239,9 +249,48 @@ public class RegistrationHistoryFragment extends Fragment {
         public void getHistoryForUser(
                 RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
 
+            // ── Check if running as guest ──────────────────────────────────────
+            boolean isGuest = false;
+            if (context instanceof android.app.Activity) {
+                isGuest = ((android.app.Activity) context)
+                        .getIntent().getBooleanExtra("isGuest", false);
+            }
+
+            // For guests, bypass UserRepository and query by stored email instead
+            if (isGuest) {
+                String guestEmail = context
+                        .getSharedPreferences(
+                                GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
+                        .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
+
+                if (guestEmail == null) {
+                    // Guest hasn't joined anything yet
+                    callback.onResult(new ArrayList<>(), null);
+                    return;
+                }
+
+                final String email = guestEmail;
+                executor.execute(() -> {
+                    try {
+                        ArrayList<WaitlistEntry> entries =
+                                dataSource.getHistoryForGuestSync(email);
+                        if (entries == null || entries.isEmpty()) {
+                            callback.onResult(new ArrayList<>(), null);
+                            return;
+                        }
+                        buildRegistrationList(entries, callback);
+                    } catch (Exception e) {
+                        callback.onResult(new ArrayList<>(), e);
+                    }
+                });
+                return;
+            }
+
+            // ── Authenticated user flow (unchanged) ────────────────────────────
             UserLocalDataSource localDataSource   = new UserLocalDataSource(context);
             UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(firestore);
-            UserRepository userRepository         = new UserRepository(localDataSource, remoteDataSource);
+            UserRepository userRepository         =
+                    new UserRepository(localDataSource, remoteDataSource);
 
             userRepository.getCurrentUserId(userId -> {
                 if (userId == null) {
@@ -251,43 +300,53 @@ public class RegistrationHistoryFragment extends Fragment {
 
                 executor.execute(() -> {
                     try {
-                        ArrayList<WaitlistEntry> waitlistEntries = dataSource.getHistoryForUserSync(userId);
-
-                        if (waitlistEntries.isEmpty()) {
+                        ArrayList<WaitlistEntry> waitlistEntries =
+                                dataSource.getHistoryForUserSync(userId);
+                        if (waitlistEntries == null || waitlistEntries.isEmpty()) {
                             callback.onResult(new ArrayList<>(), null);
                             return;
                         }
-
-                        List<String> eventIds = new ArrayList<>();
-                        for (WaitlistEntry entry : waitlistEntries) {
-                            eventIds.add(entry.getEventID());
-                        }
-
-                        fetchEventData(eventIds, (eventTitles, eventPosters) -> {
-                            List<RegistrationHistoryViewModel.Registration> registrations = new ArrayList<>();
-                            for (WaitlistEntry entry : waitlistEntries) {
-                                String title = eventTitles.containsKey(entry.getEventID())
-                                        ? eventTitles.get(entry.getEventID())
-                                        : "Event " + entry.getEventID();
-                                String posterUrl = eventPosters.get(entry.getEventID());
-
-                                registrations.add(new RegistrationHistoryViewModel.Registration(
-                                        entry.getEventID(),
-                                        title,
-                                        posterUrl,
-                                        entry.getStatus(),
-                                        entry.getJoinTime() != null
-                                                ? entry.getJoinTime().toDate().getTime()
-                                                : System.currentTimeMillis()
-                                ));
-                            }
-                            callback.onResult(registrations, null);
-                        });
-
+                        buildRegistrationList(waitlistEntries, callback);
                     } catch (Exception e) {
                         callback.onResult(new ArrayList<>(), e);
                     }
                 });
+            });
+        }
+
+        /**
+         * Shared pipeline: given a list of WaitlistEntry items, fetches event
+         * titles and poster URLs then builds the final Registration list for the
+         * ViewModel. Used by both guest and authenticated paths.
+         */
+        private void buildRegistrationList(
+                ArrayList<WaitlistEntry> entries,
+                RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+
+            List<String> eventIds = new ArrayList<>();
+            for (WaitlistEntry entry : entries) {
+                if (entry.getEventId() != null) eventIds.add(entry.getEventId());
+            }
+
+            fetchEventData(eventIds, (eventTitles, eventPosters) -> {
+                List<RegistrationHistoryViewModel.Registration> registrations = new ArrayList<>();
+                for (WaitlistEntry entry : entries) {
+                    String title = eventTitles.containsKey(entry.getEventId())
+                            ? eventTitles.get(entry.getEventId())
+                            : "Event " + entry.getEventId();
+                    String posterUrl = eventPosters.get(entry.getEventId());
+
+                    registrations.add(new RegistrationHistoryViewModel.Registration(
+                            entry.getEventId(),
+                            title,
+                            posterUrl,
+                            entry.getStatus(),
+                            entry.getTimestamp() != null
+                                    ? entry.getTimestamp()
+                                    : System.currentTimeMillis()
+                    ));
+                }
+                callback.onResult(registrations, null);
             });
         }
 

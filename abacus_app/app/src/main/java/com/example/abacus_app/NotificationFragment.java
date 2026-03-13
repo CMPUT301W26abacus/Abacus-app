@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,14 +20,17 @@ import java.util.List;
  */
 public class NotificationFragment extends Fragment {
 
+    private static final String TAG = "NotificationFragment";
     private NotificationRepository notificationRepository;
     private NotificationAdapter adapter;
-    private String currentUserId; // This should be retrieved from device ID / Auth
+    private String currentUserId;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_notif_list, container, false);
+        // Ensure we have a background color to avoid "black screen" issues if theme is dark
+        View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
+        view.setBackgroundResource(android.R.color.white); 
 
         RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -36,9 +40,11 @@ public class NotificationFragment extends Fragment {
         notificationRepository = new NotificationRepository();
         
         // US 01.07.01: Be identified by device. 
-        // For now, using a placeholder or retrieving from MainActivity if available.
-        // In a real scenario, this would be Settings.Secure.ANDROID_ID or similar.
-        currentUserId = "test_device_id"; 
+        // Fetching the actual UUID of the device/user
+        UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
+        currentUserId = localDataSource.getUUIDSync();
+        
+        Log.d(TAG, "Listening for notifications for UID: " + currentUserId);
 
         startListening();
 
@@ -46,10 +52,16 @@ public class NotificationFragment extends Fragment {
     }
 
     private void startListening() {
+        if (currentUserId == null) {
+            Log.e(TAG, "Cannot start listening: currentUserId is null");
+            return;
+        }
+
         notificationRepository.listenForNotifications(currentUserId, new NotificationRemoteDataSource.OnNotificationsUpdatedListener() {
             @Override
             public void onUpdate(List<Notification> notifications) {
                 if (notifications != null) {
+                    Log.d(TAG, "Received " + notifications.size() + " notifications");
                     adapter.setNotifications(notifications);
                 }
             }

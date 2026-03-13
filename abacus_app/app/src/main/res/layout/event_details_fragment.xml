@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    event_details_fragment.xml
+
+    Role: Layout for the Event Details screen. Shows event poster, title,
+    organizer, date/time, location, waiting list count, description, and
+    lottery guidelines button. Join/Leave buttons are fixed at the bottom.
+-->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -148,7 +155,25 @@
                     android:text="Event description goes here."
                     android:textColor="@color/black"
                     android:textSize="15sp"
-                    android:lineSpacingExtra="4dp" />
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="20dp"
+                    android:background="@color/light_grey" />
+
+                <!-- Lottery Guidelines button (US lottery guidelines) -->
+                <Button
+                    android:id="@+id/btn_lottery_guidelines"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Lottery Guidelines"
+                    android:layout_marginBottom="8dp"
+                    android:textColor="@color/black"/>
 
             </LinearLayout>
         </LinearLayout>

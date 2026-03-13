@@ -21,10 +21,11 @@ public class EventUnitTest {
         String organizerId = "org_123";
         Timestamp start = new Timestamp(new Date());
         Timestamp end = new Timestamp(new Date());
-        Integer capacity = 50;
+        Integer waitlistCapacity = 50;
+        Integer eventCapacity = 100;
         boolean geo = true;
 
-        Event event = new Event(eventId, title, description, organizerId, start, end, capacity, geo);
+        Event event = new Event(eventId, title, description, organizerId, start, end, waitlistCapacity, eventCapacity, geo);
 
         assertEquals(eventId, event.getEventId());
         assertEquals(title, event.getTitle());
@@ -32,7 +33,8 @@ public class EventUnitTest {
         assertEquals(organizerId, event.getOrganizerId());
         assertEquals(start, event.getRegistrationStart());
         assertEquals(end, event.getRegistrationEnd());
-        assertEquals(capacity, event.getWaitlistCapacity());
+        assertEquals(waitlistCapacity, event.getWaitlistCapacity());
+        assertEquals(eventCapacity, event.getEventCapacity());
         assertTrue(event.isGeoRequired());
     }
 

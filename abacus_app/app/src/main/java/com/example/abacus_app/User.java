@@ -8,7 +8,7 @@ public class User {
     private String    email;
     private String    name;
     private String    phone;
-    private String createdAt;   // was String — Firestore stores this as Timestamp
+    private String createdAt;
     private boolean   isDeleted;
     private long      deletedAt;
     private long      lastLoginAt;
@@ -18,6 +18,7 @@ public class User {
 
     private String  role;
     private boolean notificationsEnabled;
+    private String  status; // "winner" or "loser"
 
     public User() {}
 
@@ -33,6 +34,7 @@ public class User {
         this.isGuest     = true;
         this.role        = "entrant";
         this.notificationsEnabled = true;
+        this.status      = "";
     }
 
     public String    getUid()         { return uid; }
@@ -51,6 +53,7 @@ public class User {
 
     public String  getRole()          { return role; }
     public boolean getNotificationsEnabled() { return notificationsEnabled; }
+    public String  getStatus()        { return status; }
 
 
     public void setUid(String uid)               { this.uid = uid; }
@@ -71,4 +74,5 @@ public class User {
 
     public void setRole(String role)             { this.role = role; }
     public void setNotificationsEnabled(boolean enabled) { this.notificationsEnabled = enabled; }
+    public void setStatus(String status)         { this.status = status; }
 }
