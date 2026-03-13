@@ -84,6 +84,17 @@ public class RegistrationRepository {
         });
     }
 
+    public void inviteEntrant(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_INVITED);
+                if (callback != null) mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                if (callback != null) mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     public void acceptInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {

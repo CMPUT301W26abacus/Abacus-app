@@ -33,6 +33,10 @@ public class EventRemoteDataSource {
         return eventsRef.get();
     }
 
+    public Task<QuerySnapshot> getEventsByOrganizer(String organizerId) {
+        return eventsRef.whereEqualTo("organizerId", organizerId).get();
+    }
+
     public Task<Void> updateEvent(Event event) {
         return eventsRef.document(event.getEventId()).set(event);
     }
