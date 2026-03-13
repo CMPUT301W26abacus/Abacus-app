@@ -262,7 +262,7 @@ public class RegistrationRepository {
     }
 
     /**
-     * Callback interface for methods returning ArrayList<WaitlistEntry>.
+     * Callback interface for methods returning an ArrayList of WaitlistEntry.
      */
     public interface WaitlistCallback {
         void onResult(ArrayList<WaitlistEntry> waitlist);
