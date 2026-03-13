@@ -1,5 +1,10 @@
 /**
  * EventDetailsFragment.java
+ *
+ * Role: Displays the full details of a selected event. Accessible by tapping
+ * any event card from the main browse list. Provides buttons to view the
+ * event's QR code, lottery guidelines, and join/leave the waiting list.
+ * Bottom navigation is hidden on this screen for a focused experience.
  */
 package com.example.abacus_app;
 
@@ -54,12 +59,16 @@ public class EventDetailsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // ── Teammate's original code (unchanged) ──────────────────────────────
+
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (!Navigation.findNavController(view).popBackStack()) {
                 ((MainActivity) requireActivity()).showHome();
             }
         });
+
+        // ── Read args from Bundle ──────────────────────────────────────────────
 
         String eventTitle = getArguments() != null
                 ? getArguments().getString(ARG_EVENT_TITLE, "Event Details")
@@ -69,9 +78,11 @@ public class EventDetailsFragment extends Fragment {
                 ? getArguments().getString(ARG_EVENT_ID, null)
                 : null;
 
+        // ── Show event title ───────────────────────────────────────────────────
         TextView tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
 
+        // ── QR button — uses real event ID and title ───────────────────────────
         ImageButton btnViewQr = view.findViewById(R.id.btn_view_qr);
         btnViewQr.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -80,9 +91,21 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
 
+        // ── Lottery Guidelines button (US lottery guidelines) ──────────────────
+        Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
+        btnLotteryGuidelines.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putString(com.example.abacus_app.LotteryGuidelinesFragment.ARG_EVENT_ID,
+                    currentEventId != null ? currentEventId : "");
+            Navigation.findNavController(view).navigate(R.id.lotteryGuidelinesFragment, args);
+        });
+
+        // ── Load full event details from Firestore ─────────────────────────────
         if (currentEventId != null) {
             loadEventDetails();
         }
+
+        // ── Waitlist logic (US 01.01.01, US 01.01.02) ─────────────────────────
 
         db               = FirebaseFirestore.getInstance();
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
@@ -166,7 +189,7 @@ public class EventDetailsFragment extends Fragment {
                         }
                     }
 
-                    // ── Organizer name ─────────────────────────────────────────
+                    // Organizer name
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
