@@ -1,5 +1,18 @@
 /**
  * MainActivity.java
+ *
+ * Role: Entry point and primary controller for the Abacus application.
+ * Implements the home screen (event browse list) directly and manages
+ * fragment-based navigation for all other screens via a NavHostFragment overlay.
+ *
+ * Design pattern: The home UI lives directly in activity_main.xml rather than
+ * a fragment, with a FragmentContainerView overlay that is shown/hidden when
+ * navigating away from or back to the home screen. This keeps the main event
+ * browse experience as the persistent base of the app.
+ *
+ * Outstanding issues:
+ * - Role-based UI (admin delete buttons, organizer tools) not yet implemented.
+ * - Bottom nav "Saved", "History", "Inbox" fragments are currently empty stubs.
  */
 package com.example.abacus_app;
 
@@ -69,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // ── Teammate's original code (unchanged) ──────────────────────────────
+
         UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
@@ -116,15 +131,35 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnScan = findViewById(R.id.btn_scan);
         btnScan.setOnClickListener(v -> showFragment(R.id.mainQrScanFragment, false));
 
-        recyclerView = findViewById(R.id.rv_events);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView     = findViewById(R.id.rv_events);
         layoutEmptyState = findViewById(R.id.layout_empty_state);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_home) {
+                showHome();
+                return true;
+            } else if (id == R.id.nav_saved) {
+                showFragment(R.id.nav_saved, true);
+                return true;
+            } else if (id == R.id.nav_history) {
+                showFragment(R.id.nav_history, true);
+                return true;
+            } else if (id == R.id.nav_inbox) {
+                showFragment(R.id.nav_inbox, true);
+                return true;
+            }
+            return false;
+        });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
-                    if (!navController.popBackStack()) showHome();
+                    if (!navController.popBackStack()) {
+                        showHome();
+                    }
                 } else {
                     finish();
                 }
@@ -390,6 +425,15 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * Filters allEvents (real Firestore events) using active keyword and/or date.
+     * Keyword matches title and description (case-insensitive).
+     * Date matches events whose registrationStart falls on the selected date.
+     * Both filters must match when both are active (AND logic).
+     */
+    // (Duplicate applyFilters removed — original implementation above is used.)
+
+    /** Shows empty state while Firestore is loading. */
     private void showLoadingState() {
         recyclerView.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);

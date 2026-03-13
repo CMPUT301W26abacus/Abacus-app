@@ -35,9 +35,9 @@ public class User {
         this.notificationsEnabled = true;
     }
 
-    // ── Getters ──────────────────────────────────────────────────────────
-
     public String    getUid()         { return uid; }
+    /** Alias for {@link #getUid()} — spec names this field deviceId. */
+    public String    getDeviceId()    { return uid; }
     public String    getEmail()       { return email; }
     public String    getName()        { return name; }
     public String    getPhone()       { return phone; }
@@ -52,7 +52,6 @@ public class User {
     public String  getRole()          { return role; }
     public boolean getNotificationsEnabled() { return notificationsEnabled; }
 
-    // ── Setters ──────────────────────────────────────────────────────────
 
     public void setUid(String uid)               { this.uid = uid; }
     public void setEmail(String email)           { this.email = email; }
@@ -63,6 +62,10 @@ public class User {
     public void setDeletedAt(long deletedAt)     { this.deletedAt = deletedAt; }
     public void setLastLoginAt(long lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 
+    /**
+     * Setter for isGuest field.
+     * @param isGuest Use @PropertyName so Firestore uses "isGuest", not "guest".
+     */
     @PropertyName("isGuest")
     public void setIsGuest(boolean isGuest)      { this.isGuest = isGuest; }
 

@@ -74,7 +74,7 @@
                 android:hint="Search events..."
                 android:textColor="@color/black"
                 android:textColorHint="@color/grey"
-                app:backgroundTint="@color/grey"
+                app:backgroundTint="@color/surface_tint"
                 app:navigationIconTint="@color/black"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/btn_scan"

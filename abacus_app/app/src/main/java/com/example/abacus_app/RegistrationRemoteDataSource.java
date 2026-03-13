@@ -2,6 +2,7 @@ package com.example.abacus_app;
 
 import android.util.Log;
 
+import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
@@ -195,18 +196,37 @@ public class RegistrationRemoteDataSource {
 
             ArrayList<WaitlistEntry> history = new ArrayList<>();
             for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                String eventID = doc.getString("eventID");
+                // Extract eventID from document path: events/{eventID}/waitlist/{userID}
+                String eventID = doc.getReference().getParent().getParent().getId();
+                
                 String status = doc.getString("status");
                 Long lotteryNumLong = doc.getLong("lotteryNumber");
                 int lotteryNumber = lotteryNumLong != null ? lotteryNumLong.intValue() : 0;
                 Timestamp joinTime = doc.getTimestamp("joinTime");
-                history.add(new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime));
+
+                // Guard against incomplete documents
+                if (eventID == null || status == null) {
+                    Log.w("RDS", "Skipping malformed waitlist entry for user: " + userID);
+                    continue;
+                }
+
+                WaitlistEntry entry = new WaitlistEntry(userID, eventID, status, lotteryNumber, joinTime);
+                history.add(entry);
             }
             return history;
 
         } catch (Exception e) {
             Log.e("RDS", "query failed", e);
         }
-        return null;
+
+        return new ArrayList<>(); // return empty list instead of null to prevent NPE downstream
+    }
+
+    /**
+     * Async method to get waitlist for a specific event.
+     * Used by UI components that need async operations.
+     */
+    public Task<QuerySnapshot> getWaitlist(String eventId) {
+        return getCollectionRef(eventId).get();
     }
 }

@@ -25,6 +25,11 @@ public class UserRemoteDataSource {
         Tasks.await(db.collection(COLLECTION).document(uuid).set(data));
     }
 
+    /** Spec-named alias for {@link #createUserSync}. */
+    public void createUser(String deviceId, Map<String, Object> data) throws Exception {
+        createUserSync(deviceId, data);
+    }
+
     /**
      * Read a user document and map it to a User object.
      * deletedAt is stored as a long (epoch ms) — never a Timestamp.
@@ -72,6 +77,11 @@ public class UserRemoteDataSource {
         return user;
     }
 
+    /** Spec-named alias for {@link #getUserSync}. */
+    public User getUser(String deviceId) throws Exception {
+        return getUserSync(deviceId);
+    }
+
     /**
      * Merge-update a user document.
      * Uses set+merge so it works even if the doc doesn't exist yet.
@@ -83,6 +93,11 @@ public class UserRemoteDataSource {
                         .set(data, SetOptions.merge()));
     }
 
+    /** Spec-named alias for {@link #updateUserSync}. */
+    public void updateUser(String deviceId, Map<String, Object> data) throws Exception {
+        updateUserSync(deviceId, data);
+    }
+
     /** Soft-delete: set isDeleted=true, deletedAt=now (as epoch ms long). */
     public void deleteUserSync(String uuid) throws Exception {
         java.util.Map<String, Object> data = new java.util.HashMap<>();
@@ -91,6 +106,30 @@ public class UserRemoteDataSource {
         Tasks.await(
                 db.collection(COLLECTION).document(uuid)
                         .set(data, SetOptions.merge()));
+    }
+
+    /** Spec-named alias for {@link #deleteUserSync}. */
+    public void deleteUser(String deviceId) throws Exception {
+        deleteUserSync(deviceId);
+    }
+
+    /**
+     * Hard-deletes all waitlist entries across every event for the given user.
+     * Uses a collectionGroup query then a batched delete.
+     * Blocks — call on background thread.
+     */
+    public void deleteWaitlistEntriesForUser(String userId) throws Exception {
+        com.google.firebase.firestore.QuerySnapshot snapshot = com.google.android.gms.tasks.Tasks.await(
+                db.collectionGroup("waitlist")
+                        .whereEqualTo("userID", userId)
+                        .get());
+        if (snapshot.isEmpty()) return;
+
+        com.google.firebase.firestore.WriteBatch batch = db.batch();
+        for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot.getDocuments()) {
+            batch.delete(doc.getReference());
+        }
+        com.google.android.gms.tasks.Tasks.await(batch.commit());
     }
 
     /**

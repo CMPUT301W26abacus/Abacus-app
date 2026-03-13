@@ -45,12 +45,19 @@ public class ProfileFragment extends Fragment {
     private TextView    tvEmailError;
     private Button      btnSave;
     private Button      btnDelete;
+    private Button      btnLogout;
     private Button      btnLinkAccount;
-    private View    tvGuestBanner;
+    private View        tvGuestBanner;
+    private View        cardAvatar;
+    private View        cardFields;
+    private TextView    labelSection;
     private View        dangerDivider;
     private TextView    labelDanger;
 
-    @Nullable
+    /**
+     * Inflates and returns the layout for this fragment.
+     */
+    @NonNull
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
@@ -58,6 +65,9 @@ public class ProfileFragment extends Fragment {
         return inflater.inflate(R.layout.main_profile_fragment, container, false);
     }
 
+    /**
+     * Initializes views and observes LiveData from ProfileViewModel.
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -74,8 +84,12 @@ public class ProfileFragment extends Fragment {
         tvEmailError     = view.findViewById(R.id.tvEmailError);
         btnSave          = view.findViewById(R.id.btnSaveProfile);
         btnDelete        = view.findViewById(R.id.btnDeleteProfile);
+        btnLogout        = view.findViewById(R.id.btnLogout);
         btnLinkAccount   = view.findViewById(R.id.btnLinkAccount);
         tvGuestBanner    = view.findViewById(R.id.tvGuestBanner);
+        cardAvatar       = view.findViewById(R.id.cardAvatar);
+        cardFields       = view.findViewById(R.id.cardFields);
+        labelSection     = view.findViewById(R.id.labelSection);
         dangerDivider    = view.findViewById(R.id.dangerDivider);
         labelDanger      = view.findViewById(R.id.labelDanger);
 
@@ -99,7 +113,6 @@ public class ProfileFragment extends Fragment {
         UserRepository       repo   = new UserRepository(local, remote);
         viewModel.init(repo, isGuest);
 
-        // ── Observe LiveData ──────────────────────────────────────────────
 
         viewModel.getName().observe(getViewLifecycleOwner(), name -> {
             // Update header display name
@@ -161,6 +174,7 @@ public class ProfileFragment extends Fragment {
             }
         });
 
+
         etName.addTextChangedListener(new SimpleTextWatcher() {
             @Override public void afterTextChanged(Editable s) {
                 viewModel.setName(s.toString());
@@ -190,28 +204,52 @@ public class ProfileFragment extends Fragment {
                         .setNegativeButton("Cancel", null)
                         .show());
 
+        btnLogout.setOnClickListener(v ->
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Log out")
+                        .setMessage("Are you sure you want to log out?")
+                        .setPositiveButton("Log out", (dialog, which) -> viewModel.logout())
+                        .setNegativeButton("Cancel", null)
+                        .show());
+
         btnLinkAccount.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), LoginActivity.class)));
 
         viewModel.loadProfile();
     }
 
+    /**
+     * Displays UI elements for a guest user.
+     *
+     * @implNote This method hides editable fields and buttons, and shows a banner
+     *           encouraging the user to link an account.
+     */
     private void showGuestUI() {
+        cardAvatar.setVisibility(View.GONE);
+        labelSection.setVisibility(View.GONE);
+        cardFields.setVisibility(View.GONE);
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
         btnSave.setVisibility(View.GONE);
+        btnLogout.setVisibility(View.GONE);
         btnDelete.setVisibility(View.GONE);
         dangerDivider.setVisibility(View.GONE);
         labelDanger.setVisibility(View.GONE);
-        etName.setEnabled(false);
-        etEmail.setEnabled(false);
-        etPhone.setEnabled(false);
     }
 
+    /**
+     * Displays UI elements for a logged-in user.
+     *
+     * @implNote This method enables editable fields and buttons, and hides the guest banner.
+     */
     private void showLoggedInUI() {
+        cardAvatar.setVisibility(View.VISIBLE);
+        labelSection.setVisibility(View.VISIBLE);
+        cardFields.setVisibility(View.VISIBLE);
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
         btnSave.setVisibility(View.VISIBLE);
+        btnLogout.setVisibility(View.VISIBLE);
         btnDelete.setVisibility(View.VISIBLE);
         dangerDivider.setVisibility(View.VISIBLE);
         labelDanger.setVisibility(View.VISIBLE);
@@ -220,6 +258,9 @@ public class ProfileFragment extends Fragment {
         etPhone.setEnabled(true);
     }
 
+    /**
+     * Simple TextWatcher implementation for EditText fields.
+     */
     private abstract static class SimpleTextWatcher implements TextWatcher {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}

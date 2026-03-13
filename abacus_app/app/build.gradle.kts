@@ -8,14 +8,12 @@ plugins {
 
 android {
     namespace = "com.example.abacus_app"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.abacus_app"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -51,29 +49,34 @@ configurations.all {
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
-    implementation(libs.activity)
-    implementation(libs.constraintlayout)
+    
+    // Use compatible versions for SDK 34
+    implementation("androidx.activity:activity:1.9.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Navigation
-    implementation("androidx.navigation:navigation-fragment:2.7.7")
-    implementation("androidx.navigation:navigation-ui:2.7.7")
+    // Play Services
+    implementation("com.google.android.gms:play-services-base:18.3.0")
+
+    // Navigation - use compatible version
+    implementation("androidx.navigation:navigation-fragment:2.7.6")
+    implementation("androidx.navigation:navigation-ui:2.7.6")
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation(platform("com.google.firebase:firebase-bom:32.8.1"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-messaging")
 
     // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
     // ViewModel + LiveData
-    implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.0")
-    implementation("androidx.lifecycle:lifecycle-livedata:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata:2.7.0")
 
     // QR Scanning
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
@@ -84,14 +87,12 @@ dependencies {
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation(libs.datastore.preferences.rxjava3)
     
-    // SwipeRefreshLayout
+    // SwipeRefreshLayout - compatible version
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
     // Protobuf used by Firestore
     implementation("com.google.protobuf:protobuf-javalite:3.23.4")
-    implementation(libs.swiperefreshlayout)
 
 
     // Testing
@@ -101,6 +102,15 @@ dependencies {
     testImplementation(libs.runner)
     androidTestImplementation(libs.ext.junit)
     debugImplementation("androidx.fragment:fragment-testing:1.6.2")
+
+    // Mockito for mocking Firebase and other dependencies
+    testImplementation("org.mockito:mockito-core:5.8.0")
+    testImplementation("org.mockito:mockito-inline:5.8.0")   // mocks final classes (Firebase)
+    androidTestImplementation("org.mockito:mockito-android:5.8.0")
+    androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
+
+    // LiveData testing — makes setValue() run synchronously in tests
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
 
     // Espresso
     androidTestImplementation ("androidx.test.espresso:espresso-contrib:3.5.1") {
