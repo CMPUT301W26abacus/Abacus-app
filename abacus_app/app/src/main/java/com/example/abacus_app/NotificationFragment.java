@@ -29,7 +29,7 @@ public class NotificationFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         // Ensure we have a background color to avoid "black screen" issues if theme is dark
-        View view = inflater.inflate(R.layout.fragment_notif_list, container, false);
+        View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
         view.setBackgroundResource(android.R.color.white); 
 
         RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);

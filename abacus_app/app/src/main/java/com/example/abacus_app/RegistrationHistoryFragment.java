@@ -276,8 +276,9 @@ public class RegistrationHistoryFragment extends Fragment {
                                         title,
                                         posterUrl,
                                         entry.getStatus(),
-                                        entry.getJoinTime() != null
-                                                ? entry.getJoinTime().toDate().getTime()
+
+                                        entry.getTimestamp() != null
+                                                ? entry.getTimestamp()
                                                 : System.currentTimeMillis()
                                 ));
                             }

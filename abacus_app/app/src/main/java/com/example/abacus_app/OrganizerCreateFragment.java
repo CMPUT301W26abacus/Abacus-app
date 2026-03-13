@@ -21,8 +21,11 @@ import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.Timestamp;
 
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * UI Controller for the event creation screen.
@@ -31,7 +34,7 @@ import java.util.Date;
 public class OrganizerCreateFragment extends Fragment {
 
     private CreateEventViewModel viewModel;
-    private EditText etTitle, etDescription, etLimit, etPosterUrl;
+    private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity;
     private Button btnSetStart, btnSetEnd, btnCreate;
     private MaterialSwitch switchGeo;
     private CheckBox cbLimit;
@@ -44,16 +47,17 @@ public class OrganizerCreateFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_create_fragment, container, false);
 
-        viewModel     = new ViewModelProvider(this).get(CreateEventViewModel.class);
-        etTitle       = view.findViewById(R.id.et_event_title);
-        etDescription = view.findViewById(R.id.et_event_description);
-        etLimit       = view.findViewById(R.id.et_waitlist_limit);
-        etPosterUrl   = view.findViewById(R.id.et_poster_url);
-        btnSetStart   = view.findViewById(R.id.btn_set_start);
-        btnSetEnd     = view.findViewById(R.id.btn_set_end);
-        btnCreate     = view.findViewById(R.id.btn_create_event);
-        switchGeo     = view.findViewById(R.id.switch_geo);
-        cbLimit       = view.findViewById(R.id.cb_limit_waitlist);
+        viewModel       = new ViewModelProvider(this).get(CreateEventViewModel.class);
+        etTitle         = view.findViewById(R.id.et_event_title);
+        etDescription   = view.findViewById(R.id.et_event_description);
+        etLimit         = view.findViewById(R.id.et_waitlist_limit);
+        etEventCapacity = view.findViewById(R.id.et_event_capacity);
+        etPosterUrl     = view.findViewById(R.id.et_poster_url);
+        btnSetStart     = view.findViewById(R.id.btn_set_start);
+        btnSetEnd       = view.findViewById(R.id.btn_set_end);
+        btnCreate       = view.findViewById(R.id.btn_create_event);
+        switchGeo       = view.findViewById(R.id.switch_geo);
+        cbLimit         = view.findViewById(R.id.cb_limit_waitlist);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
@@ -91,28 +95,49 @@ public class OrganizerCreateFragment extends Fragment {
         });
     }
 
+    /**
+     * Shows a date picker followed by a time picker to set event timestamps.
+     * Fixes the issue where UTC selection from MaterialDatePicker shifted the local date.
+     */
     private void showDateTimePicker(boolean isStart) {
-        MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker().build();
+        MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText("Select Date")
+                .build();
+
         datePicker.addOnPositiveButtonClickListener(selection -> {
             MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
                     .setTimeFormat(TimeFormat.CLOCK_12H)
                     .setHour(12)
                     .setMinute(0)
+                    .setTitleText("Select Time")
                     .build();
 
             timePicker.addOnPositiveButtonClickListener(v -> {
                 Calendar calendar = Calendar.getInstance();
-                calendar.setTimeInMillis(selection);
-                calendar.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
-                calendar.set(Calendar.MINUTE, timePicker.getMinute());
+
+                // selection is UTC midnight. Extract year/month/day in UTC to avoid timezone shifts.
+                Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                utcCalendar.setTimeInMillis(selection);
+
+                calendar.set(utcCalendar.get(Calendar.YEAR),
+                        utcCalendar.get(Calendar.MONTH),
+                        utcCalendar.get(Calendar.DAY_OF_MONTH),
+                        timePicker.getHour(),
+                        timePicker.getMinute(),
+                        0);
+                calendar.set(Calendar.MILLISECOND, 0);
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
+
+                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+                String formatted = sdf.format(calendar.getTime());
+
                 if (isStart) {
                     startTimestamp = ts;
-                    btnSetStart.setText("Start: " + calendar.getTime().toString());
+                    btnSetStart.setText("Start: " + formatted);
                 } else {
                     endTimestamp = ts;
-                    btnSetEnd.setText("End: " + calendar.getTime().toString());
+                    btnSetEnd.setText("End: " + formatted);
                 }
             });
             timePicker.show(getParentFragmentManager(), "TIME_PICKER");
@@ -129,23 +154,39 @@ public class OrganizerCreateFragment extends Fragment {
             return;
         }
 
-        Integer limit = null;
+        if (endTimestamp.compareTo(startTimestamp) <= 0) {
+            Toast.makeText(getContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Integer waitlistLimit = null;
         if (cbLimit.isChecked()) {
             try {
-                limit = Integer.parseInt(etLimit.getText().toString());
+                waitlistLimit = Integer.parseInt(etLimit.getText().toString());
             } catch (NumberFormatException e) {
-                Toast.makeText(getContext(), "Invalid limit", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Invalid waitlist limit", Toast.LENGTH_SHORT).show();
                 return;
             }
         }
 
-        // Use real UUID instead of hardcoded string
+        Integer eventCapacity = null;
+        String capacityStr = etEventCapacity.getText().toString().trim();
+        if (!capacityStr.isEmpty()) {
+            try {
+                eventCapacity = Integer.parseInt(capacityStr);
+            } catch (NumberFormatException e) {
+                Toast.makeText(getContext(), "Invalid event capacity", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String organizerId = local.getUUIDSync();
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                limit, switchGeo.isChecked());
+                waitlistLimit, eventCapacity, switchGeo.isChecked());
+
         String posterUrl = etPosterUrl.getText().toString().trim();
         viewModel.createEvent(event, posterUrl);
     }
