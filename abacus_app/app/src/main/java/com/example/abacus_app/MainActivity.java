@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
@@ -72,20 +73,12 @@ public class MainActivity extends AppCompatActivity {
         UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
+        
+        // Ensure user is initialized
         userRepository.initializeUserAsync();
 
         isGuest = getIntent().getBooleanExtra("isGuest", false);
-
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-
-        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
-        if (currentUser != null) {
-            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
-                    " (Anonymous: " + currentUser.isAnonymous() +
-                    ", Email: " + currentUser.getEmail() + ")");
-        } else {
-            android.util.Log.d("MainActivity", "No current user");
-        }
 
         if (!isGuest && currentUser == null) {
             goToSplash();
@@ -134,46 +127,30 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnFilter = findViewById(R.id.btn_filter);
         btnFilter.setOnClickListener(v -> showFilterBottomSheet());
 
-        fetchRoleAndSetupNav(localDataSource);
+        // Wait for profile to load to set up navigation
+        userRepository.getProfile(user -> {
+            if (user != null) {
+                userRole = (user.getRole() != null && !user.getRole().isEmpty()) ? user.getRole() : "entrant";
+                
+                // SHOW USER ID IN TOAST TO CONFIRM DOCUMENT
+                Toast.makeText(this, "Logged in as: " + user.getUid(), Toast.LENGTH_LONG).show();
+                android.util.Log.d("MainActivity", "User Role: " + userRole + " | ID: " + user.getUid());
+                
+                runOnUiThread(this::setupBottomNav);
+            } else {
+                runOnUiThread(this::setupBottomNav);
+            }
+        });
 
         eventRepository = new EventRepository();
         loadEventsFromFirestore();
     }
 
-    // ── Role & Nav ────────────────────────────────────────────────────────────
-
-    private void fetchRoleAndSetupNav(UserLocalDataSource localDataSource) {
-        String uuid = localDataSource.getUUIDSync();
-
-        if (uuid != null) {
-            FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(uuid)
-                    .get()
-                    .addOnSuccessListener(doc -> {
-                        String role = doc.getString("role");
-                        userRole = (role != null) ? role : "entrant";
-                        android.util.Log.d("MainActivity", "Role from Firestore: " + userRole + " for UUID: " + uuid);
-                        setupBottomNav();
-                        applyFilters();
-                    })
-                    .addOnFailureListener(e -> {
-                        android.util.Log.w("MainActivity", "Firestore role fetch failed", e);
-                        String intentRole = getIntent().getStringExtra("role");
-                        userRole = (intentRole != null) ? intentRole : "entrant";
-                        setupBottomNav();
-                    });
-        } else {
-            userRole = "entrant";
-            setupBottomNav();
-        }
-    }
-
     private void setupBottomNav() {
+        bottomNav.getMenu().clear();
+        
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
-            bottomNav.getMenu().clear();
             bottomNav.inflateMenu(R.menu.menu_bottom_nav_organizer);
-
             bottomNav.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_home) {
@@ -195,8 +172,8 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return false;
             });
-
         } else {
+            bottomNav.inflateMenu(R.menu.menu_bottom_nav);
             bottomNav.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_home) {
@@ -217,11 +194,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Firestore real-time event loading ─────────────────────────────────────
-
     private void loadEventsFromFirestore() {
         showLoadingState();
-
         eventsListener = FirebaseFirestore.getInstance()
                 .collection("events")
                 .addSnapshotListener((querySnapshot, error) -> {
@@ -232,7 +206,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                     if (querySnapshot == null) return;
 
-                    android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         try {
@@ -241,8 +214,6 @@ public class MainActivity extends AppCompatActivity {
                                 if (event.getEventId() == null || event.getEventId().isEmpty()) {
                                     event.setEventId(doc.getId());
                                 }
-                                android.util.Log.d("MainActivity", "Event: " + event.getTitle()
-                                        + " | posterUrl: " + event.getPosterImageUrl());
                                 allEvents.add(event);
                             }
                         } catch (Exception ex) {
@@ -252,8 +223,6 @@ public class MainActivity extends AppCompatActivity {
                     applyFilters();
                 });
     }
-
-    // ── Filter & Adapter ──────────────────────────────────────────────────────
 
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
@@ -311,8 +280,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Admin event deletion ──────────────────────────────────────────────────
-
     private void confirmDeleteEvent(Event event) {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Event")
@@ -323,10 +290,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void softDeleteEvent(Event event) {
-        if (event.getEventId() == null || event.getEventId().isEmpty()) {
-            android.util.Log.e("MainActivity", "Cannot delete event — eventId is null");
-            return;
-        }
+        if (event.getEventId() == null || event.getEventId().isEmpty()) return;
         FirebaseFirestore.getInstance()
                 .collection("events")
                 .document(event.getEventId())
@@ -338,8 +302,6 @@ public class MainActivity extends AppCompatActivity {
                 .addOnFailureListener(e ->
                         android.util.Log.e("MainActivity", "Failed to delete event: " + e.getMessage()));
     }
-
-    // ── Bottom sheet filter ───────────────────────────────────────────────────
 
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
@@ -397,8 +359,6 @@ public class MainActivity extends AppCompatActivity {
         if (tvEmpty != null) tvEmpty.setText("Loading events...");
     }
 
-    // ── Navigation ────────────────────────────────────────────────────────────
-
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
@@ -426,15 +386,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (eventsListener != null) eventsListener.remove();
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
