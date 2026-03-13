@@ -13,8 +13,11 @@ import java.util.concurrent.Executors;
 
 
 /**
- *  Controller class that manages all actions related to the lottery and waitlist.
- *  Joins 'registrations' data with 'users' data for UI display.
+ * Controller class that manages all actions related to the lottery and waitlist.
+ * Joins 'registrations' data with 'users' data for UI display.
+ * 
+ * @author Himesh
+ * @version 1.0
  */
 public class RegistrationRepository {
 
@@ -23,15 +26,20 @@ public class RegistrationRepository {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    /**
+     * Initializes the repository and its data sources.
+     */
     public RegistrationRepository() {
         this.remoteDataSource = new RegistrationRemoteDataSource();
         this.userRemoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
     }
 
+    /**
+     * Populates user details (name, email) into waitlist entries by fetching from the users collection.
+     */
     private void populateUserInfo(ArrayList<WaitlistEntry> waitlist) {
         for (WaitlistEntry entry : waitlist) {
             try {
-                // The doc ID in 'users' matches entry.getUserId()
                 User user = userRemoteDataSource.getUserSync(entry.getUserId());
                 if (user != null) {
                     entry.setUserName(user.getName());
@@ -43,6 +51,9 @@ public class RegistrationRepository {
         }
     }
 
+    /**
+     * Gets the total number of people on the waitlist for a specific event.
+     */
     public void getWaitListSize(String eventID, IntegerCallback callback) {
         executor.submit(() -> {
             try {
@@ -54,6 +65,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Adds a user to the waitlist for an event.
+     */
     public void joinWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -73,6 +87,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Removes a user from an event's waitlist.
+     */
     public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -84,6 +101,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Updates an entrant's status to 'accepted'.
+     */
     public void acceptInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -95,6 +115,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Updates an entrant's status to 'declined'.
+     */
     public void declineInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -106,6 +129,10 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Updates an entrant's status to 'cancelled'.
+     * US 02.06.04 implementation.
+     */
     public void cancelEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -117,6 +144,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Checks if a user is currently on the waitlist for an event.
+     */
     public void isOnWaitlist(String userID, String eventID, BooleanCallback callback) {
         executor.submit(() -> {
             try {
@@ -128,6 +158,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Fetches a specific waitlist entry with user details populated.
+     */
     public void getUserEntry(String userID, String eventID, EntryCallback callback) {
         executor.submit(() -> {
             try {
@@ -146,6 +179,10 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Fetches all waitlist entries for an event, including user details.
+     * US 02.02.01 implementation.
+     */
     public void getAllEntries(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -158,6 +195,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Fetches only those entries currently in 'waitlisted' status.
+     */
     public void getWaitlisted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -170,6 +210,9 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Fetches registration history for a specific user.
+     */
     public void getHistoryForUser(String userID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {

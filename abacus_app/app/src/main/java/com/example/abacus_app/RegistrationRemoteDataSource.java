@@ -14,29 +14,40 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 
 /**
- * Performs CRUD operations on the waitlist data in remote Firestore database.
- * Maps data from the 'registrations' collection.
+ * Performs CRUD operations on the waitlist data in the remote Firestore database.
+ * Interacts with the 'registrations' collection.
+ * 
+ * @author Himesh
+ * @version 1.0
  */
 public class RegistrationRemoteDataSource {
 
     private final FirebaseFirestore firestore;
 
+    /**
+     * Initializes the Firestore instance.
+     */
     public RegistrationRemoteDataSource() {
         firestore = FirebaseFirestore.getInstance();
     }
 
+    /**
+     * @return A reference to the 'registrations' collection in Firestore.
+     */
     private CollectionReference getCollectionRef() {
         return firestore.collection("registrations");
     }
 
     /**
-     * Helper to extract WaitlistEntry from a document manually to ensure field matching.
+     * Manually extracts a {@link WaitlistEntry} from a Firestore {@link DocumentSnapshot}.
+     * Ensures compatibility between field naming conventions (e.g., userId vs userID).
+     * 
+     * @param doc The Firestore document snapshot.
+     * @return A populated {@link WaitlistEntry}, or null if the document does not exist.
      */
     private WaitlistEntry mapDocument(DocumentSnapshot doc) {
         if (!doc.exists()) return null;
         
-        // Try both camelCase and all lowercase if needed, 
-        // but user specifically said 'userId' and 'eventId'
         String userId = doc.getString("userId");
         if (userId == null) userId = doc.getString("userID");
         
@@ -44,15 +55,16 @@ public class RegistrationRemoteDataSource {
         if (eventId == null) eventId = doc.getString("eventID");
         
         String status = doc.getString("status");
-        
         Long timestamp = doc.getLong("timestamp");
-        
         Long lottoLong = doc.getLong("lotteryNumber");
         Integer lotteryNumber = lottoLong != null ? lottoLong.intValue() : 0;
 
         return new WaitlistEntry(userId, eventId, status, lotteryNumber, timestamp);
     }
 
+    /**
+     * Synchronously checks if a user is already on the waitlist for a specific event.
+     */
     public boolean isUserOnWaitlistSync(String userID, String eventID) throws Exception {
         DocumentSnapshot doc = Tasks.await(
                 getCollectionRef().document(userID + "_" + eventID).get()
@@ -60,6 +72,9 @@ public class RegistrationRemoteDataSource {
         return doc.exists();
     }
 
+    /**
+     * Synchronously retrieves a user's waitlist entry for a specific event.
+     */
     public WaitlistEntry getUserWaitlistEntry(String userID, String eventID) throws Exception {
         DocumentSnapshot doc = Tasks.await(
                 getCollectionRef().document(userID + "_" + eventID).get()
@@ -67,20 +82,24 @@ public class RegistrationRemoteDataSource {
         return mapDocument(doc);
     }
 
+    /**
+     * Synchronously counts the number of entrants on the waitlist for an event.
+     */
     public int getWaitlistSizeSync(String eventID) throws Exception {
         QuerySnapshot snapshot = Tasks.await(
                 getCollectionRef().whereEqualTo("eventId", eventID).get(Source.SERVER)
         );
         if (snapshot.isEmpty()) {
-            // Try matching case variations if zero results
             snapshot = Tasks.await(getCollectionRef().whereEqualTo("eventID", eventID).get(Source.SERVER));
         }
         return snapshot.size();
     }
 
+    /**
+     * Synchronously saves a new waitlist entry to Firestore.
+     */
     public void joinWaitlistSync(String eventID, WaitlistEntry entry) throws Exception {
         DocumentReference docRef = getCollectionRef().document(entry.getUserId() + "_" + eventID);
-        // We set the fields explicitly to match user's structure
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("userId", entry.getUserId());
         data.put("eventId", entry.getEventId());
@@ -90,16 +109,25 @@ public class RegistrationRemoteDataSource {
         Tasks.await(docRef.set(data));
     }
 
+    /**
+     * Synchronously deletes a waitlist entry from Firestore.
+     */
     public void removeWaitlistEntrySync(String eventId, String userId) throws Exception {
         DocumentReference docRef = getCollectionRef().document(userId + "_" + eventId);
         Tasks.await(docRef.delete());
     }
 
+    /**
+     * Synchronously updates the status of a waitlist entry.
+     */
     public void updateUserEntryStatusSync(String eventId, String userId, String status) throws Exception {
         DocumentReference docRef = getCollectionRef().document(userId + "_" + eventId);
         Tasks.await(docRef.update("status", status));
     }
 
+    /**
+     * Synchronously retrieves all entries for a specific event.
+     */
     public ArrayList<WaitlistEntry> getEntriesSync(String eventID) throws Exception {
         QuerySnapshot snapshot = Tasks.await(getCollectionRef().whereEqualTo("eventId", eventID).get());
         if (snapshot.isEmpty()) {
@@ -114,6 +142,9 @@ public class RegistrationRemoteDataSource {
         return waitlist;
     }
 
+    /**
+     * Synchronously retrieves entries for an event filtered by status (e.g., 'waitlisted').
+     */
     public ArrayList<WaitlistEntry> getEntriesWithStatusSync(String eventID, String status) throws Exception {
         QuerySnapshot snapshot = Tasks.await(getCollectionRef()
                 .whereEqualTo("eventId", eventID)
@@ -135,6 +166,9 @@ public class RegistrationRemoteDataSource {
         return waitlist;
     }
 
+    /**
+     * Synchronously retrieves the registration history for a user across all events.
+     */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
         try {
             QuerySnapshot snapshot = Tasks.await(getCollectionRef().whereEqualTo("userId", userID).get());

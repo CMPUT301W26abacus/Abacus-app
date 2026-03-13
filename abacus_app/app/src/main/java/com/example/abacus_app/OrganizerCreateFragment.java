@@ -29,7 +29,16 @@ import java.util.TimeZone;
 
 /**
  * UI Controller for the event creation screen.
- * Owner: Himesh
+ * Allows organizers to set event details, registration periods, and capacity limits.
+ * 
+ * Implements:
+ * - US 02.01.04: Set a registration period.
+ * - US 02.03.01: Optionally limit waitlist capacity.
+ * - US 02.04.01: Upload/set event poster URL.
+ * - US 02.02.03: Toggle geolocation requirement.
+ * 
+ * @author Himesh
+ * @version 1.1
  */
 public class OrganizerCreateFragment extends Fragment {
 
@@ -97,7 +106,8 @@ public class OrganizerCreateFragment extends Fragment {
 
     /**
      * Shows a date picker followed by a time picker to set event timestamps.
-     * Fixes the issue where UTC selection from MaterialDatePicker shifted the local date.
+     * 
+     * @param isStart True if setting the registration start time, false for end time.
      */
     private void showDateTimePicker(boolean isStart) {
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
@@ -114,12 +124,9 @@ public class OrganizerCreateFragment extends Fragment {
 
             timePicker.addOnPositiveButtonClickListener(v -> {
                 Calendar calendar = Calendar.getInstance();
-                
-                // selection is UTC midnight. We extract year/month/day in UTC to avoid timezone shifts.
                 Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                 utcCalendar.setTimeInMillis(selection);
 
-                // Transfer the date from UTC selection to the local calendar and apply selected time
                 calendar.set(utcCalendar.get(Calendar.YEAR),
                         utcCalendar.get(Calendar.MONTH),
                         utcCalendar.get(Calendar.DAY_OF_MONTH),
@@ -129,7 +136,6 @@ public class OrganizerCreateFragment extends Fragment {
                 calendar.set(Calendar.MILLISECOND, 0);
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
-                
                 SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
                 String formatted = sdf.format(calendar.getTime());
 
@@ -146,6 +152,10 @@ public class OrganizerCreateFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "DATE_PICKER");
     }
 
+    /**
+     * Gathers user input and triggers the event creation process in the ViewModel.
+     * US 02.01.04, US 02.03.01.
+     */
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
         String desc  = etDescription.getText().toString().trim();
@@ -155,7 +165,6 @@ public class OrganizerCreateFragment extends Fragment {
             return;
         }
 
-        // Validate date range
         if (endTimestamp.compareTo(startTimestamp) <= 0) {
             Toast.makeText(getContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
             return;
@@ -182,7 +191,6 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        // Use real UUID instead of hardcoded string
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String organizerId = local.getUUIDSync();
         if (organizerId == null) organizerId = "ORGANIZER_ID";

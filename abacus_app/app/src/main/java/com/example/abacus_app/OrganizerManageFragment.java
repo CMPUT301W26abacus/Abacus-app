@@ -20,8 +20,16 @@ import java.util.List;
 
 /**
  * UI Controller for the active event management screen.
- * Shows the organizer's events, then the waitlist for a selected event.
- * Owner: Himesh
+ * Provides a two-mode UI:
+ * 1. EVENT_LIST: Displays all events created by the organizer.
+ * 2. WAITLIST: Displays the list of entrants for a selected event.
+ * 
+ * Implements:
+ * - US 02.02.01: View the list of entrants who joined the event waiting list.
+ * - US 02.06.01 - 02.06.05: Management of chosen, cancelled, and enrolled entrants.
+ * 
+ * @author Himesh
+ * @version 1.1
  */
 public class OrganizerManageFragment extends Fragment {
 
@@ -32,7 +40,7 @@ public class OrganizerManageFragment extends Fragment {
 
     private List<WaitlistEntry> entries = new ArrayList<>();
 
-    // Two modes: EVENT_LIST shows the organizer's events; WAITLIST shows one event's waitlist
+    /** Modes to distinguish between viewing all events or a specific waitlist */
     private enum Mode { EVENT_LIST, WAITLIST }
     private Mode currentMode = Mode.EVENT_LIST;
     private String selectedEventId;
@@ -64,6 +72,9 @@ public class OrganizerManageFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Switches the UI to show the list of events owned by the current organizer.
+     */
     private void showEventList() {
         currentMode = Mode.EVENT_LIST;
         tvEventName.setText("My Events");
@@ -78,8 +89,11 @@ public class OrganizerManageFragment extends Fragment {
         }
     }
 
+    /**
+     * Sets up observers for the ViewModel data.
+     */
     private void observeViewModel() {
-        // Event list mode
+        // Observer for the list of events (EVENT_LIST mode)
         viewModel.getEvents().observe(getViewLifecycleOwner(), eventList -> {
             if (currentMode != Mode.EVENT_LIST) return;
             if (eventList == null || eventList.isEmpty()) {
@@ -100,7 +114,7 @@ public class OrganizerManageFragment extends Fragment {
             }));
         });
 
-        // Waitlist mode
+        // Observer for the waitlist entries (WAITLIST mode)
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
             if (currentMode != Mode.WAITLIST) return;
             if (newEntries != null) {
@@ -116,6 +130,13 @@ public class OrganizerManageFragment extends Fragment {
         });
     }
 
+    /**
+     * Switches the UI to show the waitlist for a specific event.
+     * US 02.02.01.
+     *
+     * @param eventTitle The title of the event to display.
+     * @param eventId    The ID of the event to load entrants for.
+     */
     private void showWaitlist(String eventTitle, String eventId) {
         currentMode = Mode.WAITLIST;
         tvEventName.setText(eventTitle);
@@ -126,7 +147,13 @@ public class OrganizerManageFragment extends Fragment {
         viewModel.loadWaitlist(eventId);
     }
 
-    /** Still supported if navigated to with args from elsewhere */
+    /**
+     * Factory method for creating a new instance of this fragment.
+     * 
+     * @param eventId    Optional event ID to load immediately.
+     * @param eventTitle Optional event title to display immediately.
+     * @return A new instance of OrganizerManageFragment.
+     */
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {
         OrganizerManageFragment fragment = new OrganizerManageFragment();
         Bundle args = new Bundle();

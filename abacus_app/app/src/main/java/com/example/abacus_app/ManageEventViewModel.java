@@ -13,8 +13,9 @@ import java.util.List;
 /**
  * Manages UI state and business logic for tracking entrants and finalizing the lottery.
  * Responsible for loading event-specific waitlists and managing entrant status.
- *
+ * 
  * @author Himesh
+ * @version 1.0
  */
 public class ManageEventViewModel extends ViewModel {
 
@@ -47,6 +48,7 @@ public class ManageEventViewModel extends ViewModel {
 
     /**
      * Loads all events for the given organizer UUID.
+     * US 02.01.01 context: View events created by the organizer.
      *
      * @param organizerId The unique device/organizer ID.
      */
@@ -72,6 +74,7 @@ public class ManageEventViewModel extends ViewModel {
 
     /**
      * Loads the waitlist for a specific event.
+     * US 02.02.01 implementation: View the list of entrants who joined the event waiting list.
      *
      * @param eventId The ID of the event to fetch the waitlist for.
      */
@@ -89,7 +92,7 @@ public class ManageEventViewModel extends ViewModel {
 
     /**
      * Cancels an entrant's registration for an event.
-     * US 02.06.04 implementation.
+     * US 02.06.04 implementation: Cancel entrants that did not sign up.
      *
      * @param eventId The event ID.
      * @param userId  The ID of the user to cancel.
@@ -104,7 +107,7 @@ public class ManageEventViewModel extends ViewModel {
 
     /**
      * Formats and exports the final list of enrolled entrants to a CSV file.
-     * US 02.06.05 implementation.
+     * US 02.06.05 implementation: Export final list of enrolled entrants to CSV.
      *
      * @param entries The list of waitlist entries to export.
      */

@@ -11,11 +11,14 @@ import java.util.Map;
 
 /**
  * Manages UI state and business logic for the event creation process.
- * Owner: Himesh
- *
- * Poster images are stored as external URLs provided by the organizer.
- * No Firebase Storage upload is required.
- * QR codes are generated on-device in EventQrFragment from the eventId.
+ * Handles event persistence and optional poster URL association.
+ * 
+ * US 02.01.04: Set a registration period.
+ * US 02.03.01: Optionally limit the number of entrants.
+ * US 02.04.01: Upload event poster (handled via URL patching).
+ * 
+ * @author Himesh
+ * @version 1.0
  */
 public class CreateEventViewModel extends ViewModel {
 
@@ -48,11 +51,10 @@ public class CreateEventViewModel extends ViewModel {
     public LiveData<Boolean> getEventCreated() { return eventCreated; }
 
     /**
-     * Creates an event in Firestore. If a poster URL is provided it is
-     * patched into the document immediately after creation using a Map
-     * (avoids re-serializing the full POJO which can corrupt Timestamp fields).
+     * Creates an event in Firestore. If a poster URL is provided, it is
+     * patched into the document immediately after creation.
      *
-     * @param event     The event to create.
+     * @param event     The {@link Event} object to create.
      * @param posterUrl External image URL string, or empty/null for no poster.
      */
     public void createEvent(Event event, String posterUrl) {
@@ -76,8 +78,10 @@ public class CreateEventViewModel extends ViewModel {
     }
 
     /**
-     * Patches only posterImageUrl into Firestore using a Map.
-     * Avoids re-serializing the full Event POJO which can corrupt Timestamp fields.
+     * Patches only the posterImageUrl into Firestore using a Map to avoid overwriting other fields.
+     * 
+     * @param eventId   The ID of the event to update.
+     * @param posterUrl The URL of the poster image.
      */
     private void patchPosterUrl(String eventId, String posterUrl) {
         Map<String, Object> updates = new HashMap<>();
