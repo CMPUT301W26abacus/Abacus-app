@@ -24,19 +24,22 @@ import java.util.List;
  */
 public class ManageEventFragment extends Fragment {
 
+    public static final String ARG_EVENT_ID    = "EVENT_ID";
+    public static final String ARG_EVENT_TITLE = "EVENT_TITLE";
+
     private String eventId;
     private String eventTitle;
     private ManageEventViewModel viewModel;
     private RecyclerView recyclerView;
     private WaitlistAdapter adapter;
-    private List<WaitlistEntry> entries = new ArrayList<>();
+    private final List<WaitlistEntry> entries = new ArrayList<>();
     private TextView tvEventName, tvCount;
 
     public static ManageEventFragment newInstance(String eventId, String eventTitle) {
         ManageEventFragment fragment = new ManageEventFragment();
         Bundle args = new Bundle();
-        args.putString("EVENT_ID", eventId);
-        args.putString("EVENT_TITLE", eventTitle);
+        args.putString(ARG_EVENT_ID, eventId);
+        args.putString(ARG_EVENT_TITLE, eventTitle);
         fragment.setArguments(args);
         return fragment;
     }
@@ -45,29 +48,32 @@ public class ManageEventFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            eventId = getArguments().getString("EVENT_ID");
-            eventTitle = getArguments().getString("EVENT_TITLE");
+            eventId    = getArguments().getString(ARG_EVENT_ID);
+            eventTitle = getArguments().getString(ARG_EVENT_TITLE);
         }
     }
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_manage_fragment, container, false);
 
         viewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
-        
-        tvEventName = view.findViewById(R.id.tv_event_name);
-        tvCount = view.findViewById(R.id.tv_waitlist_count);
+
+        tvEventName  = view.findViewById(R.id.tv_event_name);
+        tvCount      = view.findViewById(R.id.tv_waitlist_count);
         recyclerView = view.findViewById(R.id.rv_waitlist);
 
-        tvEventName.setText(eventTitle);
+        if (eventTitle != null) tvEventName.setText(eventTitle);
+
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new WaitlistAdapter(entries);
         recyclerView.setAdapter(adapter);
 
         observeViewModel();
-        
+
         if (eventId != null) {
             viewModel.loadWaitlist(eventId);
         }

@@ -1,5 +1,4 @@
 package com.example.abacus_app;
-
 import com.google.firebase.Timestamp;
 
 /**

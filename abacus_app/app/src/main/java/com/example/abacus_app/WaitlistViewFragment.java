@@ -13,15 +13,13 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.firestore.DocumentSnapshot;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Fragment for organizers to view the waitlist of a specific event.
  * Displays total count and list of entrants.
- * 
+ *
  * @author Himesh
  * @version 1.0
  */
@@ -31,9 +29,9 @@ public class WaitlistViewFragment extends Fragment {
     private String eventTitle;
     private RecyclerView recyclerView;
     private WaitlistAdapter adapter;
-    private List<WaitlistEntry> entries = new ArrayList<>();
+    private final List<WaitlistEntry> entries = new ArrayList<>();
     private TextView tvEventName, tvCount;
-    private final RegistrationRemoteDataSource dataSource = new RegistrationRemoteDataSource();
+    private final RegistrationRepository registrationRepository = new RegistrationRepository();
 
     public static WaitlistViewFragment newInstance(String eventId, String eventTitle) {
         WaitlistViewFragment fragment = new WaitlistViewFragment();
@@ -48,18 +46,20 @@ public class WaitlistViewFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            eventId = getArguments().getString("EVENT_ID");
+            eventId    = getArguments().getString("EVENT_ID");
             eventTitle = getArguments().getString("EVENT_TITLE");
         }
     }
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.waitlist_view_fragment, container, false);
 
-        tvEventName = view.findViewById(R.id.tv_event_name);
-        tvCount = view.findViewById(R.id.tv_waitlist_count);
+        tvEventName  = view.findViewById(R.id.tv_event_name);
+        tvCount      = view.findViewById(R.id.tv_waitlist_count);
         recyclerView = view.findViewById(R.id.rv_waitlist);
 
         tvEventName.setText(eventTitle);
@@ -75,21 +75,15 @@ public class WaitlistViewFragment extends Fragment {
     private void loadWaitlist() {
         if (eventId == null) return;
 
-        dataSource.getWaitlist(eventId).addOnSuccessListener(queryDocumentSnapshots -> {
+        registrationRepository.getAllEntries(eventId, waitlist -> {
             entries.clear();
-            for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                // Manually mapping from Firestore for safety
-                String userId = doc.getString("userId");
-                String status = doc.getString("status");
-                // WaitlistEntry constructor or factory method should handle this
-                // For simplicity assuming standard POJO mapping works if fields match
-                WaitlistEntry entry = doc.toObject(WaitlistEntry.class);
-                if (entry != null) entries.add(entry);
+            if (waitlist != null) {
+                entries.addAll(waitlist);
+            } else {
+                Toast.makeText(getContext(), "Failed to load waitlist", Toast.LENGTH_SHORT).show();
             }
             tvCount.setText("Total Entrants: " + entries.size());
             adapter.notifyDataSetChanged();
-        }).addOnFailureListener(e -> {
-            Toast.makeText(getContext(), "Failed to load waitlist", Toast.LENGTH_SHORT).show();
         });
     }
 }
