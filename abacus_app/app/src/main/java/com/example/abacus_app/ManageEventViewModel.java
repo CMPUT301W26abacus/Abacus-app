@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import android.util.Log;
+import android.widget.Toast;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -53,6 +55,18 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    public void loadLotteryStatus(String eventId) {
+        isLoading.setValue(true);
+        eventRepository.getEventByIdAsync(eventId, event -> {
+            if (event != null) {
+                lotteryCompleted.setValue(event.isLotteryDrawn());
+            } else {
+                error.setValue("Failed to load lottery status");
+            }
+            isLoading.setValue(false);
+        });
+    }
+
     public void loadOrganizerEvents(String organizerId) {
         isLoading.setValue(true);
         eventRepository.getEventsByOrganizer(organizerId).addOnSuccessListener(queryDocumentSnapshots -> {
@@ -78,7 +92,20 @@ public class ManageEventViewModel extends ViewModel {
         isLoading.setValue(true);
         Log.d(TAG, "Starting lottery for event: " + eventId);
 
+        registrationRepository.runLottery(eventId, new RegistrationRepository.VoidCallback() {
+            @Override
+            public void onComplete(Exception error) {
+                isLoading.setValue(false);
+                if (error != null) {
+                    Log.d(TAG, error.getMessage());
+                } else {
+                    lotteryCompleted.setValue(true);
+                }
+            }
+        });
+
         // 1. Get Event Capacity from the event document
+        /**
         db.collection("events").document(eventId).get().addOnSuccessListener(eventDoc -> {
             if (!eventDoc.exists()) {
                 error.setValue("Event not found");
@@ -92,6 +119,7 @@ public class ManageEventViewModel extends ViewModel {
                 isLoading.setValue(false);
                 return;
             }
+
 
             int capacity = (event.getEventCapacity() != null) ? event.getEventCapacity() : 0;
             Log.d(TAG, "Event capacity found: " + capacity);
@@ -119,8 +147,13 @@ public class ManageEventViewModel extends ViewModel {
             error.setValue("Failed to fetch event: " + e.getMessage());
             isLoading.setValue(false);
         });
+         **/
     }
 
+    // winner/loser status should not be stored under user document because it is event-specific
+    // aka a single user could be a winner for one event and lose for another
+    // RegistrationRepository runLottery() already updates statuses
+    /**
     private void updateLotteryStatuses(String eventId, List<WaitlistEntry> winners, List<WaitlistEntry> losers) {
         WriteBatch batch = db.batch();
 
@@ -166,4 +199,5 @@ public class ManageEventViewModel extends ViewModel {
             isLoading.setValue(false);
         });
     }
+     **/
 }

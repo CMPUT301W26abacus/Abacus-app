@@ -253,14 +253,26 @@ public class RegistrationRepository {
      *
      * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
+     * @throws IllegalStateException the lottery has already been drawn; waitlist is empty
      */
     public void runLottery(String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
                 // unnecessary to fetch directly, there is already a method that does exactly this
                 // should use EventRemoteDataSource method, do not re-write methods
-                EventRemoteDataSource eventrepo = new EventRemoteDataSource();
-                Event event = eventrepo.getEventById(eventID);
+                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+                Event event = eventRDS.getEventById(eventID);
+
+                // logic checks
+                if (event.isLotteryDrawn()) {
+                    throw new IllegalStateException("The lottery has already been drawn.");
+                }
+                int size = remoteDataSource.getWaitlistSizeSync(eventID);
+                if (size == 0) {
+                    throw new IllegalStateException("Cannot draw lottery, waitlist is empty.")
+;                }
+
+                // execute operation
                 int eventCapacity = event.getEventCapacity() != null ? event.getEventCapacity() : 0;
 
                 ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(
@@ -273,8 +285,12 @@ public class RegistrationRepository {
                     remoteDataSource.updateUserEntryStatusSync(
                             eventID, entries.get(i).getUserID(), WaitlistEntry.STATUS_INVITED);
                 }
-                mainHandler.post(() -> callback.onComplete(null));
 
+                // record lottery drawn
+                event.setLotteryDrawn(true);
+                eventRDS.updateEvent(event);
+
+                mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
             }

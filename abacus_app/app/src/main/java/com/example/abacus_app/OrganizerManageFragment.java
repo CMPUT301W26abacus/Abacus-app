@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,12 +32,15 @@ public class OrganizerManageFragment extends Fragment {
     private WaitlistAdapter waitlistAdapter;
     private TextView tvEventName, tvCount;
     private Button btnDrawLottery;
+    private Button btnDrawReplacement;
 
     private List<WaitlistEntry> entries = new ArrayList<>();
 
     private enum Mode { EVENT_LIST, WAITLIST }
     private Mode currentMode = Mode.EVENT_LIST;
     private String selectedEventId;
+    private Event selectedEvent;
+    private int selectedEventWaitlistSize;
 
     @Nullable
     @Override
@@ -48,6 +52,7 @@ public class OrganizerManageFragment extends Fragment {
         tvCount        = view.findViewById(R.id.tv_waitlist_count);
         recyclerView   = view.findViewById(R.id.rv_waitlist);
         btnDrawLottery = view.findViewById(R.id.btn_draw_lottery);
+        btnDrawReplacement = view.findViewById(R.id.btn_draw_replacement);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
@@ -68,6 +73,16 @@ public class OrganizerManageFragment extends Fragment {
             }
         });
 
+        btnDrawReplacement.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (currentMode == Mode.WAITLIST && selectedEventId != null) {
+                    Log.d("mytagOrgManageFrag", "onClick: " + "draw replacement was click: NOT disabled");
+                    Log.d("mytagOrgManageFrag", "isEnabled?: " + btnDrawReplacement.isEnabled());
+                }
+            }
+        });
+
         observeViewModel();
         showEventList();
         return view;
@@ -78,6 +93,7 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText("My Events");
         tvCount.setText("");
         btnDrawLottery.setVisibility(View.GONE);
+        btnDrawReplacement.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
@@ -89,6 +105,7 @@ public class OrganizerManageFragment extends Fragment {
     }
 
     private void observeViewModel() {
+
         // Event list mode
         viewModel.getEvents().observe(getViewLifecycleOwner(), eventList -> {
             if (currentMode != Mode.EVENT_LIST) return;
@@ -105,6 +122,7 @@ public class OrganizerManageFragment extends Fragment {
                 for (Event e : eventList) {
                     if (title.equals(e.getTitle())) {
                         selectedEventId = e.getEventId();
+                        selectedEvent = e;
                         showWaitlist(e.getTitle(), selectedEventId);
                         break;
                     }
@@ -118,8 +136,23 @@ public class OrganizerManageFragment extends Fragment {
             if (newEntries != null) {
                 entries.clear();
                 entries.addAll(newEntries);
-                tvCount.setText("Total Entrants: " + entries.size());
+                selectedEventWaitlistSize = entries.size();
+                tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
                 waitlistAdapter.notifyDataSetChanged();
+
+                // draw button logic based on invited/accepted users
+                long countInvitedAccepted = entries.stream()
+                        .filter(entry -> (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED) || entry.getStatus().equals(WaitlistEntry.STATUS_ACCEPTED)))
+                        .count();
+                Log.d("mytagOrgManageFrag", "countInvitedAccepted: " + countInvitedAccepted);
+                Log.d("mytagOrgManageFrag", "eventCap: " + selectedEvent.getEventCapacity());
+                Log.d("mytagOrgManageFrag", "waitListSize: " + selectedEventWaitlistSize);
+                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
+                    btnDrawReplacement.setEnabled(true);
+                } else {
+                    btnDrawReplacement.setEnabled(false);
+                }
+                Log.d("mytagOrgManageFrag", "isEnabled?: " + btnDrawReplacement.isEnabled());
             }
         });
 
@@ -128,17 +161,24 @@ public class OrganizerManageFragment extends Fragment {
         });
 
         viewModel.getLotteryCompleted().observe(getViewLifecycleOwner(), completed -> {
-            if (completed != null && completed) {
-                Toast.makeText(getContext(),
-                        "Lottery completed! Winners and losers notified.",
-                        Toast.LENGTH_LONG).show();
+            if (currentMode == Mode.WAITLIST) {
+                if (completed != null && completed) {
+                    showDrawReplacementButton();
+                } else if (completed != null && !completed) {
+                    showDrawLotteryButton();
+                }
             }
         });
 
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
             if (currentMode == Mode.WAITLIST) {
-                btnDrawLottery.setEnabled(!loading);
-                btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
+                if (btnDrawLottery.getVisibility() == View.VISIBLE) {
+                    btnDrawLottery.setEnabled(!loading);
+                    btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
+                } else if (btnDrawReplacement.getVisibility() == View.VISIBLE) {
+                    btnDrawReplacement.setEnabled(false);
+                    btnDrawReplacement.setText(loading ? "Processing..." : "Draw Replacement");
+                }
             }
         });
     }
@@ -147,11 +187,11 @@ public class OrganizerManageFragment extends Fragment {
         currentMode = Mode.WAITLIST;
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
-        btnDrawLottery.setVisibility(View.VISIBLE);
 
         waitlistAdapter = new WaitlistAdapter(entries);
         recyclerView.setAdapter(waitlistAdapter);
         viewModel.loadWaitlist(eventId);
+        viewModel.loadLotteryStatus(eventId);
     }
 
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {
@@ -161,5 +201,19 @@ public class OrganizerManageFragment extends Fragment {
         args.putString("EVENT_TITLE", eventTitle);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    // ── Button visibility ─────────────────────────────────────────────────────
+
+    private void showDrawLotteryButton() {
+        if (btnDrawLottery  != null) btnDrawLottery.setVisibility(View.VISIBLE);
+        if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.GONE);
+        if (btnDrawLottery  != null) btnDrawLottery.setEnabled(true);
+    }
+
+    private void showDrawReplacementButton() {
+        if (btnDrawLottery  != null) btnDrawLottery.setVisibility(View.GONE);
+        if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.VISIBLE);
+        if (btnDrawReplacement != null) btnDrawReplacement.setEnabled(false);
     }
 }

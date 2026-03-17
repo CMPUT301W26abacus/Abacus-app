@@ -53,6 +53,8 @@ public class RegistrationRemoteDataSource {
      * (guestEmail / guestName / eventId). For guest docs, userId is populated
      * with the guestEmail so the rest of the history pipeline can treat them
      * identically without needing to know the difference.
+     *
+     * WaitlistEntry does not use firebase serialization.
      */
     private WaitlistEntry mapDocument(DocumentSnapshot doc) {
         if (!doc.exists()) return null;

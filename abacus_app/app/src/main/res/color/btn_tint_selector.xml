@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Color when button is DISABLED -->
+    <item android:state_enabled="false" android:color="#B3B3B3" />
+
+    <!-- Default color for all other states (ENABLED) -->
+    <item android:color="@color/orange" />
+</selector>
