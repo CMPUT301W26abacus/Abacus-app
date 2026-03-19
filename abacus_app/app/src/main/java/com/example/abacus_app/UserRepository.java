@@ -72,7 +72,6 @@ public class UserRepository {
                 if (existing == null) {
                     java.util.Map<String, Object> userData = new java.util.HashMap<>();
                     userData.put("deviceId", uuid);
-                    userData.put("uid",      uuid);
                     userData.put("email",    "");
                     userData.put("name",     "New User");
                     userData.put("createdAt", Timestamp.now());
