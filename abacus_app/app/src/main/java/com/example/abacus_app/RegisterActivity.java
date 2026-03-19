@@ -42,6 +42,10 @@ public class RegisterActivity extends AppCompatActivity {
         EditText etPassword = findViewById(R.id.etPassword);
         btnRegister = findViewById(R.id.btnRegister); // Assign to class field, not declare new variable
         TextView tvLogin    = findViewById(R.id.tvLogin);
+        android.widget.ImageButton btnBack = findViewById(R.id.btnBack);
+
+        // Back button goes to previous page
+        btnBack.setOnClickListener(v -> finish());
 
         btnRegister.setOnClickListener(v -> {
             String name     = etName.getText().toString().trim();
@@ -112,7 +116,7 @@ public class RegisterActivity extends AppCompatActivity {
         // Go back to login
             tvLogin.setOnClickListener(view -> {
                 startActivity(new Intent(this, LoginActivity.class));
-                finish();
+                // Note: Do NOT call finish() here to preserve back stack
             });
         });
     }

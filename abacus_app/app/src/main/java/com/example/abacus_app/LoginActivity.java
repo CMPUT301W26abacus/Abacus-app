@@ -54,6 +54,10 @@ public class LoginActivity extends AppCompatActivity {
         Button btnSignIn    = findViewById(R.id.btnSignIn);
         TextView tvForgot   = findViewById(R.id.tvForgot);
         TextView tvSignUp   = findViewById(R.id.tvSignUp);
+        android.widget.ImageButton btnBack = findViewById(R.id.btnBack);
+
+        // Back button goes to previous page
+        btnBack.setOnClickListener(v -> finish());
 
         btnSignIn.setOnClickListener(v -> {
             String email    = etEmail.getText().toString().trim();
@@ -121,6 +125,7 @@ public class LoginActivity extends AppCompatActivity {
 
         tvSignUp.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
+                // Note: Do NOT call finish() here to preserve back stack
     }
 
     /**

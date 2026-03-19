@@ -191,7 +191,6 @@ public class MainActivity extends AppCompatActivity {
             if (user != null) {
                 userRole = (user.getRole() != null && !user.getRole().isEmpty())
                         ? user.getRole() : "entrant";
-                Toast.makeText(this, "Logged in as: " + user.getUid(), Toast.LENGTH_LONG).show();
                 android.util.Log.d("MainActivity", "User Role: " + userRole + " | ID: " + user.getUid());
                 runOnUiThread(this::setupBottomNav);
             } else {
