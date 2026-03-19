@@ -128,12 +128,16 @@ public class RegisterActivity extends AppCompatActivity {
         String createdAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
+        
+        String lastLoginAt = new SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+        ).format(new Date());
 
         Map<String, Object> updates = new HashMap<>();
         updates.put("name",        name);
         updates.put("email",       email);
         updates.put("createdAt",   createdAt);
-        updates.put("lastLoginAt", System.currentTimeMillis());
+        updates.put("lastLoginAt", lastLoginAt);
         updates.put("isGuest",     false);
         updates.put("isDeleted",   false);
 

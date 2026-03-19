@@ -11,7 +11,9 @@ public class User {
     private String createdAt;
     private boolean   isDeleted;
     private long      deletedAt;
-    private long      lastLoginAt;
+    
+    @PropertyName("lastLoginAt")
+    private String    lastLoginAt;
 
     @PropertyName("isGuest")
     private boolean isGuest;
@@ -30,7 +32,7 @@ public class User {
         this.createdAt   = null;
         this.isDeleted   = false;
         this.deletedAt   = 0L;
-        this.lastLoginAt = 0L;
+        this.lastLoginAt = null;
         this.isGuest     = true;
         this.role        = "entrant";
         this.notificationsEnabled = true;
@@ -38,15 +40,15 @@ public class User {
     }
 
     public String    getUid()         { return uid; }
-    /** Alias for {@link #getUid()} — spec names this field deviceId. */
-    public String    getDeviceId()    { return uid; }
     public String    getEmail()       { return email; }
     public String    getName()        { return name; }
     public String    getPhone()       { return phone; }
     public String getCreatedAt()   { return createdAt; }
     public boolean   isDeleted()      { return isDeleted; }
     public long      getDeletedAt()   { return deletedAt; }
-    public long      getLastLoginAt() { return lastLoginAt; }
+    
+    @PropertyName("lastLoginAt")
+    public String    getLastLoginAt() { return lastLoginAt; }
 
     @PropertyName("isGuest")
     public boolean isGuest()          { return isGuest; }
@@ -61,9 +63,12 @@ public class User {
     public void setName(String name)             { this.name = name; }
     public void setPhone(String phone)           { this.phone = phone; }
     public void setCreatedAt(String createdAt){ this.createdAt = createdAt; }
+    
+    @PropertyName("lastLoginAt")
+    public void setLastLoginAt(String lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    
     public void setDeleted(boolean deleted)      { this.isDeleted = deleted; }
     public void setDeletedAt(long deletedAt)     { this.deletedAt = deletedAt; }
-    public void setLastLoginAt(long lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 
     /**
      * Setter for isGuest field.

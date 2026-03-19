@@ -73,7 +73,7 @@ public class SplashActivity extends AppCompatActivity {
             }
             userRepository.getProfileAsync(user -> {
 
-                if (user != null && user.getLastLoginAt() > 0) {
+                if (user != null && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
                     // Returning logged-in user — go straight to main
                     new Handler(Looper.getMainLooper()).postDelayed(
                             () -> goToMain(false),

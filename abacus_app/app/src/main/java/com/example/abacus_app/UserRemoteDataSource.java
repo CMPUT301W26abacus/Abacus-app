@@ -58,7 +58,7 @@ public class UserRemoteDataSource {
         user.setPhone(getString(snap, "phone"));
         user.setCreatedAt(getString(snap, "createdAt"));
         user.setDeleted(getBoolean(snap, "isDeleted"));
-        user.setLastLoginAt(getLong(snap, "lastLoginAt"));
+        user.setLastLoginAt(getString(snap, "lastLoginAt"));
 
         String role = getString(snap, "role");
         user.setRole((role == null || role.isEmpty()) ? "entrant" : role);
@@ -82,7 +82,8 @@ public class UserRemoteDataSource {
         if (guestRaw instanceof Boolean) {
             user.setIsGuest((Boolean) guestRaw);
         } else {
-            user.setIsGuest(user.getLastLoginAt() == 0);
+            String lastLogin = user.getLastLoginAt();
+            user.setIsGuest(lastLogin == null || lastLogin.isEmpty());
         }
 
         return user;

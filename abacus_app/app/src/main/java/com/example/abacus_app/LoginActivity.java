@@ -14,7 +14,10 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -179,7 +182,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void restoreIdentityThenNavigate(FirebaseUser authUser) {
         if (authUser == null || authUser.getEmail() == null) {
-            fetchRoleAndNavigate();
+            updateProfileFields(authUser);
             return;
         }
 
@@ -205,19 +208,28 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void updateProfileFields(FirebaseUser authUser) {
+        String lastLoginAt = new SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+        ).format(new Date());
+
         Map<String, Object> updates = new HashMap<>();
         if (authUser.getEmail() != null) updates.put("email", authUser.getEmail());
         if (authUser.getDisplayName() != null && !authUser.getDisplayName().isEmpty()) {
             updates.put("name", authUser.getDisplayName());
         }
         updates.put("isGuest", false);
-        updates.put("lastLoginAt", System.currentTimeMillis());
+        updates.put("lastLoginAt", lastLoginAt);
+
+        android.util.Log.d("LoginActivity", "Saving profile with updates: " + updates.toString());
 
         userRepository.saveProfileAsync(updates, error -> {
             if (error != null) {
                 android.util.Log.e("LoginActivity", "Failed to update profile: " + error.getMessage());
-            } else if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
-                syncNameFromFirestoreToAuth(authUser);
+            } else {
+                android.util.Log.d("LoginActivity", "Profile updated successfully");
+                if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
+                    syncNameFromFirestoreToAuth(authUser);
+                }
             }
             fetchRoleAndNavigate();
         });

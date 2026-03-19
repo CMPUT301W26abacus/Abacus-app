@@ -110,7 +110,7 @@ public class ProfileViewModel extends ViewModel {
                 _role.postValue(user.getRole() != null ? user.getRole() : "entrant");
                 _notificationsEnabled.postValue(user.getNotificationsEnabled());
 
-                boolean guest = user.isGuest() || user.getLastLoginAt() == 0;
+                boolean guest = user.isGuest() || (user.getLastLoginAt() == null || user.getLastLoginAt().isEmpty());
                 _isGuest.postValue(guest);
             } else {
                 // No UUID in storage — device is a guest regardless of the activity intent
