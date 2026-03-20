@@ -103,6 +103,68 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Admin view-mode toggle — only visible to admin accounts -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardAdminViewMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:letterSpacing="0.1"
+                        android:text="VIEW MODE"
+                        android:textAppearance="?attr/textAppearanceLabelSmall"
+                        android:textColor="@color/grey" />
+
+                    <RadioGroup
+                        android:id="@+id/rgViewMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rbViewEntrant"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="Entrant" />
+
+                        <RadioButton
+                            android:id="@+id/rbViewOrganizer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="Organizer" />
+
+                        <RadioButton
+                            android:id="@+id/rbViewAdmin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:checked="true"
+                            android:gravity="center"
+                            android:text="Admin" />
+
+                    </RadioGroup>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Guest banner -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/tvGuestBanner"

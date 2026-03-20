@@ -638,6 +638,21 @@ public class MainActivity extends AppCompatActivity {
 
     public String getUserRole() { return userRole; }
 
+    /**
+     * Called by ProfileFragment when an admin switches their view mode.
+     * Updates the bottom nav and event adapter to reflect the chosen role.
+     * Has no effect for non-admin users (they cannot reach this code path).
+     *
+     * @param role "entrant" | "organizer" | "admin"
+     */
+    public void setEffectiveRole(String role) {
+        userRole = role;
+        runOnUiThread(() -> {
+            setupBottomNav();
+            applyFilters();
+        });
+    }
+
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
     }

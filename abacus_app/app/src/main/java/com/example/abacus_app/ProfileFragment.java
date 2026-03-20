@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,6 +72,8 @@ public class ProfileFragment extends Fragment {
     private TextView    tvStatLabel1;
     private TextView    tvStatCount2;
     private TextView    tvStatLabel2;
+    private View        cardAdminViewMode;
+    private RadioGroup  rgViewMode;
     private TextView    labelSection;
     private View        dangerDivider;
     private TextView    labelDanger;
@@ -134,14 +137,16 @@ public class ProfileFragment extends Fragment {
         btnAccessibility = view.findViewById(R.id.btnAccessibility);
         tvGuestBanner    = view.findViewById(R.id.tvGuestBanner);
         cardAvatar       = view.findViewById(R.id.cardAvatar);
-        cardFields       = view.findViewById(R.id.cardFields);
-        cardBio          = view.findViewById(R.id.cardBio);
-        cardOrgName      = view.findViewById(R.id.cardOrgName);
-        cardStats        = view.findViewById(R.id.cardStats);
-        tvStatCount1     = view.findViewById(R.id.tvStatCount1);
-        tvStatLabel1     = view.findViewById(R.id.tvStatLabel1);
-        tvStatCount2     = view.findViewById(R.id.tvStatCount2);
-        tvStatLabel2     = view.findViewById(R.id.tvStatLabel2);
+        cardFields        = view.findViewById(R.id.cardFields);
+        cardBio           = view.findViewById(R.id.cardBio);
+        cardOrgName       = view.findViewById(R.id.cardOrgName);
+        cardStats         = view.findViewById(R.id.cardStats);
+        tvStatCount1      = view.findViewById(R.id.tvStatCount1);
+        tvStatLabel1      = view.findViewById(R.id.tvStatLabel1);
+        tvStatCount2      = view.findViewById(R.id.tvStatCount2);
+        tvStatLabel2      = view.findViewById(R.id.tvStatLabel2);
+        cardAdminViewMode = view.findViewById(R.id.cardAdminViewMode);
+        rgViewMode        = view.findViewById(R.id.rgViewMode);
         labelSection     = view.findViewById(R.id.labelSection);
         dangerDivider    = view.findViewById(R.id.dangerDivider);
         labelDanger      = view.findViewById(R.id.labelDanger);
@@ -327,6 +332,16 @@ public class ProfileFragment extends Fragment {
                 Navigation.findNavController(requireView())
                         .navigate(R.id.accessibilityFragment));
 
+        // Sync the RadioGroup to the current view mode without re-triggering the listener
+        viewModel.getViewMode().observe(getViewLifecycleOwner(), mode -> {
+            rgViewMode.setOnCheckedChangeListener(null);
+            if ("entrant".equals(mode))        rgViewMode.check(R.id.rbViewEntrant);
+            else if ("organizer".equals(mode)) rgViewMode.check(R.id.rbViewOrganizer);
+            else                               rgViewMode.check(R.id.rbViewAdmin);
+            wireViewModeListener();
+        });
+
+
         viewModel.loadProfile();
     }
 
@@ -338,6 +353,7 @@ public class ProfileFragment extends Fragment {
      */
     private void showGuestUI() {
         cardAvatar.setVisibility(View.GONE);
+        cardAdminViewMode.setVisibility(View.GONE);
         labelSection.setVisibility(View.GONE);
         cardFields.setVisibility(View.GONE);
         cardBio.setVisibility(View.GONE);
@@ -362,6 +378,8 @@ public class ProfileFragment extends Fragment {
     private void refreshUIForCurrentRole() {
         String role = viewModel.getRole().getValue();
         boolean isOrganizer = "organizer".equals(role);
+        boolean isAdmin     = "admin".equals(role);
+        cardAdminViewMode.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
 
         cardAvatar.setVisibility(View.VISIBLE);
         labelSection.setVisibility(View.VISIBLE);
@@ -403,6 +421,25 @@ public class ProfileFragment extends Fragment {
             tvStatLabel1.setText("Events Joined");
             tvStatLabel2.setText("Events Won");
         }
+    }
+
+    /**
+     * Attaches the RadioGroup listener that propagates admin view-mode changes
+     * back to MainActivity so the bottom nav and event list update immediately.
+     */
+    private void wireViewModeListener() {
+        rgViewMode.setOnCheckedChangeListener((group, checkedId) -> {
+            String mode;
+            if (checkedId == R.id.rbViewEntrant)        mode = "entrant";
+            else if (checkedId == R.id.rbViewOrganizer) mode = "organizer";
+            else                                        mode = "admin";
+
+            viewModel.setViewMode(mode);
+
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).setEffectiveRole(mode);
+            }
+        });
     }
 
     /**

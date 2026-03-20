@@ -24,6 +24,14 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<String>  _email        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _phone        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _role         = new MutableLiveData<>("entrant");
+    /**
+     * The role the admin is currently *viewing the app as*.
+     * For non-admins this always equals _role.
+     * For admins it can be "entrant", "organizer", or "admin".
+     * Initialised lazily from the loaded role so it survives fragment re-creation
+     * within the same ViewModel scope.
+     */
+    private final MutableLiveData<String>  _viewMode     = new MutableLiveData<>("");
     private final MutableLiveData<Boolean> _notificationsEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _nameError    = new MutableLiveData<>(null);
     private final MutableLiveData<String>  _emailError   = new MutableLiveData<>(null);
@@ -41,6 +49,7 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<String>  getEmail()                { return _email; }
     public LiveData<String>  getPhone()                { return _phone; }
     public LiveData<String>  getRole()                 { return _role; }
+    public LiveData<String>  getViewMode()             { return _viewMode; }
     public LiveData<Boolean> getNotificationsEnabled() { return _notificationsEnabled; }
     public LiveData<String>  getNameError()            { return _nameError; }
     public LiveData<String>  getEmailError()           { return _emailError; }
@@ -104,6 +113,14 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
+     * Sets the active view mode (admin only).
+     * "entrant" | "organizer" | "admin"
+     */
+    public void setViewMode(String mode) {
+        _viewMode.setValue(mode);
+    }
+
+    /**
      * Sets the notifications enabled state.
      * @param enabled Boolean indicating whether notifications are enabled
      */
@@ -123,7 +140,12 @@ public class ProfileViewModel extends ViewModel {
                 _name.postValue(user.getName() != null  ? user.getName()  : "");
                 _email.postValue(user.getEmail() != null ? user.getEmail() : "");
                 _phone.postValue(user.getPhone() != null ? user.getPhone() : "");
-                _role.postValue(user.getRole() != null ? user.getRole() : "entrant");
+                String role = user.getRole() != null ? user.getRole() : "entrant";
+                _role.postValue(role);
+                // Initialise viewMode from role only on first load
+                if (_viewMode.getValue() == null || _viewMode.getValue().isEmpty()) {
+                    _viewMode.postValue(role);
+                }
                 _notificationsEnabled.postValue(user.getNotificationsEnabled());
                 _bio.postValue(user.getBio() != null ? user.getBio() : "");
                 _profilePhotoUrl.postValue(user.getProfilePhotoUrl() != null ? user.getProfilePhotoUrl() : "");
