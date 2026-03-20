@@ -40,6 +40,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -66,11 +67,12 @@ public class MainActivity extends AppCompatActivity {
 
     private NavController navController;
     private FragmentContainerView navHostFragment;
-    private View homeContent;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout homeContent;
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
-    private String userRole = "entrant";
+    private String userRole        = "entrant";
+    private String bottomNavRole   = null;   // tracks which role the bottom nav was last built for
 
     private String activeKeyword = "";
     private String activeDate    = "";
@@ -120,7 +122,9 @@ public class MainActivity extends AppCompatActivity {
         userRepository = new UserRepository(localDataSource, remoteDataSource);
         userRepository.initializeUserAsync();
 
-        isGuest = getIntent().getBooleanExtra("isGuest", false);
+        isGuest  = getIntent().getBooleanExtra("isGuest", false);
+        String intentRole = getIntent().getStringExtra("userRole");
+        if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
@@ -142,6 +146,17 @@ public class MainActivity extends AppCompatActivity {
         navHostFragment = findViewById(R.id.nav_host_fragment);
         appBar          = findViewById(R.id.app_bar);
         bottomNav       = findViewById(R.id.bottom_nav);
+
+        homeContent.setColorSchemeResources(R.color.black);
+        homeContent.setOnRefreshListener(() -> {
+            allEvents.clear();
+            if (eventsListener != null) eventsListener.remove();
+            loadEventsFromFirestore();
+            userRepository.getProfile(user -> {
+                if (user != null) userPreferences = user.getPreferences();
+                runOnUiThread(() -> homeContent.setRefreshing(false));
+            });
+        });
 
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
@@ -191,23 +206,7 @@ public class MainActivity extends AppCompatActivity {
         });
         carouselRecyclerView.setAdapter(carouselAdapter);
 
-        bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                showHome();
-                return true;
-            } else if (id == R.id.nav_saved) {
-                showFragment(R.id.nav_saved, true);
-                return true;
-            } else if (id == R.id.nav_history) {
-                showFragment(R.id.nav_history, true);
-                return true;
-            } else if (id == R.id.nav_inbox) {
-                showFragment(R.id.nav_inbox, true);
-                return true;
-            }
-            return false;
-        });
+        setupBottomNav();   // build nav immediately using the role from the Intent
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -282,6 +281,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupBottomNav() {
+        // Avoid clearing and re-inflating the menu when the role group hasn't changed
+        String roleGroup = ("organizer".equals(userRole) || "admin".equals(userRole))
+                ? "organizer" : "entrant";
+        if (roleGroup.equals(bottomNavRole)) return;
+        bottomNavRole = roleGroup;
         bottomNav.getMenu().clear();
 
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
@@ -637,30 +641,74 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
+    private static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
+            .setEnterAnim(R.anim.nav_slide_in_right)
+            .setExitAnim(R.anim.nav_slide_out_left)
+            .setPopEnterAnim(R.anim.nav_slide_in_left)
+            .setPopExitAnim(R.anim.nav_slide_out_right)
+            .build();
+
+    // No animation for bottom nav tab switches — avoids the swipe glitch
+    private static final NavOptions NAV_OPTS_TAB = new NavOptions.Builder()
+            .setEnterAnim(0)
+            .setExitAnim(0)
+            .setPopEnterAnim(0)
+            .setPopExitAnim(0)
+            .build();
+
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
-        navHostFragment.setVisibility(View.VISIBLE);
-        homeContent.setVisibility(View.GONE);
-        appBar.setVisibility(View.GONE);
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
-        navController.navigate(destinationId, args);
+        if (navHostFragment.getVisibility() != View.VISIBLE) {
+            // Transitioning from home — cross-fade the containers
+            navHostFragment.setAlpha(0f);
+            navHostFragment.setVisibility(View.VISIBLE);
+            navHostFragment.animate().alpha(1f).setDuration(180).start();
+            homeContent.animate().alpha(0f).setDuration(140)
+                    .withEndAction(() -> {
+                        homeContent.setVisibility(View.GONE);
+                        homeContent.setAlpha(1f);
+                        appBar.setVisibility(View.GONE);
+                    }).start();
+        } else {
+            homeContent.setVisibility(View.GONE);
+            appBar.setVisibility(View.GONE);
+        }
+        // Bottom nav tabs use instant switch; sub-pages use slide animation
+        NavOptions opts = showBottomNav ? NAV_OPTS_TAB : NAV_OPTS_FORWARD;
+        navController.navigate(destinationId, args, opts);
     }
 
     public void showHome() {
         clearBackStack();
-        navHostFragment.setVisibility(View.GONE);
-        homeContent.setVisibility(View.VISIBLE);
-        appBar.setVisibility(View.VISIBLE);
         bottomNav.setVisibility(View.VISIBLE);
+        if (homeContent.getVisibility() != View.VISIBLE) {
+            homeContent.setAlpha(0f);
+            homeContent.setVisibility(View.VISIBLE);
+            appBar.setVisibility(View.VISIBLE);
+            homeContent.animate().alpha(1f).setDuration(180).start();
+            navHostFragment.animate().alpha(0f).setDuration(140)
+                    .withEndAction(() -> {
+                        navHostFragment.setVisibility(View.GONE);
+                        navHostFragment.setAlpha(1f);
+                    }).start();
+        } else {
+            navHostFragment.setVisibility(View.GONE);
+            appBar.setVisibility(View.VISIBLE);
+        }
     }
 
     private void clearBackStack() {
-        while (navController.getCurrentBackStackEntry() != null) {
-            if (!navController.popBackStack()) break;
+        int startId = navController.getGraph().getStartDestinationId();
+        NavOptions noAnim = new NavOptions.Builder()
+                .setPopUpTo(startId, true)
+                .build();
+        if (navController.getCurrentBackStackEntry() != null) {
+            navController.popBackStack(startId, true);
         }
     }
 

@@ -64,6 +64,7 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<Integer> getTotalRegistrations()   { return _totalRegistrations; }
 
     private UserRepository userRepository;
+    private boolean profileLoaded = false;
 
     /**
      * Initializes the ViewModel with a UserRepository and guest status.
@@ -132,8 +133,15 @@ public class ProfileViewModel extends ViewModel {
      * Loads the user profile from Firestore and pushes values into LiveData.
      * Called by the fragment in onViewCreated().
      */
+    /** Forces a fresh fetch on the next loadProfile() call (e.g. after saving). */
+    public void invalidateProfile() {
+        profileLoaded = false;
+    }
+
     public void loadProfile() {
         if (userRepository == null) return;
+        if (profileLoaded) return;   // already loaded in this ViewModel lifetime — skip Firestore round-trip
+        profileLoaded = true;
 
         userRepository.getProfileAsync(user -> {
             if (user != null) {
@@ -206,6 +214,7 @@ public class ProfileViewModel extends ViewModel {
         userRepository.saveProfileAsync(data, error -> {
             _isSaving.postValue(false);
             if (error == null) {
+                profileLoaded = false;  // allow refresh on next open
                 _toastMessage.postValue("Profile saved!");
             } else {
                 _toastMessage.postValue("Error saving profile: " + error.getMessage());

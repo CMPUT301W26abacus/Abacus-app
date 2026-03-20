@@ -22,43 +22,30 @@
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp">
 
-            <!-- Empty state — shown when list is empty -->
             <LinearLayout
-                android:id="@+id/layout_empty"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:padding="32dp"
-                android:visibility="gone">
+                android:padding="32dp">
 
                 <TextView
+                    android:id="@+id/tv_logs_empty_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Nothing here yet"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textColor="@color/black" />
 
                 <TextView
+                    android:id="@+id/tv_logs_empty_body"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:gravity="center"
-                    android:text="Items will appear here once added."
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="@color/grey" />
 
             </LinearLayout>
-
-            <!-- Data list — shown when items exist -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_admin"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:overScrollMode="never"
-                android:nestedScrollingEnabled="false"
-                android:paddingVertical="4dp" />
 
         </com.google.android.material.card.MaterialCardView>
 

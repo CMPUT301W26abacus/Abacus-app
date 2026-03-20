@@ -115,6 +115,17 @@ public class ProfileFragment extends Fragment {
 
         storageRepo = new StorageRepository();
 
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout profileSwipeRefresh =
+                view.findViewById(R.id.profileSwipeRefresh);
+        if (profileSwipeRefresh != null) {
+            profileSwipeRefresh.setColorSchemeResources(R.color.black);
+            profileSwipeRefresh.setOnRefreshListener(() -> {
+                viewModel.invalidateProfile();
+                viewModel.loadProfile();
+                profileSwipeRefresh.setRefreshing(false);
+            });
+        }
+
         // Apply high-contrast styling if enabled
         if (new AccessibilityHelper(requireContext()).isHighContrast()) {
             AccessibilityHelper.applyHighContrast(view);
