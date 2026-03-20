@@ -78,8 +78,31 @@ public class StorageRepository {
     }
 
     /**
+     * Uploads a user profile photo to Firebase Storage.
+     * Path: profilePhotos/{uuid}.jpg
+     *
+     * @param uuid    The unique ID of the user.
+     * @param fileUri The local Uri of the photo to upload.
+     * @return An UploadTask for monitoring the upload progress.
+     */
+    public UploadTask uploadProfilePhoto(String uuid, Uri fileUri) {
+        StorageReference photoRef = storageRef.child("profilePhotos/" + uuid + ".jpg");
+        return photoRef.putFile(fileUri);
+    }
+
+    /**
+     * Retrieves the download URL for a user's profile photo.
+     *
+     * @param uuid The unique ID of the user.
+     * @return A Task containing the Uri download URL.
+     */
+    public Task<Uri> getProfilePhotoUrl(String uuid) {
+        return storageRef.child("profilePhotos/" + uuid + ".jpg").getDownloadUrl();
+    }
+
+    /**
      * Deletes a file from Firebase Storage.
-     * 
+     *
      * @param path The full path of the file to delete (e.g., "posters/123.jpg").
      * @return A Task indicating the result of the deletion.
      */

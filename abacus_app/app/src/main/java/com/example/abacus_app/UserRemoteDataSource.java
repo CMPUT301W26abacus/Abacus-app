@@ -65,6 +65,19 @@ public class UserRemoteDataSource {
 
         user.setNotificationsEnabled(getBoolean(snap, "notificationsEnabled"));
 
+        user.setProfilePhotoUrl(getString(snap, "profilePhotoUrl"));
+        user.setVerificationStatus(getString(snap, "verificationStatus"));
+        user.setPreferredLanguage(getString(snap, "preferredLanguage"));
+        user.setTimezone(getString(snap, "timezone"));
+        user.setBio(getString(snap, "bio"));
+        user.setOrganizationName(getString(snap, "organizationName"));
+
+        Object prefsRaw = snap.get("preferences");
+        if (prefsRaw instanceof Map) {
+            //noinspection unchecked
+            user.setPreferences((Map<String, Object>) prefsRaw);
+        }
+
         try {
             Object raw = snap.get("deletedAt");
             if (raw instanceof com.google.firebase.Timestamp) {

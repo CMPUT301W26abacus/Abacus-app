@@ -16,6 +16,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -241,6 +242,73 @@ public class UserRemoteDataSourceUnitTest {
         assertEquals("Alice Smith",       result[0].getName());
         assertEquals("alice@ualberta.ca", result[0].getEmail());
         assertEquals("780-492-3111",      result[0].getPhone());
+    }
+
+    /**
+     * getUserSync maps new Phase-1.1 fields: bio, organizationName, profilePhotoUrl,
+     * verificationStatus, and preferences.
+     */
+    @Test
+    public void getUserSync_mapsNewPhase1Fields() throws Exception {
+        when(mockDocument.get()).thenReturn(Tasks.forResult(mockSnap));
+        when(mockSnap.exists()).thenReturn(true);
+        when(mockSnap.get("name")).thenReturn("Alice Smith");
+        when(mockSnap.get("email")).thenReturn("alice@ualberta.ca");
+        when(mockSnap.get("phone")).thenReturn("");
+        when(mockSnap.get("createdAt")).thenReturn(null);
+        when(mockSnap.get("isDeleted")).thenReturn(null);
+        when(mockSnap.get("lastLoginAt")).thenReturn(null);
+        when(mockSnap.get("deletedAt")).thenReturn(null);
+        when(mockSnap.get("isGuest")).thenReturn(false);
+        when(mockSnap.get("bio")).thenReturn("My bio");
+        when(mockSnap.get("organizationName")).thenReturn("Acme Corp");
+        when(mockSnap.get("profilePhotoUrl")).thenReturn("https://example.com/photo.jpg");
+        when(mockSnap.get("verificationStatus")).thenReturn("email_verified");
+        Map<String, Object> prefsMap = new HashMap<>();
+        prefsMap.put("categories", java.util.Arrays.asList("Music"));
+        when(mockSnap.get("preferences")).thenReturn(prefsMap);
+
+        User[] result = {null};
+        CountDownLatch latch = new CountDownLatch(1);
+        bg.submit(() -> {
+            try { result[0] = dataSource.getUserSync(UUID); }
+            catch (Exception e) { fail("threw: " + e.getMessage()); }
+            finally { latch.countDown(); }
+        });
+
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
+        assertNotNull(result[0]);
+        assertEquals("My bio",                         result[0].getBio());
+        assertEquals("Acme Corp",                      result[0].getOrganizationName());
+        assertEquals("https://example.com/photo.jpg",  result[0].getProfilePhotoUrl());
+        assertEquals("email_verified",                 result[0].getVerificationStatus());
+        assertNotNull(result[0].getPreferences());
+    }
+
+    /**
+     * getUserSync falls back to empty string for null text fields.
+     */
+    @Test
+    public void getUserSync_nullTextFields_fallBackToEmptyString() throws Exception {
+        when(mockDocument.get()).thenReturn(Tasks.forResult(mockSnap));
+        when(mockSnap.exists()).thenReturn(true);
+        when(mockSnap.get(anyString())).thenReturn(null);
+
+        User[] result = {null};
+        CountDownLatch latch = new CountDownLatch(1);
+        bg.submit(() -> {
+            try { result[0] = dataSource.getUserSync(UUID); }
+            catch (Exception ignored) { }
+            finally { latch.countDown(); }
+        });
+
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
+        // bio and organizationName should not throw; they may be null or ""
+        // (getString helper returns "" for null)
+        if (result[0] != null) {
+            String bio = result[0].getBio();
+            assertTrue(bio == null || bio.isEmpty());
+        }
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import android.app.Application;
+import android.content.Context;
+import android.content.res.Configuration;
 import android.util.Log;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -17,6 +19,13 @@ public class AbacusApplication extends Application {
     private static final String TAG = "AbacusApplication";
     
     private UserRepository userRepository;
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        AccessibilityHelper helper = new AccessibilityHelper(base);
+        Configuration config = AccessibilityHelper.buildConfig(base, helper.isLargeText());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
 
     @Override
     public void onCreate() {
@@ -65,8 +74,7 @@ public class AbacusApplication extends Application {
     private void checkAuthenticationStatus() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
-            Log.d(TAG, "User already authenticated: " + currentUser.getUid() + 
-                  " (Anonymous: " + currentUser.isAnonymous() + ")");
+            Log.d(TAG, "User already authenticated (anonymous=" + currentUser.isAnonymous() + ")");
         } else {
             Log.d(TAG, "No authenticated user found");
         }

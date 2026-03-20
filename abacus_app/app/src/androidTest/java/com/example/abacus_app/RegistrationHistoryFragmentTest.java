@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.swipeDown;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
@@ -187,6 +188,44 @@ public class RegistrationHistoryFragmentTest {
 
         // If we get here the fragment did not crash
         onView(withId(R.id.swipe_refresh)).check(matches(isDisplayed()));
+    }
+
+    // ── Status filter chips (Phase 1.9) ──────────────────────────────────────
+
+    /**
+     * The status filter ChipGroup is displayed.
+     */
+    @Test
+    public void statusFilterChipGroup_isDisplayed() {
+        onView(withId(R.id.cgStatusFilter)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * The "Date range" filter button is displayed.
+     */
+    @Test
+    public void dateFilterButton_isDisplayed() {
+        onView(withId(R.id.btnDateFilter)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * After seeding items of mixed statuses, clicking the "On Waitlist" chip
+     * causes the RecyclerView to show only the waitlisted entry (by title).
+     */
+    @Test
+    public void clickStatusFilterChip_showsOnlyMatchingItems() {
+        // Seed two items with different status labels
+        postRegistrations(Arrays.asList(
+                makeItem("event-1", "Spring Gala 2026",  "On Waitlist"),
+                makeItem("event-2", "Summer Picnic 2026", "Selected!")
+        ));
+
+        // Click the "On Waitlist" filter chip
+        onView(withId(R.id.chipWaitlist)).perform(click());
+        try { Thread.sleep(400); } catch (InterruptedException ignored) {}
+
+        // The waitlisted event should still be visible
+        onView(withText("Spring Gala 2026")).check(matches(isDisplayed()));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

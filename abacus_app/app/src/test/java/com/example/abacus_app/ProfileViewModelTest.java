@@ -351,6 +351,80 @@ public class ProfileViewModelTest {
         assertFalse(vm.getProfileDeleted().getValue());
     }
 
+    // ── Bio & organization name (Phase 1.7) ──────────────────────────────────
+
+    @Test
+    public void setBio_updatesBioLiveData() {
+        vm.setBio("My bio text");
+        assertEquals("My bio text", vm.getBio().getValue());
+    }
+
+    @Test
+    public void setOrganizationName_updatesOrgNameLiveData() {
+        vm.setOrganizationName("Acme Corp");
+        assertEquals("Acme Corp", vm.getOrganizationName().getValue());
+    }
+
+    @Test
+    public void loadProfile_populatesBio() {
+        User alice = new User("uid", "alice@test.com", "Alice", "2026-01-01");
+        alice.setBio("Bio text");
+        doAnswer(inv -> { callUserCallback(inv, alice); return null; })
+                .when(mockRepo).getProfileAsync(any());
+
+        vm.loadProfile();
+
+        assertEquals("Bio text", vm.getBio().getValue());
+    }
+
+    @Test
+    public void loadProfile_populatesOrganizationName() {
+        User alice = new User("uid", "alice@test.com", "Alice", "2026-01-01");
+        alice.setOrganizationName("Acme Corp");
+        doAnswer(inv -> { callUserCallback(inv, alice); return null; })
+                .when(mockRepo).getProfileAsync(any());
+
+        vm.loadProfile();
+
+        assertEquals("Acme Corp", vm.getOrganizationName().getValue());
+    }
+
+    @Test
+    public void saveProfile_includesBioInMap() {
+        vm.setName("Alice Smith");
+        vm.setBio("Bio text");
+        doAnswer(inv -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = inv.getArgument(0);
+            assertTrue("bio must be in save payload", data.containsKey("bio"));
+            assertEquals("Bio text", data.get("bio"));
+            callSaveCallback(inv, null);
+            return null;
+        }).when(mockRepo).saveProfileAsync(anyMap(), any());
+
+        vm.saveProfile();
+        verify(mockRepo).saveProfileAsync(anyMap(), any());
+    }
+
+    @Test
+    public void saveProfile_includesOrgNameWhenOrganizer() {
+        vm.setName("Alice Smith");
+        vm.setRole("organizer");
+        vm.setOrganizationName("Acme Corp");
+        doAnswer(inv -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = inv.getArgument(0);
+            assertTrue("organizationName must be in save payload",
+                    data.containsKey("organizationName"));
+            assertEquals("Acme Corp", data.get("organizationName"));
+            callSaveCallback(inv, null);
+            return null;
+        }).when(mockRepo).saveProfileAsync(anyMap(), any());
+
+        vm.saveProfile();
+        verify(mockRepo).saveProfileAsync(anyMap(), any());
+    }
+
     // ── clearToast ───────────────────────────────────────────────────────────
 
     @Test

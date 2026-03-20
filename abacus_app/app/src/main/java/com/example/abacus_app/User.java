@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import com.google.firebase.firestore.PropertyName;
+import java.util.Map;
 
 public class User {
 
@@ -21,6 +22,14 @@ public class User {
     private String  role;
     private boolean notificationsEnabled;
     private String  status; // "winner" or "loser"
+
+    private String profilePhotoUrl;
+    private String verificationStatus; // "none" | "email_verified" | "phone_verified"
+    private String preferredLanguage;
+    private String timezone;
+    private String bio;
+    private String organizationName;   // non-null only when role == "organizer"
+    private Map<String, Object> preferences; // entrant event preferences
 
     public User() {}
 
@@ -80,4 +89,25 @@ public class User {
     public void setRole(String role)             { this.role = role; }
     public void setNotificationsEnabled(boolean enabled) { this.notificationsEnabled = enabled; }
     public void setStatus(String status)         { this.status = status; }
+
+    public String getProfilePhotoUrl()           { return profilePhotoUrl; }
+    public void setProfilePhotoUrl(String url)   { this.profilePhotoUrl = url; }
+
+    public String getVerificationStatus()        { return verificationStatus; }
+    public void setVerificationStatus(String s)  { this.verificationStatus = s; }
+
+    public String getPreferredLanguage()         { return preferredLanguage; }
+    public void setPreferredLanguage(String s)   { this.preferredLanguage = s; }
+
+    public String getTimezone()                  { return timezone; }
+    public void setTimezone(String s)            { this.timezone = s; }
+
+    public String getBio()                       { return bio; }
+    public void setBio(String bio)               { this.bio = bio; }
+
+    public String getOrganizationName()          { return organizationName; }
+    public void setOrganizationName(String s)    { this.organizationName = s; }
+
+    public Map<String, Object> getPreferences()  { return preferences; }
+    public void setPreferences(Map<String, Object> preferences) { this.preferences = preferences; }
 }

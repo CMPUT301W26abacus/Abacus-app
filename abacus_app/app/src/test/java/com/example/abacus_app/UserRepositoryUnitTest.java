@@ -13,6 +13,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -270,6 +271,51 @@ public class UserRepositoryUnitTest {
 
         drainUntil(() -> done[0]);
         verify(mockRemote, never()).deleteUserSync(anyString());
+    }
+
+    // ── savePreferencesAsync ─────────────────────────────────────────────────
+
+    /**
+     * savePreferencesAsync wraps the preferences map under the "preferences" key
+     * and calls updateUserSync with the correct UUID.
+     */
+    @Test
+    public void savePreferencesAsync_callsUpdateWithCorrectMap() throws Exception {
+        when(mockLocal.getUUIDSync()).thenReturn(ALICE_UUID);
+        doNothing().when(mockRemote).updateUserSync(anyString(), anyMap());
+
+        Map<String, Object> prefs = new HashMap<>();
+        prefs.put("categories", Arrays.asList("Music", "Sports"));
+        prefs.put("locationRangeKm", 25);
+
+        boolean[] done = {false};
+        Exception[] error = {new Exception("sentinel")};
+
+        repo.savePreferencesAsync(prefs, e -> { error[0] = e; done[0] = true; });
+
+        drainUntil(() -> done[0]);
+        assertNull("Expected no error", error[0]);
+        verify(mockRemote).updateUserSync(
+                eq(ALICE_UUID),
+                argThat(map -> map.containsKey("preferences")));
+    }
+
+    /**
+     * savePreferencesAsync propagates exceptions via the callback.
+     */
+    @Test
+    public void savePreferencesAsync_propagatesError() throws Exception {
+        when(mockLocal.getUUIDSync()).thenReturn(ALICE_UUID);
+        doThrow(new RuntimeException("Firestore offline"))
+                .when(mockRemote).updateUserSync(anyString(), anyMap());
+
+        boolean[] done = {false};
+        Exception[] error = {null};
+
+        repo.savePreferencesAsync(new HashMap<>(), e -> { error[0] = e; done[0] = true; });
+
+        drainUntil(() -> done[0]);
+        assertNotNull("Expected an error", error[0]);
     }
 
     // ── clearLocalSession ────────────────────────────────────────────────────

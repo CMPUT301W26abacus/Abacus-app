@@ -93,7 +93,7 @@ public class UserRemoteDataSourceTest {
     public void createUser_aliasForCreateUserSync_callsSet() throws Exception {
         when(mockDocument.set(anyMap())).thenReturn(Tasks.forResult(null));
 
-        dataSource.createUser(UUID, new HashMap<>());
+        dataSource.createUserSync(UUID, new HashMap<>());
 
         verify(mockDocument).set(anyMap());
     }
@@ -219,7 +219,7 @@ public class UserRemoteDataSourceTest {
         when(mockDocument.get()).thenReturn(Tasks.forResult(mockSnap));
         when(mockSnap.exists()).thenReturn(false);
 
-        assertNull(dataSource.getUser(UUID));
+        assertNull(dataSource.getUserSync(UUID));
     }
 
     // ── updateUserSync — US 01.02.02 ─────────────────────────────────────────
@@ -250,7 +250,7 @@ public class UserRemoteDataSourceTest {
         when(mockDocument.set(anyMap(), any(SetOptions.class)))
                 .thenReturn(Tasks.forResult(null));
 
-        dataSource.updateUser(UUID, new HashMap<>());
+        dataSource.updateUserSync(UUID, new HashMap<>());
 
         verify(mockDocument).set(anyMap(), any(SetOptions.class));
     }
@@ -313,7 +313,7 @@ public class UserRemoteDataSourceTest {
         when(mockDocument.set(anyMap(), any(SetOptions.class)))
                 .thenReturn(Tasks.forResult(null));
 
-        dataSource.deleteUser(UUID);
+        dataSource.deleteUserSync(UUID);
 
         verify(mockDocument).set(
                 argThat(map -> Boolean.TRUE.equals(((Map<?, ?>) map).get("isDeleted"))),

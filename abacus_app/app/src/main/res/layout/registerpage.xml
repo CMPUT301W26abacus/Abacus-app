@@ -222,6 +222,87 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <!-- Role selection -->
+        <TextView
+            android:id="@+id/labelRole"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="20dp"
+            android:text="I want to…"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/tvPasswordHint"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <RadioGroup
+            android:id="@+id/rgRole"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            app:layout_constraintTop_toBottomOf="@id/labelRole"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <RadioButton
+                android:id="@+id/rbEntrant"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Join events"
+                android:checked="true"
+                android:textColor="#374151"
+                android:textSize="14sp"/>
+
+            <RadioButton
+                android:id="@+id/rbOrganizer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Organise events"
+                android:textColor="#374151"
+                android:textSize="14sp"/>
+
+        </RadioGroup>
+
+        <!-- Organization name (shown only for organizers) -->
+        <TextView
+            android:id="@+id/labelOrgName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="14dp"
+            android:text="Organization name"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/rgRole"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <EditText
+            android:id="@+id/etOrganizationName"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="6dp"
+            android:hint="Your organization or event brand"
+            android:textColorHint="#D1D5DB"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:background="@drawable/input_background"
+            android:paddingHorizontal="14dp"
+            android:inputType="textCapWords"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/labelOrgName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
         <Button
             android:id="@+id/btnRegister"
             android:layout_width="0dp"
@@ -234,7 +315,7 @@
             android:textStyle="bold"
             android:letterSpacing="0.02"
             android:backgroundTint="#111827"
-            app:layout_constraintTop_toBottomOf="@id/tvPasswordHint"
+            app:layout_constraintTop_toBottomOf="@id/etOrganizationName"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 

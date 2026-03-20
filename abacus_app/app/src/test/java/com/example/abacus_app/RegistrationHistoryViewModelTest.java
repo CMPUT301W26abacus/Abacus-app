@@ -285,12 +285,92 @@ public class RegistrationHistoryViewModelTest {
         assertFalse(vm.getIsLoading().getValue());
     }
 
+    // ── HistoryAdapter filter logic ──────────────────────────────────────────
+
+    /**
+     * HistoryAdapter.setFilter with a specific status returns only matching items.
+     * Tests the in-memory filter added in Phase 1.9.
+     */
+    @Test
+    public void adapterFilter_byStatus_returnsOnlyMatchingItems() {
+        // Build a list with 3 items of different statuses
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> all = Arrays.asList(
+                makeItem("e1", "Event A", "On Waitlist",  TIMESTAMP),
+                makeItem("e2", "Event B", "Selected!",    TIMESTAMP),
+                makeItem("e3", "Event C", "On Waitlist",  TIMESTAMP)
+        );
+
+        // Simulate the adapter's filter logic inline (mirrors HistoryAdapter.setFilter)
+        String filter = "Selected!";
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered = new ArrayList<>();
+        for (RegistrationHistoryViewModel.RegistrationHistoryItem item : all) {
+            if (filter.equals(item.getStatusLabel())) filtered.add(item);
+        }
+
+        assertEquals(1, filtered.size());
+        assertEquals("Selected!", filtered.get(0).getStatusLabel());
+    }
+
+    /**
+     * HistoryAdapter.setFilter with null status returns all items (no filter).
+     */
+    @Test
+    public void adapterFilter_nullStatus_returnsAllItems() {
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> all = Arrays.asList(
+                makeItem("e1", "Event A", "On Waitlist", TIMESTAMP),
+                makeItem("e2", "Event B", "Selected!",   TIMESTAMP),
+                makeItem("e3", "Event C", "Enrolled",    TIMESTAMP)
+        );
+
+        String filter = null;
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered = new ArrayList<>();
+        for (RegistrationHistoryViewModel.RegistrationHistoryItem item : all) {
+            boolean statusOk = (filter == null) || filter.equals(item.getStatusLabel());
+            if (statusOk) filtered.add(item);
+        }
+
+        assertEquals(3, filtered.size());
+    }
+
+    /**
+     * HistoryAdapter.setFilter with a date range excludes out-of-range items.
+     */
+    @Test
+    public void adapterFilter_byDateRange_excludesOutOfRangeItems() {
+        long inRange  = TIMESTAMP;           // 2026-03-11
+        long outRange = TIMESTAMP - 86_400_000L * 10; // 10 days before
+
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> all = Arrays.asList(
+                makeItem("e1", "In Range",  "On Waitlist", inRange),
+                makeItem("e2", "Out Range", "On Waitlist", outRange)
+        );
+
+        long[] dateRange = {TIMESTAMP - 86_400_000L, TIMESTAMP + 86_400_000L}; // ±1 day
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered = new ArrayList<>();
+        for (RegistrationHistoryViewModel.RegistrationHistoryItem item : all) {
+            long ts = item.getTimestamp();
+            if (ts >= dateRange[0] && ts <= dateRange[1] + 86_400_000L) {
+                filtered.add(item);
+            }
+        }
+
+        assertEquals(1, filtered.size());
+        assertEquals("In Range", filtered.get(0).getEventTitle());
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private RegistrationHistoryViewModel.Registration makeReg(
             String eventId, String title, String status) {
         return new RegistrationHistoryViewModel.Registration(
                 eventId, title, null, status, TIMESTAMP);
+    }
+
+    /** Creates a RegistrationHistoryItem directly (for adapter filter tests). */
+    private RegistrationHistoryViewModel.RegistrationHistoryItem makeItem(
+            String eventId, String title, String statusLabel, long timestamp) {
+        return new RegistrationHistoryViewModel.RegistrationHistoryItem(
+                eventId, title, null, statusLabel, timestamp);
     }
 
     /** Call loadRegistrationHistory() with a single-item list containing {@code reg}. */

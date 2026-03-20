@@ -93,20 +93,22 @@ public class LoginActivity extends AppCompatActivity {
                         btnSignIn.setEnabled(true);
                         btnSignIn.setText("Sign In");
 
-                        String errorMessage = "Login failed";
-                        if (e.getMessage() != null) {
+                        String errorMessage = "Login failed. Please try again.";
+                        if (e instanceof com.google.firebase.FirebaseNetworkException
+                                || (e.getMessage() != null && e.getMessage().toLowerCase().contains("network"))) {
+                            errorMessage = "No internet connection. Please check your network and try again.";
+                        } else if (e.getMessage() != null) {
                             if (e.getMessage().contains("invalid-email")) {
                                 errorMessage = "Invalid email format";
-                            } else if (e.getMessage().contains("wrong-password")) {
-                                errorMessage = "Incorrect password";
+                            } else if (e.getMessage().contains("wrong-password")
+                                    || e.getMessage().contains("invalid-credential")) {
+                                errorMessage = "Incorrect email or password";
                             } else if (e.getMessage().contains("user-not-found")) {
                                 errorMessage = "No account found with this email";
                             } else if (e.getMessage().contains("user-disabled")) {
                                 errorMessage = "This account has been disabled";
                             } else if (e.getMessage().contains("too-many-requests")) {
                                 errorMessage = "Too many failed attempts. Please try again later";
-                            } else {
-                                errorMessage = e.getMessage();
                             }
                         }
                         Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
@@ -150,7 +152,7 @@ public class LoginActivity extends AppCompatActivity {
                 .addOnSuccessListener(doc -> {
                     String role = doc.getString("role");
                     if (role == null) role = "entrant";
-                    android.util.Log.d("LoginActivity", "Role from Firestore: " + role + " for UUID: " + uuid);
+                    android.util.Log.d("LoginActivity", "Role from Firestore: " + role);
                     navigateToMain(role);
                 })
                 .addOnFailureListener(e -> {
@@ -196,8 +198,7 @@ public class LoginActivity extends AppCompatActivity {
                         // Restore the UUID that owns this account's history
                         String existingUuid = querySnapshot.getDocuments().get(0).getId();
                         localDataSource.saveDeviceId(existingUuid);
-                        android.util.Log.d("LoginActivity",
-                                "Restored UUID: " + existingUuid + " for " + authUser.getEmail());
+                        android.util.Log.d("LoginActivity", "Identity restored from existing account");
                     }
                     updateProfileFields(authUser);
                 })
@@ -220,7 +221,7 @@ public class LoginActivity extends AppCompatActivity {
         updates.put("isGuest", false);
         updates.put("lastLoginAt", lastLoginAt);
 
-        android.util.Log.d("LoginActivity", "Saving profile with updates: " + updates.toString());
+        android.util.Log.d("LoginActivity", "Saving profile updates");
 
         userRepository.saveProfileAsync(updates, error -> {
             if (error != null) {

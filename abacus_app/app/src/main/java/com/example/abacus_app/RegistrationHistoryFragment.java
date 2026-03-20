@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -14,12 +15,16 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.datepicker.MaterialDatePicker;
 
 import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -56,6 +61,9 @@ public class RegistrationHistoryFragment extends Fragment {
     private LinearLayout emptyStateLayout;
     private ProgressBar progressBar;
 
+    private String activeStatusFilter = null;
+    private long[] activeDateRange = null;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -71,6 +79,7 @@ public class RegistrationHistoryFragment extends Fragment {
         setupRecyclerView();
         setupViewModel();
         setupSwipeRefresh();
+        setupFilters(root);
 
         return root;
     }
@@ -123,6 +132,49 @@ public class RegistrationHistoryFragment extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(() -> viewModel.refresh());
     }
 
+    private void setupFilters(View root) {
+        ChipGroup cgStatusFilter = root.findViewById(R.id.cgStatusFilter);
+        Button btnDateFilter     = root.findViewById(R.id.btnDateFilter);
+
+        cgStatusFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) {
+                activeStatusFilter = null;
+            } else {
+                int id = checkedIds.get(0);
+                if      (id == R.id.chipAll)      activeStatusFilter = null;
+                else if (id == R.id.chipWaitlist)  activeStatusFilter = "On Waitlist";
+                else if (id == R.id.chipSelected)  activeStatusFilter = "Selected!";
+                else if (id == R.id.chipEnrolled)  activeStatusFilter = "Enrolled";
+            }
+            adapter.setFilter(activeStatusFilter, activeDateRange);
+        });
+
+        btnDateFilter.setOnClickListener(v -> {
+            MaterialDatePicker<Pair<Long, Long>> picker =
+                    MaterialDatePicker.Builder.dateRangePicker()
+                            .setTitleText("Select date range")
+                            .build();
+            picker.show(getParentFragmentManager(), "DATE_RANGE_PICKER");
+            picker.addOnPositiveButtonClickListener(selection -> {
+                if (selection != null && selection.first != null && selection.second != null) {
+                    activeDateRange = new long[]{selection.first, selection.second};
+                    adapter.setFilter(activeStatusFilter, activeDateRange);
+                    btnDateFilter.setText(
+                            new java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault())
+                                    .format(new java.util.Date(selection.first))
+                            + " – "
+                            + new java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault())
+                                    .format(new java.util.Date(selection.second)));
+                }
+            });
+            picker.addOnNegativeButtonClickListener(v2 -> {
+                activeDateRange = null;
+                adapter.setFilter(activeStatusFilter, activeDateRange);
+                btnDateFilter.setText("Date range");
+            });
+        });
+    }
+
     // ─── Adapter ──────────────────────────────────────────────────────────────
 
     private static class HistoryAdapter
@@ -134,6 +186,8 @@ public class RegistrationHistoryFragment extends Fragment {
 
         private List<RegistrationHistoryViewModel.RegistrationHistoryItem> items =
                 new ArrayList<>();
+        private List<RegistrationHistoryViewModel.RegistrationHistoryItem> masterItems =
+                new ArrayList<>();
         private final OnEventClickListener clickListener;
 
         HistoryAdapter(OnEventClickListener clickListener) {
@@ -141,7 +195,23 @@ public class RegistrationHistoryFragment extends Fragment {
         }
 
         void setItems(List<RegistrationHistoryViewModel.RegistrationHistoryItem> newItems) {
-            items = newItems;
+            masterItems = newItems;
+            items = new ArrayList<>(newItems);
+            notifyDataSetChanged();
+        }
+
+        void setFilter(String statusFilter, long[] dateRange) {
+            List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered = new ArrayList<>();
+            for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
+                boolean statusOk = (statusFilter == null) || statusFilter.equals(item.getStatusLabel());
+                boolean dateOk = true;
+                if (dateRange != null && dateRange.length == 2) {
+                    long ts = item.getTimestamp();
+                    dateOk = ts >= dateRange[0] && ts <= (dateRange[1] + 86_400_000L);
+                }
+                if (statusOk && dateOk) filtered.add(item);
+            }
+            items = filtered;
             notifyDataSetChanged();
         }
 

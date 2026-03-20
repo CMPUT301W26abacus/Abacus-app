@@ -2,8 +2,11 @@ package com.example.abacus_app;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,7 +26,10 @@ import java.util.Map;
 public class RegisterActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private UserRepository userRepository;
-    private Button btnRegister; // Make btnRegister a class field
+    private Button btnRegister;
+    private RadioButton rbOrganizer;
+    private EditText etOrganizationName;
+    private TextView labelOrgName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,12 +46,28 @@ public class RegisterActivity extends AppCompatActivity {
         EditText etName     = findViewById(R.id.etName);
         EditText etEmail    = findViewById(R.id.etEmail);
         EditText etPassword = findViewById(R.id.etPassword);
-        btnRegister = findViewById(R.id.btnRegister); // Assign to class field, not declare new variable
+        btnRegister = findViewById(R.id.btnRegister);
         TextView tvLogin    = findViewById(R.id.tvLogin);
         android.widget.ImageButton btnBack = findViewById(R.id.btnBack);
+        RadioGroup rgRole       = findViewById(R.id.rgRole);
+        rbOrganizer             = findViewById(R.id.rbOrganizer);
+        etOrganizationName      = findViewById(R.id.etOrganizationName);
+        labelOrgName            = findViewById(R.id.labelOrgName);
+
+        // Show/hide organization name field based on role selection
+        rgRole.setOnCheckedChangeListener((group, checkedId) -> {
+            boolean isOrganizer = (checkedId == R.id.rbOrganizer);
+            int visibility = isOrganizer ? View.VISIBLE : View.GONE;
+            labelOrgName.setVisibility(visibility);
+            etOrganizationName.setVisibility(visibility);
+        });
 
         // Back button goes to previous page
         btnBack.setOnClickListener(v -> finish());
+
+        // Go back to login
+        tvLogin.setOnClickListener(view ->
+                startActivity(new Intent(this, LoginActivity.class)));
 
         btnRegister.setOnClickListener(v -> {
             String name     = etName.getText().toString().trim();
@@ -57,12 +79,12 @@ public class RegisterActivity extends AppCompatActivity {
                 Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
                 return;
             }
-            
+
             if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
                 return;
             }
-            
+
             if (password.length() < 6) {
                 Toast.makeText(this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
                 return;
@@ -72,30 +94,28 @@ public class RegisterActivity extends AppCompatActivity {
             btnRegister.setEnabled(false);
             btnRegister.setText("Creating account...");
 
+            String selectedRole = rbOrganizer.isChecked() ? "organizer" : "entrant";
+            String orgName      = etOrganizationName.getText().toString().trim();
+
             // Create user in Firebase Auth
             mAuth.createUserWithEmailAndPassword(email, password)
                     .addOnSuccessListener(authResult -> {
-                        // Update Firebase Auth profile with display name
                         FirebaseUser user = authResult.getUser();
                         if (user != null) {
                             UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                                     .setDisplayName(name)
                                     .build();
-
                             user.updateProfile(profileUpdates)
-                                    .addOnCompleteListener(task -> {
-                                        // Whether profile update succeeds or fails, continue with Firestore update
-                                        saveToFirestore(name, email);
-                                    });
+                                    .addOnCompleteListener(task ->
+                                            saveToFirestore(name, email, selectedRole, orgName));
                         } else {
-                            // If no user, still save to Firestore
-                            saveToFirestore(name, email);
+                            saveToFirestore(name, email, selectedRole, orgName);
                         }
                     })
                     .addOnFailureListener(e -> {
                         btnRegister.setEnabled(true);
                         btnRegister.setText("Register");
-                        
+
                         String errorMessage = "Registration failed";
                         if (e.getMessage() != null) {
                             if (e.getMessage().contains("email-already-in-use")) {
@@ -108,23 +128,17 @@ public class RegisterActivity extends AppCompatActivity {
                                 errorMessage = e.getMessage();
                             }
                         }
-                        
+
                         Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
                         android.util.Log.w("RegisterActivity", "Registration failed", e);
-        });
-
-        // Go back to login
-            tvLogin.setOnClickListener(view -> {
-                startActivity(new Intent(this, LoginActivity.class));
-                // Note: Do NOT call finish() here to preserve back stack
-            });
+                    });
         });
     }
 
     /**
      * Saves the user profile to Firestore after Firebase Auth account creation.
      */
-    private void saveToFirestore(String name, String email) {
+    private void saveToFirestore(String name, String email, String role, String orgName) {
         String createdAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
@@ -140,6 +154,10 @@ public class RegisterActivity extends AppCompatActivity {
         updates.put("lastLoginAt", lastLoginAt);
         updates.put("isGuest",     false);
         updates.put("isDeleted",   false);
+        updates.put("role",        role);
+        if ("organizer".equals(role) && !orgName.isEmpty()) {
+            updates.put("organizationName", orgName);
+        }
 
         userRepository.saveProfileAsync(updates, error -> {
             btnRegister.setEnabled(true);

@@ -79,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
 
     private final List<Event> allEvents = new ArrayList<>();
 
+    private RecyclerView carouselRecyclerView;
+    private CarouselEventAdapter carouselAdapter;
+    private TextView tvFeaturedLabel;
+    private TextView tvForYouLabel;
+
+    private java.util.Map<String, Object> userPreferences = null;
+
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
@@ -107,14 +114,8 @@ public class MainActivity extends AppCompatActivity {
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
-        if (currentUser != null) {
-            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
-                    " (Anonymous: " + currentUser.isAnonymous() +
-                    ", Email: " + currentUser.getEmail() + ")");
-        } else {
-            android.util.Log.d("MainActivity", "No current user");
-        }
+        android.util.Log.d("MainActivity", "isGuest=" + isGuest
+                + " authenticated=" + (currentUser != null));
 
         if (!isGuest && currentUser == null) {
             goToSplash();
@@ -148,6 +149,23 @@ public class MainActivity extends AppCompatActivity {
         recyclerView     = findViewById(R.id.rv_events);
         layoutEmptyState = findViewById(R.id.layout_empty_state);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        // Carousel setup
+        carouselRecyclerView = findViewById(R.id.rv_carousel);
+        tvFeaturedLabel      = findViewById(R.id.tv_featured_label);
+        tvForYouLabel        = findViewById(R.id.tv_for_you_label);
+        carouselRecyclerView.setLayoutManager(
+                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        carouselAdapter = new CarouselEventAdapter(new ArrayList<>(), event -> {
+            Bundle args = new Bundle();
+            args.putString(EventDetailsFragment.ARG_EVENT_TITLE,
+                    event.getTitle() != null ? event.getTitle() : "");
+            args.putString(EventDetailsFragment.ARG_EVENT_ID,
+                    event.getEventId() != null ? event.getEventId() : "");
+            args.putBoolean(EventDetailsFragment.ARG_AUTO_JOIN, false);
+            showFragment(R.id.eventDetailsFragment, false, args);
+        });
+        carouselRecyclerView.setAdapter(carouselAdapter);
 
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
@@ -191,8 +209,12 @@ public class MainActivity extends AppCompatActivity {
             if (user != null) {
                 userRole = (user.getRole() != null && !user.getRole().isEmpty())
                         ? user.getRole() : "entrant";
-                android.util.Log.d("MainActivity", "User Role: " + userRole + " | ID: " + user.getUid());
-                runOnUiThread(this::setupBottomNav);
+                userPreferences = user.getPreferences();
+                android.util.Log.d("MainActivity", "User role resolved: " + userRole);
+                runOnUiThread(() -> {
+                    setupBottomNav();
+                    if (!allEvents.isEmpty()) applyFilters();
+                });
             } else {
                 runOnUiThread(this::setupBottomNav);
             }
@@ -361,6 +383,29 @@ public class MainActivity extends AppCompatActivity {
             if (keywordMatch && dateMatch && notExpired) filtered.add(event);
         }
 
+        // ── Update carousel with up to 5 soonest events ───────────────────────
+        List<Event> featuredEvents = new ArrayList<>(filtered);
+        featuredEvents.sort((a, b) -> {
+            if (a.getRegistrationStart() == null) return 1;
+            if (b.getRegistrationStart() == null) return -1;
+            return a.getRegistrationStart().compareTo(b.getRegistrationStart());
+        });
+        if (featuredEvents.size() > 5) featuredEvents = featuredEvents.subList(0, 5);
+        carouselAdapter.setEvents(featuredEvents);
+        boolean showCarousel = !featuredEvents.isEmpty();
+        carouselRecyclerView.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
+        tvFeaturedLabel.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
+
+        // ── Preference-based sort ("For You") ────────────────────────────────
+        if (userPreferences != null && !userPreferences.isEmpty()) {
+            applyPreferenceSort(filtered, userPreferences);
+            tvForYouLabel.setVisibility(View.VISIBLE);
+            tvForYouLabel.setText("For You");
+        } else {
+            tvForYouLabel.setVisibility(View.VISIBLE);
+            tvForYouLabel.setText("All Events");
+        }
+
         boolean isAdminUser = "admin".equals(userRole);
 
         recyclerView.setAdapter(new EventAdapter(
@@ -398,6 +443,34 @@ public class MainActivity extends AppCompatActivity {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmptyState.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * Sorts events in-place so those matching the user's preferred categories appear first.
+     */
+    private void applyPreferenceSort(List<Event> events, java.util.Map<String, Object> prefs) {
+        Object categoriesRaw = prefs.get("categories");
+        if (!(categoriesRaw instanceof java.util.List)) return;
+        @SuppressWarnings("unchecked")
+        java.util.List<String> preferredCategories = (java.util.List<String>) categoriesRaw;
+        if (preferredCategories.isEmpty()) return;
+
+        events.sort((a, b) -> {
+            boolean aMatch = titleContainsAny(a.getTitle(), preferredCategories);
+            boolean bMatch = titleContainsAny(b.getTitle(), preferredCategories);
+            if (aMatch && !bMatch) return -1;
+            if (!aMatch && bMatch) return 1;
+            return 0;
+        });
+    }
+
+    private boolean titleContainsAny(String title, java.util.List<String> keywords) {
+        if (title == null) return false;
+        String lower = title.toLowerCase();
+        for (String kw : keywords) {
+            if (lower.contains(kw.toLowerCase())) return true;
+        }
+        return false;
     }
 
     // ── onResume: refresh join states when returning from EventDetailsFragment ─

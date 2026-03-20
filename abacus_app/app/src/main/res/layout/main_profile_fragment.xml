@@ -76,7 +76,30 @@
                             android:textAppearance="?attr/textAppearanceBodySmall"
                             android:textColor="@color/grey" />
 
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipRole"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Entrant"
+                            android:textSize="11sp"
+                            android:clickable="false"
+                            android:focusable="false"
+                            app:chipMinHeight="24dp"
+                            android:visibility="gone" />
+
                     </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnUploadPhoto"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Change photo"
+                        android:textSize="12sp"
+                        style="?attr/borderlessButtonStyle"
+                        android:textColor="#6B7280"
+                        android:visibility="gone" />
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -225,6 +248,168 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Bio card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardBio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Bio"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etBio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/input_background"
+                        android:hint="Tell people about yourself"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="3"
+                        android:maxLines="5"
+                        android:paddingHorizontal="14dp"
+                        android:paddingVertical="10dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey"
+                        android:gravity="top" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Organization name card (organizers only) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardOrgName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Organization name"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etOrgName"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/input_background"
+                        android:hint="Your organization or event brand"
+                        android:inputType="textCapWords"
+                        android:paddingHorizontal="14dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Role-specific stats card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/tvStatCount1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black" />
+
+                        <TextView
+                            android:id="@+id/tvStatLabel1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Events"
+                            android:textSize="12sp"
+                            android:textColor="@color/grey" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:background="@color/grey"
+                        android:layout_marginHorizontal="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/tvStatCount2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black" />
+
+                        <TextView
+                            android:id="@+id/tvStatLabel2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Registrations"
+                            android:textSize="12sp"
+                            android:textColor="@color/grey" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <Button
                 android:id="@+id/btnLinkAccount"
                 android:layout_width="match_parent"
@@ -245,6 +430,28 @@
                 android:text="Save changes"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="@color/white"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnPreferences"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="#F3F4F6"
+                android:text="Event Preferences"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/black"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnAccessibility"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="#F3F4F6"
+                android:text="Accessibility"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/black"
                 android:visibility="gone" />
 
             <Button

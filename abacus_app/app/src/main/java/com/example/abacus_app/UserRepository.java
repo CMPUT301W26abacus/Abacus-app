@@ -141,6 +141,21 @@ public class UserRepository {
         saveProfileAsync(profileData, callback);
     }
 
+    public void savePreferencesAsync(Map<String, Object> preferences, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                String uuid = getOrCreateUUID();
+                java.util.Map<String, Object> data = new java.util.HashMap<>();
+                data.put("preferences", preferences);
+                remoteDataSource.updateUserSync(uuid, data);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                e.printStackTrace();
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     public void deleteProfileAsync(VoidCallback callback) {
         executor.submit(() -> {
             try {
