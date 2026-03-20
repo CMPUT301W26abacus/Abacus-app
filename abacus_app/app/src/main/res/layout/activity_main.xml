@@ -209,6 +209,7 @@
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <TextView
+                        android:id="@+id/tv_empty_sub"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -219,6 +220,44 @@
                 </LinearLayout>
 
             </FrameLayout>
+
+            <!-- Preferences footer — visible when a category preference is active -->
+            <LinearLayout
+                android:id="@+id/layoutPreferencesFooter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="24dp"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvPreferencesFooter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No more events matching your preferences."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/grey"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tvChangePreferences"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Change preferences to see more"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/black"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

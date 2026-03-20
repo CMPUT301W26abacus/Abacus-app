@@ -42,14 +42,24 @@
                     android:orientation="horizontal"
                     android:padding="16dp">
 
-                    <ImageView
-                        android:id="@+id/imgAvatar"
+                    <FrameLayout
+                        android:id="@+id/avatarContainer"
                         android:layout_width="56dp"
                         android:layout_height="56dp"
-                        android:background="@drawable/ic_avatar_placeholder"
-                        android:contentDescription="User Avatar"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_avatar_placeholder" />
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                        <ImageView
+                            android:id="@+id/imgAvatar"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:background="@drawable/ic_avatar_placeholder"
+                            android:contentDescription="User Avatar"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_avatar_placeholder" />
+
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -58,14 +68,38 @@
                         android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/tvDisplayedName"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Your Name"
-                            android:textAppearance="?attr/textAppearanceTitleMedium"
-                            android:textColor="@color/black"
-                            android:textStyle="bold" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/tvDisplayedName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Your Name"
+                                android:textAppearance="?attr/textAppearanceTitleMedium"
+                                android:textColor="@color/black"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:id="@+id/viewModeDot"
+                                android:layout_width="8dp"
+                                android:layout_height="8dp"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tvModeLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textSize="11sp"
+                                android:textColor="@color/grey"
+                                android:visibility="gone" />
+
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/tvDisplayedEmail"
@@ -76,29 +110,7 @@
                             android:textAppearance="?attr/textAppearanceBodySmall"
                             android:textColor="@color/grey" />
 
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chipRole"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="Entrant"
-                            android:textSize="11sp"
-                            android:clickable="false"
-                            android:focusable="false"
-                            app:chipMinHeight="24dp"
-                            android:visibility="gone" />
-
                     </LinearLayout>
-
-                    <Button
-                        android:id="@+id/btnUploadPhoto"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Change photo"
-                        android:textSize="12sp"
-                        style="?attr/borderlessButtonStyle"
-                        android:textColor="#6B7280"
-                        android:visibility="gone" />
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -156,7 +168,6 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:checked="true"
                             android:gravity="center"
                             android:text="Admin" />
 

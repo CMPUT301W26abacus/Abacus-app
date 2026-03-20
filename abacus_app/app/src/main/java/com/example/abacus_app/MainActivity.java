@@ -83,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
     private CarouselEventAdapter carouselAdapter;
     private TextView tvFeaturedLabel;
     private TextView tvForYouLabel;
+    private View layoutPreferencesFooter;
+    private TextView tvPreferencesFooter;
 
     private java.util.Map<String, Object> userPreferences = null;
 
@@ -99,6 +101,14 @@ public class MainActivity extends AppCompatActivity {
     private String resolvedUserKey = null;
 
     private ListenerRegistration eventsListener;
+
+    @Override
+    protected void attachBaseContext(android.content.Context newBase) {
+        AccessibilityHelper helper = new AccessibilityHelper(newBase);
+        android.content.res.Configuration config =
+                AccessibilityHelper.buildConfig(newBase, helper.getTextScale());
+        super.attachBaseContext(newBase.createConfigurationContext(config));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -137,6 +147,14 @@ public class MainActivity extends AppCompatActivity {
                 .findFragmentById(R.id.nav_host_fragment);
         navController = navHost.getNavController();
 
+        // If we recreated the activity to apply text scale, go back to accessibility settings
+        AccessibilityHelper a11yHelper = new AccessibilityHelper(this);
+        if (a11yHelper.shouldReturnToAccessibility()) {
+            a11yHelper.clearReturnToAccessibility();
+            navController.navigate(R.id.mainProfileFragment);
+            navController.navigate(R.id.accessibilityFragment);
+        }
+
         SearchBar searchBar = findViewById(R.id.search_bar);
         setSearchBarTextColor(searchBar);
 
@@ -149,6 +167,12 @@ public class MainActivity extends AppCompatActivity {
         recyclerView     = findViewById(R.id.rv_events);
         layoutEmptyState = findViewById(R.id.layout_empty_state);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        layoutPreferencesFooter = findViewById(R.id.layoutPreferencesFooter);
+        tvPreferencesFooter     = findViewById(R.id.tvPreferencesFooter);
+        TextView tvChangePreferences = findViewById(R.id.tvChangePreferences);
+        tvChangePreferences.setOnClickListener(v ->
+                showFragment(R.id.preferencesFragment, false));
 
         // Carousel setup
         carouselRecyclerView = findViewById(R.id.rv_carousel);
@@ -396,9 +420,10 @@ public class MainActivity extends AppCompatActivity {
         carouselRecyclerView.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
         tvFeaturedLabel.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
 
-        // ── Preference-based sort ("For You") ────────────────────────────────
-        if (userPreferences != null && !userPreferences.isEmpty()) {
-            applyPreferenceSort(filtered, userPreferences);
+        // ── Preference-based filter + sort ("For You") ───────────────────────
+        boolean hasPreferences = hasActivePreferences(userPreferences);
+        if (hasPreferences) {
+            filtered = applyPreferenceFilter(filtered, userPreferences);
             tvForYouLabel.setVisibility(View.VISIBLE);
             tvForYouLabel.setText("For You");
         } else {
@@ -407,13 +432,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         boolean isAdminUser = "admin".equals(userRole);
+        final List<Event> finalFiltered = filtered;
 
         recyclerView.setAdapter(new EventAdapter(
-                filtered,
+                finalFiltered,
                 (eventTitle, autoJoin) -> {
                     // Resolve eventId from filtered list
                     String eventId = "";
-                    for (Event e : filtered) {
+                    for (Event e : finalFiltered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
                             eventId = e.getEventId() != null ? e.getEventId() : "";
                             break;
@@ -431,44 +457,70 @@ public class MainActivity extends AppCompatActivity {
                 isGuest
         ));
 
-        if (filtered.isEmpty()) {
+        if (finalFiltered.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             layoutEmptyState.setVisibility(View.VISIBLE);
+            layoutPreferencesFooter.setVisibility(View.GONE);
             TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
             if (tvEmpty != null) {
-                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+                if (hasPreferences) {
+                    tvEmpty.setText("No events match your preferences");
+                } else {
+                    boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                    tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+                }
+            }
+            TextView tvEmptySub = layoutEmptyState.findViewById(R.id.tv_empty_sub);
+            if (tvEmptySub != null) {
+                tvEmptySub.setText(hasPreferences
+                        ? "Try changing your preferences to see more events."
+                        : "Check back later for upcoming events.");
             }
         } else {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmptyState.setVisibility(View.GONE);
+            layoutPreferencesFooter.setVisibility(hasPreferences ? View.VISIBLE : View.GONE);
+            if (hasPreferences && tvPreferencesFooter != null) {
+                tvPreferencesFooter.setText("Showing " + finalFiltered.size()
+                        + " event" + (finalFiltered.size() == 1 ? "" : "s")
+                        + " matching your preferences.");
+            }
         }
     }
 
-    /**
-     * Sorts events in-place so those matching the user's preferred categories appear first.
-     */
-    private void applyPreferenceSort(List<Event> events, java.util.Map<String, Object> prefs) {
-        Object categoriesRaw = prefs.get("categories");
-        if (!(categoriesRaw instanceof java.util.List)) return;
-        @SuppressWarnings("unchecked")
-        java.util.List<String> preferredCategories = (java.util.List<String>) categoriesRaw;
-        if (preferredCategories.isEmpty()) return;
-
-        events.sort((a, b) -> {
-            boolean aMatch = titleContainsAny(a.getTitle(), preferredCategories);
-            boolean bMatch = titleContainsAny(b.getTitle(), preferredCategories);
-            if (aMatch && !bMatch) return -1;
-            if (!aMatch && bMatch) return 1;
-            return 0;
-        });
+    /** True when the user has at least one category preference saved. */
+    private boolean hasActivePreferences(java.util.Map<String, Object> prefs) {
+        if (prefs == null || prefs.isEmpty()) return false;
+        Object raw = prefs.get("categories");
+        if (!(raw instanceof java.util.List)) return false;
+        return !((java.util.List<?>) raw).isEmpty();
     }
 
-    private boolean titleContainsAny(String title, java.util.List<String> keywords) {
-        if (title == null) return false;
-        String lower = title.toLowerCase();
+    /**
+     * Filters events to only those matching at least one preferred category
+     * (checked against title + description). Non-matching events are removed.
+     */
+    private List<Event> applyPreferenceFilter(List<Event> events,
+                                               java.util.Map<String, Object> prefs) {
+        Object categoriesRaw = prefs.get("categories");
+        if (!(categoriesRaw instanceof java.util.List)) return events;
+        @SuppressWarnings("unchecked")
+        java.util.List<String> preferred = (java.util.List<String>) categoriesRaw;
+        if (preferred.isEmpty()) return events;
+
+        List<Event> matching = new ArrayList<>();
+        for (Event e : events) {
+            if (eventMatchesAny(e, preferred)) matching.add(e);
+        }
+        return matching;
+    }
+
+    private boolean eventMatchesAny(Event event, java.util.List<String> keywords) {
+        String title = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
+        String desc  = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
         for (String kw : keywords) {
-            if (lower.contains(kw.toLowerCase())) return true;
+            String lower = kw.toLowerCase();
+            if (title.contains(lower) || desc.contains(lower)) return true;
         }
         return false;
     }

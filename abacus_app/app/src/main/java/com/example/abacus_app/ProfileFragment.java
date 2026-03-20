@@ -27,7 +27,6 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
-import com.google.android.material.chip.Chip;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
@@ -44,11 +43,12 @@ public class ProfileFragment extends Fragment {
     private StorageRepository storageRepo;
 
     private ImageButton btnBack;
+    private View        avatarContainer;
     private ImageView   imgAvatar;
     private TextView    tvDisplayedName;
     private TextView    tvDisplayedEmail;
-    private Chip        chipRole;
-    private Button      btnUploadPhoto;
+    private View        viewModeDot;
+    private TextView    tvModeLabel;
     private EditText    etName;
     private EditText    etEmail;
     private EditText    etPhone;
@@ -115,13 +115,19 @@ public class ProfileFragment extends Fragment {
 
         storageRepo = new StorageRepository();
 
+        // Apply high-contrast styling if enabled
+        if (new AccessibilityHelper(requireContext()).isHighContrast()) {
+            AccessibilityHelper.applyHighContrast(view);
+        }
+
         // Bind views
         btnBack          = view.findViewById(R.id.btnBack);
+        avatarContainer  = view.findViewById(R.id.avatarContainer);
         imgAvatar        = view.findViewById(R.id.imgAvatar);
         tvDisplayedName  = view.findViewById(R.id.tvDisplayedName);
         tvDisplayedEmail = view.findViewById(R.id.tvDisplayedEmail);
-        chipRole         = view.findViewById(R.id.chipRole);
-        btnUploadPhoto   = view.findViewById(R.id.btnUploadPhoto);
+        viewModeDot      = view.findViewById(R.id.viewModeDot);
+        tvModeLabel      = view.findViewById(R.id.tvModeLabel);
         etName           = view.findViewById(R.id.etName);
         etEmail          = view.findViewById(R.id.etEmail);
         etPhone          = view.findViewById(R.id.etPhone);
@@ -159,7 +165,7 @@ public class ProfileFragment extends Fragment {
             }
         });
 
-        viewModel = new ViewModelProvider(this).get(ProfileViewModel.class);
+        viewModel = new ViewModelProvider(requireActivity()).get(ProfileViewModel.class);
 
         boolean isGuest = true;
         if (getActivity() != null) {
@@ -318,7 +324,7 @@ public class ProfileFragment extends Fragment {
         btnLinkAccount.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), LoginActivity.class)));
 
-        btnUploadPhoto.setOnClickListener(v -> {
+        avatarContainer.setOnClickListener(v -> {
             Intent pick = new Intent(Intent.ACTION_PICK);
             pick.setType("image/*");
             photoPickerLauncher.launch(pick);
@@ -332,13 +338,19 @@ public class ProfileFragment extends Fragment {
                 Navigation.findNavController(requireView())
                         .navigate(R.id.accessibilityFragment));
 
-        // Sync the RadioGroup to the current view mode without re-triggering the listener
+        // Sync the RadioGroup to the current view mode without re-triggering the listener.
+        // Use setChecked() directly on each button rather than rgViewMode.check() to avoid
+        // the animated selection transition when the view re-inflates.
         viewModel.getViewMode().observe(getViewLifecycleOwner(), mode -> {
             rgViewMode.setOnCheckedChangeListener(null);
-            if ("entrant".equals(mode))        rgViewMode.check(R.id.rbViewEntrant);
-            else if ("organizer".equals(mode)) rgViewMode.check(R.id.rbViewOrganizer);
-            else                               rgViewMode.check(R.id.rbViewAdmin);
+            ((android.widget.RadioButton) view.findViewById(R.id.rbViewEntrant))
+                    .setChecked("entrant".equals(mode));
+            ((android.widget.RadioButton) view.findViewById(R.id.rbViewOrganizer))
+                    .setChecked("organizer".equals(mode));
+            ((android.widget.RadioButton) view.findViewById(R.id.rbViewAdmin))
+                    .setChecked(!("entrant".equals(mode) || "organizer".equals(mode)));
             wireViewModeListener();
+            updateModeDot(mode);
         });
 
 
@@ -359,8 +371,6 @@ public class ProfileFragment extends Fragment {
         cardBio.setVisibility(View.GONE);
         cardOrgName.setVisibility(View.GONE);
         cardStats.setVisibility(View.GONE);
-        chipRole.setVisibility(View.GONE);
-        btnUploadPhoto.setVisibility(View.GONE);
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
         btnAccessibility.setVisibility(View.VISIBLE);
@@ -391,23 +401,14 @@ public class ProfileFragment extends Fragment {
         btnSave.setVisibility(View.VISIBLE);
         btnLogout.setVisibility(View.VISIBLE);
         btnDelete.setVisibility(View.VISIBLE);
-        btnUploadPhoto.setVisibility(View.VISIBLE);
         btnAccessibility.setVisibility(View.VISIBLE);
         dangerDivider.setVisibility(View.VISIBLE);
         labelDanger.setVisibility(View.VISIBLE);
-        chipRole.setVisibility(View.VISIBLE);
+        viewModeDot.setVisibility(View.VISIBLE);
+        tvModeLabel.setVisibility(View.VISIBLE);
         etName.setEnabled(true);
         etEmail.setEnabled(true);
         etPhone.setEnabled(true);
-
-        // Role chip
-        chipRole.setText(isOrganizer ? "Organizer" : "Entrant");
-        int chipColor = isOrganizer
-                ? android.graphics.Color.parseColor("#F97316")
-                : android.graphics.Color.parseColor("#3B82F6");
-        chipRole.setChipBackgroundColor(
-                android.content.res.ColorStateList.valueOf(chipColor));
-        chipRole.setTextColor(android.graphics.Color.WHITE);
 
         // Role-specific cards
         cardOrgName.setVisibility(isOrganizer ? View.VISIBLE : View.GONE);
@@ -421,6 +422,30 @@ public class ProfileFragment extends Fragment {
             tvStatLabel1.setText("Events Joined");
             tvStatLabel2.setText("Events Won");
         }
+    }
+
+    /**
+     * Updates the small colored dot and label beside the user's name to reflect the active view mode.
+     */
+    private void updateModeDot(String mode) {
+        if (viewModeDot == null || tvModeLabel == null) return;
+        int color;
+        String label;
+        if ("organizer".equals(mode)) {
+            color = android.graphics.Color.parseColor("#F97316");
+            label = "Organizer";
+        } else if ("admin".equals(mode)) {
+            color = android.graphics.Color.parseColor("#8B5CF6");
+            label = "Admin";
+        } else {
+            color = android.graphics.Color.parseColor("#3B82F6");
+            label = "Entrant";
+        }
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dot.setColor(color);
+        viewModeDot.setBackground(dot);
+        tvModeLabel.setText(label);
     }
 
     /**

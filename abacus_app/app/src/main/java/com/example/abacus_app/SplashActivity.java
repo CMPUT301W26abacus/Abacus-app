@@ -38,12 +38,15 @@ public class SplashActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.splash_activity);
 
-        //Start animation
+        //Start animation (skip if Reduce Motion is enabled)
         ImageView img = findViewById(R.id.splashAbacus);
-        AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
-        if (avd != null) {
-            img.setImageDrawable(avd);
-            avd.start();
+        AccessibilityHelper a11y = new AccessibilityHelper(this);
+        if (!a11y.isReduceMotion()) {
+            AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
+            if (avd != null) {
+                img.setImageDrawable(avd);
+                avd.start();
+            }
         }
 
         Button btnGetStarted = findViewById(R.id.btnGetStarted);
@@ -82,16 +85,18 @@ public class SplashActivity extends AppCompatActivity {
                     // Returning logged-in user — go straight to main
                     String role = (user.getRole() != null && !user.getRole().isEmpty())
                             ? user.getRole() : "entrant";
+                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                     new Handler(Looper.getMainLooper()).postDelayed(
                             () -> goToMain(false, role),
-                            ANIMATION_DELAY_MS
+                            delay
                     );
                 } else {
                     // UUID exists but no active Firebase session (guest or expired).
                     // Auto-navigate as guest — they can log in from the profile screen.
+                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                     new Handler(Looper.getMainLooper()).postDelayed(
                             () -> goToMain(true, "entrant"),
-                            ANIMATION_DELAY_MS
+                            delay
                     );
                 }
             });
