@@ -4,6 +4,8 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.google.firebase.auth.FirebaseAuth;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,44 +31,66 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<Boolean> _isGuest      = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _toastMessage = new MutableLiveData<>(null);
     private final MutableLiveData<Boolean> _profileDeleted = new MutableLiveData<>(false);
-
     public LiveData<String>  getName()                 { return _name; }
     public LiveData<String>  getEmail()                { return _email; }
     public LiveData<String>  getPhone()                { return _phone; }
     public LiveData<String>  getRole()                 { return _role; }
     public LiveData<Boolean> getNotificationsEnabled() { return _notificationsEnabled; }
-    public LiveData<String>  getNameError()            { return _nameError; }
-    public LiveData<String>  getEmailError()           { return _emailError; }
-    public LiveData<Boolean> getIsSaving()             { return _isSaving; }
-    public LiveData<Boolean> getIsGuest()              { return _isGuest; }
-    public LiveData<String>  getToastMessage()         { return _toastMessage; }
-    public LiveData<Boolean> getProfileDeleted()       { return _profileDeleted; }
-
+    public LiveData<String>  getNameError()     { return _nameError; }
+    public LiveData<String>  getEmailError()    { return _emailError; }
+    public LiveData<Boolean> getIsSaving()      { return _isSaving; }
+    public LiveData<Boolean> getIsGuest()       { return _isGuest; }
+    public LiveData<String>  getToastMessage()  { return _toastMessage; }
+    public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
     private UserRepository userRepository;
 
+    /**
+     * Initializes the ViewModel with a UserRepository and guest status.
+     * @param repository UserRepository instance
+     * @param isGuest boolean indicating if the user is a guest
+     */
     public void init(UserRepository repository, boolean isGuest) {
         this.userRepository = repository;
         _isGuest.setValue(isGuest);
     }
 
+    /**
+     * Sets the user name.
+     * @param name String containing the user's name
+     */
     public void setName(String name) {
         _name.setValue(name);
         _nameError.setValue(null);
     }
-
+    /**
+     * Sets the user email.
+     * @param email String containing the user's email
+     */
     public void setEmail(String email) {
         _email.setValue(email);
         _emailError.setValue(null);
     }
 
+    /**
+     * Sets the user phone number.
+     * @param phone String containing the user's phone number
+     */
     public void setPhone(String phone) {
         _phone.setValue(phone);
     }
-
+    
+    /**
+     * Sets the user role.
+     * @param role String containing the user's role
+     */
     public void setRole(String role) {
         _role.setValue(role);
     }
 
+    /**
+     * Sets the notifications enabled state.
+     * @param enabled Boolean indicating whether notifications are enabled
+     */
     public void setNotificationsEnabled(boolean enabled) {
         _notificationsEnabled.setValue(enabled);
     }
@@ -88,6 +112,12 @@ public class ProfileViewModel extends ViewModel {
 
                 boolean guest = user.isGuest() || user.getLastLoginAt() == 0;
                 _isGuest.postValue(guest);
+            } else {
+                // No UUID in storage — device is a guest regardless of the activity intent
+                _name.postValue("");
+                _email.postValue("");
+                _phone.postValue("");
+                _isGuest.postValue(true);
             }
         });
     }
@@ -147,12 +177,31 @@ public class ProfileViewModel extends ViewModel {
                 _name.postValue("");
                 _email.postValue("");
                 _phone.postValue("");
+                _isGuest.postValue(true);
                 _profileDeleted.postValue(true);
                 _toastMessage.postValue("Profile deleted");
             } else {
                 _toastMessage.postValue("Error deleting profile: " + error.getMessage());
             }
         });
+    }
+
+    /**
+     * Clears the local UUID and signs out of Firebase Auth, then resets all
+     * profile state to guest so the profile screen shows the guest UI in-place
+     * without navigating away.
+     */
+    public void logout() {
+        if (userRepository != null) {
+            userRepository.clearLocalSession();
+        } else {
+            FirebaseAuth.getInstance().signOut();
+        }
+        _name.setValue("");
+        _email.setValue("");
+        _phone.setValue("");
+        _isGuest.setValue(true);
+        _toastMessage.setValue("Logged out");
     }
 
     public void clearToast() {

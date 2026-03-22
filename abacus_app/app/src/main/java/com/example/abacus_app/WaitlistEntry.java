@@ -3,15 +3,12 @@ package com.example.abacus_app;
 import com.google.firebase.firestore.Exclude;
 
 /**
- * Entity class representing a single entry on an event's waitlist.
- * Maps directly to the 'registrations' collection in Firestore.
- * 
- * @author Himesh
- * @version 1.0
+ * Entity class for a waitlist entry.
+ * Fields match the Firestore 'registrations' collection.
  */
-public class WaitlistEntry {
+public class WaitlistEntry implements Comparable<WaitlistEntry> {
 
-    /** Status constants for the waitlist entry lifecycle */
+    /** Status constants */
     public static final String STATUS_WAITLISTED = "waitlisted";
     public static final String STATUS_INVITED    = "invited";
     public static final String STATUS_ACCEPTED   = "accepted";
@@ -24,85 +21,48 @@ public class WaitlistEntry {
     private Long timestamp;
     private Integer lotteryNumber;
 
-    // Transient fields for UI display purposes, not stored in the registration document
-    @Exclude
-    private String userName;
-    @Exclude
-    private String userEmail;
+    // Transient fields for UI display
+    @Exclude private String userName;
+    @Exclude private String userEmail;
 
-    /**
-     * Required no-arg constructor for Firebase Firestore deserialization.
-     */
+    /** Required no-arg constructor for Firestore */
     public WaitlistEntry() {}
 
-    /**
-     * Constructs a new WaitlistEntry with specific details.
-     *
-     * @param userId        The unique ID of the entrant.
-     * @param eventId       The unique ID of the event.
-     * @param status        The initial status (e.g., "waitlisted").
-     * @param lotteryNumber A random number used for selection.
-     * @param timestamp     The time when the entrant joined the waitlist.
-     */
     public WaitlistEntry(String userId, String eventId, String status, Integer lotteryNumber, Long timestamp) {
-        this.userId = userId;
-        this.eventId = eventId;
-        this.status = status;
+        this.userId        = userId;
+        this.eventId       = eventId;
+        this.status        = status;
         this.lotteryNumber = lotteryNumber;
-        this.timestamp = timestamp;
+        this.timestamp     = timestamp;
     }
 
-    /** @return The entrant's unique user ID. */
-    public String getUserId() { return userId; }
-    
-    /** @param userId Sets the entrant's unique user ID. */
-    public void setUserId(String userId) { this.userId = userId; }
+    public String getUserId()              { return userId; }
+    public void   setUserId(String v)      { this.userId = v; }
 
-    /** @return The unique ID of the event. */
-    public String getEventId() { return eventId; }
-    
-    /** @param eventId Sets the unique ID of the event. */
-    public void setEventId(String eventId) { this.eventId = eventId; }
+    public String getEventId()             { return eventId; }
+    public void   setEventId(String v)     { this.eventId = v; }
 
-    /** @return The current status of the entrant (e.g., invited, accepted). */
-    public String getStatus() { return status; }
-    
-    /** @param status Sets the current status of the entrant. */
-    public void setStatus(String status) { this.status = status; }
+    public String getStatus()              { return status; }
+    public void   setStatus(String v)      { this.status = v; }
 
-    /** @return The Unix timestamp when the user registered. */
-    public Long getTimestamp() { return timestamp; }
-    
-    /** @param timestamp Sets the Unix timestamp for the registration. */
-    public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
+    public Long   getTimestamp()           { return timestamp; }
+    public void   setTimestamp(Long v)     { this.timestamp = v; }
 
-    /** @return The random lottery number assigned to this entry. */
-    public Integer getLotteryNumber() { return lotteryNumber; }
-    
-    /** @param lotteryNumber Sets the random lottery number. */
-    public void setLotteryNumber(Integer lotteryNumber) { this.lotteryNumber = lotteryNumber; }
+    public Integer getLotteryNumber()          { return lotteryNumber; }
+    public void    setLotteryNumber(Integer v) { this.lotteryNumber = v; }
 
-    /** @return The user's name (fetched from User document). */
-    @Exclude
-    public String getUserName() { return userName; }
+    @Exclude public String getUserName()             { return userName; }
+    @Exclude public void   setUserName(String v)     { this.userName = v; }
 
-    /** @param userName Sets the user's name for UI display. */
-    @Exclude
-    public void setUserName(String userName) { this.userName = userName; }
+    @Exclude public String getUserEmail()            { return userEmail; }
+    @Exclude public void   setUserEmail(String v)    { this.userEmail = v; }
 
-    /** @return The user's email (fetched from User document). */
-    @Exclude
-    public String getUserEmail() { return userEmail; }
+    // Compatibility getters for code using uppercase ID
+    @Exclude public String getUserID()  { return userId; }
+    @Exclude public String getEventID() { return eventId; }
 
-    /** @param userEmail Sets the user's email for UI display. */
-    @Exclude
-    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
-
-    /** Compatibility getter for legacy code. @return User ID. */
-    @Exclude
-    public String getUserID() { return userId; }
-    
-    /** Compatibility getter for legacy code. @return Event ID. */
-    @Exclude
-    public String getEventID() { return eventId; }
+    @Override
+    public int compareTo(WaitlistEntry other) {
+        return Integer.compare(this.getLotteryNumber(), other.getLotteryNumber());
+    }
 }

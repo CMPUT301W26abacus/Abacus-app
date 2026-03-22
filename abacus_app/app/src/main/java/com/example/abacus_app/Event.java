@@ -9,7 +9,7 @@ import java.io.Serializable;
  * capacity limits, and organizer settings.
  * 
  * @author Himesh
- * @version 1.1
+ * @version 1.0
  */
 public class Event implements Serializable {
     private String eventId;
@@ -18,15 +18,13 @@ public class Event implements Serializable {
     private String organizerId;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
-    private Integer waitlistCapacity; // null means no limit
-    private Integer eventCapacity;    // Max people who can attend the event
+    private Integer waitlistCapacity;
+    private Integer eventCapacity;
+    private Integer waitlistCount;    // Current number of people on waitlist
     private boolean geoRequired;
     private String posterImageUrl;
     private String qrCodeUrl;
 
-    /**
-     * Default constructor required for Firebase Firestore deserialization.
-     */
     public Event() {}
 
     /**
@@ -38,12 +36,12 @@ public class Event implements Serializable {
      * @param organizerId       The ID of the organizer who created it.
      * @param registrationStart When entrants can start joining the waitlist.
      * @param registrationEnd   When registration closes.
-     * @param waitlistCapacity  Max entrants allowed in the waitlist (null if unlimited).
+     * @param waitlistCapacity  Max entrants allowed (null if unlimited).
      * @param geoRequired       Whether entrants must provide geolocation.
      */
     public Event(String eventId, String title, String description, String organizerId, 
                  Timestamp registrationStart, Timestamp registrationEnd, 
-                 Integer waitlistCapacity, boolean geoRequired) {
+                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired) {
         this.eventId = eventId;
         this.title = title;
         this.description = description;
@@ -51,24 +49,15 @@ public class Event implements Serializable {
         this.registrationStart = registrationStart;
         this.registrationEnd = registrationEnd;
         this.waitlistCapacity = waitlistCapacity;
-        this.geoRequired = geoRequired;
-    }
-
-    /**
-     * Full constructor including event capacity.
-     */
-    public Event(String eventId, String title, String description, String organizerId,
-                 Timestamp registrationStart, Timestamp registrationEnd,
-                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired) {
-        this(eventId, title, description, organizerId, registrationStart, registrationEnd, waitlistCapacity, geoRequired);
         this.eventCapacity = eventCapacity;
+        this.geoRequired = geoRequired;
     }
 
     /**
      * @return the unique ID of the event.
      */
     public String getEventId() { return eventId; }
-    
+
     /**
      * @param eventId sets the unique ID of the event.
      */
@@ -78,7 +67,7 @@ public class Event implements Serializable {
      * @return the display title.
      */
     public String getTitle() { return title; }
-    
+
     /**
      * @param title sets the display title.
      */
@@ -134,19 +123,12 @@ public class Event implements Serializable {
      */
     public void setWaitlistCapacity(Integer waitlistCapacity) { this.waitlistCapacity = waitlistCapacity; }
 
-    /**
-     * @return max number of attendees for the event.
-     */
     public Integer getEventCapacity() { return eventCapacity; }
-
-    /**
-     * @param eventCapacity sets the max number of attendees.
-     */
     public void setEventCapacity(Integer eventCapacity) { this.eventCapacity = eventCapacity; }
 
-    /**
-     * @return true if geolocation is mandatory.
-     */
+    public Integer getWaitlistCount() { return waitlistCount; }
+    public void setWaitlistCount(Integer waitlistCount) { this.waitlistCount = waitlistCount; }
+
     public boolean isGeoRequired() { return geoRequired; }
     
     /**

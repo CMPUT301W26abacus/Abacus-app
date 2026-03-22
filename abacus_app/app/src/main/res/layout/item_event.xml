@@ -16,7 +16,7 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <!-- Event Poster / Thumbnail — src and tint removed, Glide handles loading -->
+        <!-- Event Poster / Thumbnail -->
         <ImageView
             android:id="@+id/iv_event_poster"
             android:layout_width="72dp"
@@ -38,7 +38,7 @@
             android:maxLines="1"
             android:text="List item"
             android:textAppearance="?attr/textAppearanceTitleMedium"
-            app:layout_constraintEnd_toStartOf="@id/btn_join_status"
+            app:layout_constraintEnd_toStartOf="@id/imageButton2"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toTopOf="@id/iv_event_poster" />
 
@@ -54,7 +54,7 @@
             android:maxLines="1"
             android:text="Category • 1.2 miles away"
             android:textAppearance="?attr/textAppearanceBodySmall"
-            app:layout_constraintEnd_toStartOf="@id/btn_join_status"
+            app:layout_constraintEnd_toStartOf="@id/imageButton2"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_title" />
 
@@ -71,27 +71,37 @@
             android:text="Supporting line text lorem ipsum..."
             android:textAppearance="?attr/textAppearanceBodySmall"
             app:layout_constraintBottom_toBottomOf="@id/iv_event_poster"
-            app:layout_constraintEnd_toStartOf="@id/btn_join_status"
+            app:layout_constraintEnd_toStartOf="@id/imageButton2"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_datetime" />
 
-        <!-- Join Status Button (hidden for admin) -->
+        <!-- Favourite button -->
+        <ImageButton
+            android:id="@+id/imageButton2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="#00FFFFFF"
+            app:tint="@color/black"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_favourite" />
+
+        <!-- Join / Joined button — background tint is set programmatically -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_join_status"
             style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="0dp"
+            android:layout_marginTop="4dp"
+            android:minWidth="72dp"
             android:paddingHorizontal="10dp"
             android:text="Join"
-            android:textColor="@color/light_grey"
             android:textSize="12sp"
-            app:backgroundTint="@color/orange"
-            app:iconTint="@color/grey"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/imageButton2" />
 
-        <!-- Admin Delete Button (GONE by default, shown only for admin role) -->
+        <!-- Admin Delete Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_admin_delete"
             style="@style/Widget.Material3.Button.TonalButton"
@@ -106,18 +116,6 @@
             app:backgroundTint="#EF4444"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
-
-        <ImageButton
-            android:id="@+id/imageButton2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="#00FFFFFF"
-            app:tint="@color/black"
-            app:layout_constraintBottom_toTopOf="@+id/btn_join_status"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/tv_event_title"
-            app:layout_constraintTop_toTopOf="parent"
-            app:srcCompat="@drawable/ic_favourite" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

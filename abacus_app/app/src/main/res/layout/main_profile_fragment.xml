@@ -27,6 +27,7 @@
 
             <!-- Avatar + name card -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/cardAvatar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
@@ -114,6 +115,7 @@
 
             <!-- Fields card -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/cardFields"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
@@ -243,6 +245,17 @@
                 android:text="Save changes"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="@color/white"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="#F3F4F6"
+                android:text="Log out"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/black"
                 android:visibility="gone" />
 
             <View

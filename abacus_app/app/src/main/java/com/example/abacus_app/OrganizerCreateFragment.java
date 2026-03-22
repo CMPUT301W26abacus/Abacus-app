@@ -29,16 +29,7 @@ import java.util.TimeZone;
 
 /**
  * UI Controller for the event creation screen.
- * Allows organizers to set event details, registration periods, and capacity limits.
- * 
- * Implements:
- * - US 02.01.04: Set a registration period.
- * - US 02.03.01: Optionally limit waitlist capacity.
- * - US 02.04.01: Upload/set event poster URL.
- * - US 02.02.03: Toggle geolocation requirement.
- * 
- * @author Himesh
- * @version 1.1
+ * Owner: Himesh
  */
 public class OrganizerCreateFragment extends Fragment {
 
@@ -106,8 +97,7 @@ public class OrganizerCreateFragment extends Fragment {
 
     /**
      * Shows a date picker followed by a time picker to set event timestamps.
-     * 
-     * @param isStart True if setting the registration start time, false for end time.
+     * Fixes the issue where UTC selection from MaterialDatePicker shifted the local date.
      */
     private void showDateTimePicker(boolean isStart) {
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
@@ -124,6 +114,8 @@ public class OrganizerCreateFragment extends Fragment {
 
             timePicker.addOnPositiveButtonClickListener(v -> {
                 Calendar calendar = Calendar.getInstance();
+
+                // selection is UTC midnight. Extract year/month/day in UTC to avoid timezone shifts.
                 Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                 utcCalendar.setTimeInMillis(selection);
 
@@ -136,6 +128,7 @@ public class OrganizerCreateFragment extends Fragment {
                 calendar.set(Calendar.MILLISECOND, 0);
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
+
                 SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
                 String formatted = sdf.format(calendar.getTime());
 
@@ -152,10 +145,6 @@ public class OrganizerCreateFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "DATE_PICKER");
     }
 
-    /**
-     * Gathers user input and triggers the event creation process in the ViewModel.
-     * US 02.01.04, US 02.03.01.
-     */
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
         String desc  = etDescription.getText().toString().trim();
@@ -197,6 +186,7 @@ public class OrganizerCreateFragment extends Fragment {
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked());
+
         String posterUrl = etPosterUrl.getText().toString().trim();
         viewModel.createEvent(event, posterUrl);
     }

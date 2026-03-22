@@ -189,19 +189,22 @@
                         android:gravity="center_vertical"
                         android:layout_marginBottom="12dp">
 
-                        <TextView
-                            android:layout_width="0dp"
+                        <CheckBox
+                            android:id="@+id/cb_limit_waitlist"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Event Capacity"
+                            android:text="Limit Waitlist"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black" />
 
                         <EditText
-                            android:id="@+id/et_event_capacity"
-                            android:layout_width="100dp"
+                            android:id="@+id/et_waitlist_limit"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:hint="e.g. 100"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:enabled="false"
+                            android:hint="e.g. 50"
                             android:inputType="number"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black"
@@ -221,22 +224,20 @@
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
-                        <CheckBox
-                            android:id="@+id/cb_limit_waitlist"
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Limit Waitlist"
+                            android:text="Event Capacity"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black" />
 
                         <EditText
-                            android:id="@+id/et_waitlist_limit"
+                            android:id="@+id/et_event_capacity"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="12dp"
-                            android:enabled="false"
-                            android:hint="e.g. 50"
+                            android:hint="e.g. 20"
                             android:inputType="number"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black"

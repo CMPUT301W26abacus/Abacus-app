@@ -5,7 +5,9 @@ import android.util.Log;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.Map;
 
@@ -31,20 +33,18 @@ public class UserRemoteDataSource {
         if (!snap.exists()) return null;
 
         User user = new User();
-        // Priority: Use the actual document ID as the unique UID
-        user.setUid(snap.getId()); 
-        
+        user.setUid(snap.getId());
+
         user.setName(getString(snap, "name"));
         user.setEmail(getString(snap, "email"));
         user.setPhone(getString(snap, "phone"));
         user.setCreatedAt(getString(snap, "createdAt"));
         user.setDeleted(getBoolean(snap, "isDeleted"));
         user.setLastLoginAt(getLong(snap, "lastLoginAt"));
-        
-        // Fetch role - default to entrant if missing
+
         String role = getString(snap, "role");
         user.setRole((role == null || role.isEmpty()) ? "entrant" : role);
-        
+
         user.setNotificationsEnabled(getBoolean(snap, "notificationsEnabled"));
 
         try {
@@ -77,12 +77,30 @@ public class UserRemoteDataSource {
     }
 
     public void deleteUserSync(String uuid) throws Exception {
-        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        Map<String, Object> data = new java.util.HashMap<>();
         data.put("isDeleted", true);
         data.put("deletedAt", System.currentTimeMillis());
         Tasks.await(
                 db.collection(COLLECTION).document(uuid)
                         .set(data, SetOptions.merge()));
+    }
+
+    /**
+     * Hard-deletes all waitlist entries in the flat 'registrations' collection for the given user.
+     */
+    public void deleteWaitlistEntriesForUser(String userId) throws Exception {
+        QuerySnapshot snapshot = Tasks.await(
+                db.collection("registrations")
+                        .whereEqualTo("userId", userId)
+                        .get());
+
+        if (snapshot.isEmpty()) return;
+
+        WriteBatch batch = db.batch();
+        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+            batch.delete(doc.getReference());
+        }
+        Tasks.await(batch.commit());
     }
 
     private String getString(DocumentSnapshot snap, String key) {

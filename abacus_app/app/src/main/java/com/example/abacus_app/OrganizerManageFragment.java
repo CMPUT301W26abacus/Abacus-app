@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,16 +21,8 @@ import java.util.List;
 
 /**
  * UI Controller for the active event management screen.
- * Provides a two-mode UI:
- * 1. EVENT_LIST: Displays all events created by the organizer.
- * 2. WAITLIST: Displays the list of entrants for a selected event.
- * 
- * Implements:
- * - US 02.02.01: View the list of entrants who joined the event waiting list.
- * - US 02.06.01 - 02.06.05: Management of chosen, cancelled, and enrolled entrants.
- * 
- * @author Himesh
- * @version 1.1
+ * Shows the organizer's events, then the waitlist for a selected event.
+ * Owner: Himesh
  */
 public class OrganizerManageFragment extends Fragment {
 
@@ -37,10 +30,10 @@ public class OrganizerManageFragment extends Fragment {
     private RecyclerView recyclerView;
     private WaitlistAdapter waitlistAdapter;
     private TextView tvEventName, tvCount;
+    private Button btnDrawLottery;
 
     private List<WaitlistEntry> entries = new ArrayList<>();
 
-    /** Modes to distinguish between viewing all events or a specific waitlist */
     private enum Mode { EVENT_LIST, WAITLIST }
     private Mode currentMode = Mode.EVENT_LIST;
     private String selectedEventId;
@@ -50,10 +43,12 @@ public class OrganizerManageFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_manage_fragment, container, false);
-        viewModel    = new ViewModelProvider(this).get(ManageEventViewModel.class);
-        tvEventName  = view.findViewById(R.id.tv_event_name);
-        tvCount      = view.findViewById(R.id.tv_waitlist_count);
-        recyclerView = view.findViewById(R.id.rv_waitlist);
+        viewModel      = new ViewModelProvider(this).get(ManageEventViewModel.class);
+        tvEventName    = view.findViewById(R.id.tv_event_name);
+        tvCount        = view.findViewById(R.id.tv_waitlist_count);
+        recyclerView   = view.findViewById(R.id.rv_waitlist);
+        btnDrawLottery = view.findViewById(R.id.btn_draw_lottery);
+
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
@@ -67,18 +62,22 @@ public class OrganizerManageFragment extends Fragment {
             }
         });
 
+        btnDrawLottery.setOnClickListener(v -> {
+            if (currentMode == Mode.WAITLIST && selectedEventId != null) {
+                viewModel.drawLottery(selectedEventId);
+            }
+        });
+
         observeViewModel();
         showEventList();
         return view;
     }
 
-    /**
-     * Switches the UI to show the list of events owned by the current organizer.
-     */
     private void showEventList() {
         currentMode = Mode.EVENT_LIST;
         tvEventName.setText("My Events");
         tvCount.setText("");
+        btnDrawLottery.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
@@ -89,11 +88,8 @@ public class OrganizerManageFragment extends Fragment {
         }
     }
 
-    /**
-     * Sets up observers for the ViewModel data.
-     */
     private void observeViewModel() {
-        // Observer for the list of events (EVENT_LIST mode)
+        // Event list mode
         viewModel.getEvents().observe(getViewLifecycleOwner(), eventList -> {
             if (currentMode != Mode.EVENT_LIST) return;
             if (eventList == null || eventList.isEmpty()) {
@@ -103,7 +99,9 @@ public class OrganizerManageFragment extends Fragment {
             }
             tvCount.setText(eventList.size() + " event(s)");
 
-            recyclerView.setAdapter(new EventAdapter(eventList, title -> {
+            recyclerView.setAdapter(new EventAdapter(eventList, (title, autoJoin) -> {
+                // autoJoin is always false in organizer context — tapping an event
+                // here shows its waitlist, not the join flow.
                 for (Event e : eventList) {
                     if (title.equals(e.getTitle())) {
                         selectedEventId = e.getEventId();
@@ -114,7 +112,7 @@ public class OrganizerManageFragment extends Fragment {
             }));
         });
 
-        // Observer for the waitlist entries (WAITLIST mode)
+        // Waitlist mode
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
             if (currentMode != Mode.WAITLIST) return;
             if (newEntries != null) {
@@ -128,32 +126,34 @@ public class OrganizerManageFragment extends Fragment {
         viewModel.getError().observe(getViewLifecycleOwner(), err -> {
             if (err != null) Toast.makeText(getContext(), err, Toast.LENGTH_SHORT).show();
         });
+
+        viewModel.getLotteryCompleted().observe(getViewLifecycleOwner(), completed -> {
+            if (completed != null && completed) {
+                Toast.makeText(getContext(),
+                        "Lottery completed! Winners and losers notified.",
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
+            if (currentMode == Mode.WAITLIST) {
+                btnDrawLottery.setEnabled(!loading);
+                btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
+            }
+        });
     }
 
-    /**
-     * Switches the UI to show the waitlist for a specific event.
-     * US 02.02.01.
-     *
-     * @param eventTitle The title of the event to display.
-     * @param eventId    The ID of the event to load entrants for.
-     */
     private void showWaitlist(String eventTitle, String eventId) {
         currentMode = Mode.WAITLIST;
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
+        btnDrawLottery.setVisibility(View.VISIBLE);
 
         waitlistAdapter = new WaitlistAdapter(entries);
         recyclerView.setAdapter(waitlistAdapter);
         viewModel.loadWaitlist(eventId);
     }
 
-    /**
-     * Factory method for creating a new instance of this fragment.
-     * 
-     * @param eventId    Optional event ID to load immediately.
-     * @param eventTitle Optional event title to display immediately.
-     * @return A new instance of OrganizerManageFragment.
-     */
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {
         OrganizerManageFragment fragment = new OrganizerManageFragment();
         Bundle args = new Bundle();

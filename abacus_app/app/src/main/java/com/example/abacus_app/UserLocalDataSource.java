@@ -57,4 +57,12 @@ public class UserLocalDataSource {
     public void saveDeviceId(String uuid) {
         saveUUIDSync(uuid);
     }
+
+    /**
+     * Removes the stored UUID from SharedPreferences.
+     * Called on logout so the next launch generates a fresh identity.
+     */
+    public void clearDeviceId() {
+        prefs.edit().remove(KEY_UUID).apply();
+    }
 }

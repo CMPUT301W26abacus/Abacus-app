@@ -4,39 +4,32 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-
 /**
  * Controller class that manages all actions related to the lottery and waitlist.
  * Joins 'registrations' data with 'users' data for UI display.
- * 
- * @author Himesh
- * @version 1.0
  */
 public class RegistrationRepository {
 
     private final RegistrationRemoteDataSource remoteDataSource;
-    private final UserRemoteDataSource userRemoteDataSource;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final UserRemoteDataSource         userRemoteDataSource;
+    private final ExecutorService              executor    = Executors.newSingleThreadExecutor();
+    private final Handler                      mainHandler = new Handler(Looper.getMainLooper());
 
-    /**
-     * Initializes the repository and its data sources.
-     */
     public RegistrationRepository() {
-        this.remoteDataSource = new RegistrationRemoteDataSource();
+        this.remoteDataSource     = new RegistrationRemoteDataSource();
         this.userRemoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
     }
 
-    /**
-     * Populates user details (name, email) into waitlist entries by fetching from the users collection.
-     */
     private void populateUserInfo(ArrayList<WaitlistEntry> waitlist) {
         for (WaitlistEntry entry : waitlist) {
             try {
@@ -51,9 +44,6 @@ public class RegistrationRepository {
         }
     }
 
-    /**
-     * Gets the total number of people on the waitlist for a specific event.
-     */
     public void getWaitListSize(String eventID, IntegerCallback callback) {
         executor.submit(() -> {
             try {
@@ -65,9 +55,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Adds a user to the waitlist for an event.
-     */
     public void joinWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -87,9 +74,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Removes a user from an event's waitlist.
-     */
     public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -101,9 +85,17 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Updates an entrant's status to 'accepted'.
-     */
+    public void inviteEntrant(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_INVITED);
+                if (callback != null) mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                if (callback != null) mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     public void acceptInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -115,9 +107,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Updates an entrant's status to 'declined'.
-     */
     public void declineInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -129,10 +118,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Updates an entrant's status to 'cancelled'.
-     * US 02.06.04 implementation.
-     */
     public void cancelEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -145,8 +130,72 @@ public class RegistrationRepository {
     }
 
     /**
-     * Checks if a user is currently on the waitlist for an event.
+     * Runs the lottery that fairly selects which users to invite to an event. Each entrant is
+     * given a lottery number upon joining the waitlist. The lottery loads in all waitlisted
+     * entrants, sorts them in order of ascending lottery numbers, and invites entrants starting
+     * from the front of the list until the event capacity is reached.
+     *
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
+    public void runLottery(String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                // Fetch event capacity directly from Firestore
+                DocumentSnapshot eventDoc = Tasks.await(
+                        FirebaseFirestore.getInstance()
+                                .collection("events")
+                                .document(eventID)
+                                .get());
+
+                if (!eventDoc.exists()) {
+                    mainHandler.post(() -> callback.onComplete(new Exception("Event not found")));
+                    return;
+                }
+
+                Long capacityLong = eventDoc.getLong("eventCapacity");
+                int eventCapacity = capacityLong != null ? capacityLong.intValue() : 0;
+
+                ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(
+                        eventID, WaitlistEntry.STATUS_WAITLISTED);
+
+                Collections.sort(entries);
+
+                int inviteCount = Math.min(eventCapacity, entries.size());
+                for (int i = 0; i < inviteCount; i++) {
+                    remoteDataSource.updateUserEntryStatusSync(
+                            eventID, entries.get(i).getUserID(), WaitlistEntry.STATUS_INVITED);
+                }
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    /**
+     * Invites the next waitlisted user with the lowest lottery number.
+     *
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
+     */
+    public void drawReplacement(String eventID, EntryCallback callback) {
+        executor.submit(() -> {
+            try {
+                ArrayList<WaitlistEntry> entries = remoteDataSource.getEntriesWithStatusSync(
+                        eventID, WaitlistEntry.STATUS_WAITLISTED);
+                Collections.sort(entries);
+
+                WaitlistEntry replacement = entries.isEmpty() ? null : entries.get(0);
+                mainHandler.post(() -> callback.onResult(replacement));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
     public void isOnWaitlist(String userID, String eventID, BooleanCallback callback) {
         executor.submit(() -> {
             try {
@@ -158,9 +207,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Fetches a specific waitlist entry with user details populated.
-     */
     public void getUserEntry(String userID, String eventID, EntryCallback callback) {
         executor.submit(() -> {
             try {
@@ -179,10 +225,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Fetches all waitlist entries for an event, including user details.
-     * US 02.02.01 implementation.
-     */
     public void getAllEntries(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -195,13 +237,11 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Fetches only those entries currently in 'waitlisted' status.
-     */
     public void getWaitlisted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
-                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_WAITLISTED);
+                ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(
+                        eventID, WaitlistEntry.STATUS_WAITLISTED);
                 populateUserInfo(waitlist);
                 mainHandler.post(() -> callback.onResult(waitlist));
             } catch (Exception e) {
@@ -210,9 +250,6 @@ public class RegistrationRepository {
         });
     }
 
-    /**
-     * Fetches registration history for a specific user.
-     */
     public void getHistoryForUser(String userID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
@@ -224,9 +261,38 @@ public class RegistrationRepository {
         });
     }
 
-    public interface WaitlistCallback { void onResult(ArrayList<WaitlistEntry> waitlist); }
-    public interface EntryCallback    { void onResult(WaitlistEntry entry); }
-    public interface BooleanCallback  { void onResult(Boolean value); }
-    public interface IntegerCallback  { void onResult(Integer value); }
-    public interface VoidCallback     { void onComplete(Exception error); }
+    /**
+     * Callback interface for methods returning ArrayList<WaitlistEntry>.
+     */
+    public interface WaitlistCallback {
+        void onResult(ArrayList<WaitlistEntry> waitlist);
+    }
+
+    /**
+     * Callback interface for methods returning a WaitlistEntry.
+     */
+    public interface EntryCallback {
+        void onResult(WaitlistEntry entry);
+    }
+
+    /**
+     * Callback interface for methods returning a boolean.
+     */
+    public interface BooleanCallback {
+        void onResult(Boolean value);
+    }
+
+    /**
+     * Callback interface for methods returning an Integer.
+     */
+    public interface IntegerCallback {
+        void onResult(Integer value);
+    }
+
+    /**
+     * Callback interface for void methods.
+     */
+    public interface VoidCallback {
+        void onComplete(Exception error);
+    }
 }
