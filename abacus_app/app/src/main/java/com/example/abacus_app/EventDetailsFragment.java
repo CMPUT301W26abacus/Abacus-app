@@ -36,6 +36,7 @@ public class EventDetailsFragment extends Fragment {
 
     private String currentEventId = null;
     private String currentUserId  = null;
+    private Event  loadedEvent    = null;
 
     private FirebaseFirestore db;
     private Button btnJoinWaitlist;
@@ -98,8 +99,6 @@ public class EventDetailsFragment extends Fragment {
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
-            btnJoinWaitlist.setEnabled(true);
-            btnLeaveWaitlist.setEnabled(true);
             checkWaitlistStatus();
             loadWaitlistCount();
         });
@@ -117,6 +116,12 @@ public class EventDetailsFragment extends Fragment {
                     if (!snapshot.exists()) return;
                     Event event = snapshot.toObject(Event.class);
                     if (event == null) return;
+                    this.loadedEvent = event;
+
+                    // If user ID already available, refresh buttons to check organizer status
+                    if (currentUserId != null) {
+                        checkWaitlistStatus();
+                    }
 
                     // ── Poster image ───────────────────────────────────────────
                     ImageView ivPoster = getView() != null
@@ -191,7 +196,7 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private void checkWaitlistStatus() {
-        if (currentEventId == null) return;
+        if (currentEventId == null || currentUserId == null) return;
         db.collection("registrations")
                 .document(currentUserId + "_" + currentEventId)
                 .get()
@@ -230,6 +235,14 @@ public class EventDetailsFragment extends Fragment {
             Toast.makeText(requireContext(),
                     "Something went wrong. Please try again.",
                     Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Prevent organizers from joining their own events
+        if (loadedEvent != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
+            Toast.makeText(requireContext(),
+                    "As the organizer, you cannot join your own event.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -317,10 +330,21 @@ public class EventDetailsFragment extends Fragment {
     private void showJoinButton() {
         btnJoinWaitlist.setVisibility(View.VISIBLE);
         btnLeaveWaitlist.setVisibility(View.GONE);
+
+        // Check if current user is the organizer
+        if (loadedEvent != null && currentUserId != null &&
+                currentUserId.equals(loadedEvent.getOrganizerId())) {
+            btnJoinWaitlist.setEnabled(false);
+            btnJoinWaitlist.setText("Organizers cannot join");
+        } else {
+            btnJoinWaitlist.setEnabled(currentUserId != null);
+            btnJoinWaitlist.setText("Join Waiting List");
+        }
     }
 
     private void showLeaveButton() {
         btnJoinWaitlist.setVisibility(View.GONE);
         btnLeaveWaitlist.setVisibility(View.VISIBLE);
+        btnLeaveWaitlist.setEnabled(currentUserId != null);
     }
 }
