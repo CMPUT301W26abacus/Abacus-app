@@ -129,14 +129,28 @@ public class OrganizerCreateFragment extends Fragment {
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
 
+                if (isStart) {
+                    // Prevent start date from being after existing end date
+                    if (endTimestamp != null && ts.compareTo(endTimestamp) >= 0) {
+                        Toast.makeText(getContext(), "Start date must be before end date", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    startTimestamp = ts;
+                } else {
+                    // Prevent end date from being before existing start date
+                    if (startTimestamp != null && ts.compareTo(startTimestamp) <= 0) {
+                        Toast.makeText(getContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    endTimestamp = ts;
+                }
+
                 SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
                 String formatted = sdf.format(calendar.getTime());
 
                 if (isStart) {
-                    startTimestamp = ts;
                     btnSetStart.setText("Start: " + formatted);
                 } else {
-                    endTimestamp = ts;
                     btnSetEnd.setText("End: " + formatted);
                 }
             });

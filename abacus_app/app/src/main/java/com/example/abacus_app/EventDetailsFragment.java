@@ -52,6 +52,7 @@ public class EventDetailsFragment extends Fragment {
 
     private String currentEventId = null;
     private String currentUserId  = null;
+    private Event  loadedEvent    = null;
     private String eventTitle     = "Event Details";
     private boolean isGuest       = false;
     private boolean autoJoin      = false;
@@ -185,8 +186,6 @@ public class EventDetailsFragment extends Fragment {
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
-            btnJoinWaitlist.setEnabled(true);
-            btnLeaveWaitlist.setEnabled(true);
             checkWaitlistStatus();
         });
 
@@ -200,7 +199,7 @@ public class EventDetailsFragment extends Fragment {
      * waitlist, immediately fires joinWaitlist().
      */
     private void checkWaitlistStatus() {
-        if (currentEventId == null) return;
+        if (currentEventId == null || currentUserId == null) return;
         db.collection("registrations")
                 .document(currentUserId + "_" + currentEventId)
                 .get()
@@ -281,6 +280,12 @@ public class EventDetailsFragment extends Fragment {
                     if (!snapshot.exists()) return;
                     Event event = snapshot.toObject(Event.class);
                     if (event == null) return;
+                    this.loadedEvent = event;
+
+                    // If user ID already available, refresh buttons to check organizer status
+                    if (currentUserId != null) {
+                        checkWaitlistStatus();
+                    }
 
                     ImageView ivPoster = getView() != null
                             ? getView().findViewById(R.id.iv_event_poster) : null;
@@ -363,6 +368,14 @@ public class EventDetailsFragment extends Fragment {
         if (currentUserId == null || currentEventId == null) {
             Toast.makeText(requireContext(),
                     "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Prevent organizers from joining their own events
+        if (loadedEvent != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
+            Toast.makeText(requireContext(),
+                    "As the organizer, you cannot join your own event.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -484,7 +497,20 @@ public class EventDetailsFragment extends Fragment {
     private void showJoinButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setEnabled(true);
+
+        // Check if current user is the organizer
+        if (loadedEvent != null && currentUserId != null &&
+                currentUserId.equals(loadedEvent.getOrganizerId())) {
+            if (btnJoinWaitlist != null) {
+                btnJoinWaitlist.setEnabled(false);
+                btnJoinWaitlist.setText("Organizers cannot join");
+            }
+        } else {
+            if (btnJoinWaitlist != null) {
+                btnJoinWaitlist.setEnabled(currentUserId != null);
+                btnJoinWaitlist.setText("Join Waiting List");
+            }
+        }
     }
 
     private void showLeaveButton() {

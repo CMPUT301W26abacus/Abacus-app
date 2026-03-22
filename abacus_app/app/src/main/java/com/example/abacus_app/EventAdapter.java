@@ -122,6 +122,13 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         holder.btnJoinStatus.setVisibility(View.VISIBLE);
         holder.btnFavourite.setVisibility(View.VISIBLE);
 
+        // Check if current user is the organizer of this event
+        if (userKey != null && userKey.equals(event.getOrganizerId())) {
+            holder.btnJoinStatus.setVisibility(View.GONE);
+        } else {
+            holder.btnJoinStatus.setVisibility(View.VISIBLE);
+        }
+
         // Card tap — open details, no auto-join
         holder.itemView.setOnClickListener(v -> {
             if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
