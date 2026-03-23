@@ -55,11 +55,6 @@
         android:label="Manage Event" />
 
     <fragment
-        android:id="@+id/organizerToolsFragment"
-        android:name="com.example.abacus_app.OrganizerToolsFragment"
-        android:label="Tools" />
-
-    <fragment
         android:id="@+id/organizerLogsFragment"
         android:name="com.example.abacus_app.OrganizerLogsFragment"
         android:label="Logs" />
@@ -82,6 +77,11 @@
         android:name="com.example.abacus_app.GuestSignUpFragment"
         android:label="Join as Guest"
         tools:layout="@layout/fragment_guest_sign_up"/>
+
+    <fragment
+        android:id="@+id/eventMapFragment"
+        android:name="com.example.abacus_app.EventMapFragment"
+        android:label="Event Map" />
 
 
 </navigation>

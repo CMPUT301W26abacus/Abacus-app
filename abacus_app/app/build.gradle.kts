@@ -56,6 +56,8 @@ dependencies {
 
     // Play Services
     implementation("com.google.android.gms:play-services-base:18.3.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // Navigation - use compatible version
     implementation("androidx.navigation:navigation-fragment:2.7.6")

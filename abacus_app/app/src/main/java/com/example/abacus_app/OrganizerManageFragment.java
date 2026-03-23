@@ -11,13 +11,17 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.chip.ChipGroup;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * UI Controller for the active event management screen.
@@ -31,8 +35,11 @@ public class OrganizerManageFragment extends Fragment {
     private WaitlistAdapter waitlistAdapter;
     private TextView tvEventName, tvCount;
     private Button btnDrawLottery;
+    private View filterContainer;
+    private ChipGroup chipGroupFilter;
 
-    private List<WaitlistEntry> entries = new ArrayList<>();
+    private List<WaitlistEntry> allEntries = new ArrayList<>();
+    private List<WaitlistEntry> filteredEntries = new ArrayList<>();
 
     private enum Mode { EVENT_LIST, WAITLIST }
     private Mode currentMode = Mode.EVENT_LIST;
@@ -48,6 +55,8 @@ public class OrganizerManageFragment extends Fragment {
         tvCount        = view.findViewById(R.id.tv_waitlist_count);
         recyclerView   = view.findViewById(R.id.rv_waitlist);
         btnDrawLottery = view.findViewById(R.id.btn_draw_lottery);
+        filterContainer = view.findViewById(R.id.filter_scroll);
+        chipGroupFilter = view.findViewById(R.id.chip_group_filter);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
@@ -57,7 +66,7 @@ public class OrganizerManageFragment extends Fragment {
                 showEventList();
             } else {
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                    ((MainActivity) getActivity()).showHome();
                 }
             }
         });
@@ -66,6 +75,10 @@ public class OrganizerManageFragment extends Fragment {
             if (currentMode == Mode.WAITLIST && selectedEventId != null) {
                 viewModel.drawLottery(selectedEventId);
             }
+        });
+
+        chipGroupFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            applyFilter();
         });
 
         observeViewModel();
@@ -78,6 +91,7 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText("My Events");
         tvCount.setText("");
         btnDrawLottery.setVisibility(View.GONE);
+        filterContainer.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
@@ -99,27 +113,43 @@ public class OrganizerManageFragment extends Fragment {
             }
             tvCount.setText(eventList.size() + " event(s)");
 
-            recyclerView.setAdapter(new EventAdapter(eventList, (title, autoJoin) -> {
-                // autoJoin is always false in organizer context — tapping an event
-                // here shows its waitlist, not the join flow.
-                for (Event e : eventList) {
-                    if (title.equals(e.getTitle())) {
-                        selectedEventId = e.getEventId();
-                        showWaitlist(e.getTitle(), selectedEventId);
-                        break;
-                    }
-                }
-            }));
+            UserLocalDataSource local = new UserLocalDataSource(requireContext());
+            String uuid = local.getUUIDSync();
+
+            recyclerView.setAdapter(new EventAdapter(
+                    eventList,
+                    (title, autoJoin) -> {
+                        for (Event e : eventList) {
+                            if (title.equals(e.getTitle())) {
+                                selectedEventId = e.getEventId();
+                                showWaitlist(e.getTitle(), selectedEventId);
+                                break;
+                            }
+                        }
+                    },
+                    event -> {
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle("Delete Event")
+                                .setMessage("Are you sure you want to delete this event? This cannot be undone.")
+                                .setPositiveButton("Delete", (dialog, which) -> {
+                                    viewModel.deleteEvent(event.getEventId(), uuid);
+                                })
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                    },
+                    true, // isAdmin (to show delete button)
+                    uuid,
+                    false
+            ));
         });
 
         // Waitlist mode
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
             if (currentMode != Mode.WAITLIST) return;
             if (newEntries != null) {
-                entries.clear();
-                entries.addAll(newEntries);
-                tvCount.setText("Total Entrants: " + entries.size());
-                waitlistAdapter.notifyDataSetChanged();
+                allEntries.clear();
+                allEntries.addAll(newEntries);
+                applyFilter();
             }
         });
 
@@ -132,6 +162,12 @@ public class OrganizerManageFragment extends Fragment {
                 Toast.makeText(getContext(),
                         "Lottery completed! Winners and losers notified.",
                         Toast.LENGTH_LONG).show();
+            }
+        });
+
+        viewModel.getEventDeleted().observe(getViewLifecycleOwner(), deleted -> {
+            if (deleted != null && deleted) {
+                Toast.makeText(getContext(), "Event deleted successfully", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -148,10 +184,45 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
         btnDrawLottery.setVisibility(View.VISIBLE);
+        filterContainer.setVisibility(View.VISIBLE);
+        chipGroupFilter.check(R.id.chip_all);
 
-        waitlistAdapter = new WaitlistAdapter(entries);
+        filteredEntries.clear();
+        waitlistAdapter = new WaitlistAdapter(filteredEntries);
         recyclerView.setAdapter(waitlistAdapter);
         viewModel.loadWaitlist(eventId);
+    }
+
+    private void applyFilter() {
+        int checkedId = chipGroupFilter.getCheckedChipId();
+        List<WaitlistEntry> result;
+
+        if (checkedId == R.id.chip_waitlisted) {
+            result = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_WAITLISTED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else if (checkedId == R.id.chip_invited) {
+            result = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_INVITED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else if (checkedId == R.id.chip_accepted) {
+            result = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_ACCEPTED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else if (checkedId == R.id.chip_cancelled) {
+            result = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_CANCELLED.equals(e.getStatus()) || WaitlistEntry.STATUS_DECLINED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else {
+            result = new ArrayList<>(allEntries);
+        }
+
+        filteredEntries.clear();
+        filteredEntries.addAll(result);
+        tvCount.setText("Showing: " + filteredEntries.size() + " / Total: " + allEntries.size());
+        if (waitlistAdapter != null) {
+            waitlistAdapter.notifyDataSetChanged();
+        }
     }
 
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {

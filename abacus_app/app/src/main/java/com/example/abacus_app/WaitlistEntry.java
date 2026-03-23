@@ -20,6 +20,8 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     private String status;
     private Long timestamp;
     private Integer lotteryNumber;
+    private Double latitude;
+    private Double longitude;
 
     // Transient fields for UI display
     @Exclude private String userName;
@@ -50,6 +52,12 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
 
     public Integer getLotteryNumber()          { return lotteryNumber; }
     public void    setLotteryNumber(Integer v) { this.lotteryNumber = v; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
     @Exclude public String getUserName()             { return userName; }
     @Exclude public void   setUserName(String v)     { this.userName = v; }

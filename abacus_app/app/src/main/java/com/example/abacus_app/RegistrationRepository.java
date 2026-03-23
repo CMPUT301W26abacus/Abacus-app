@@ -74,6 +74,25 @@ public class RegistrationRepository {
         });
     }
 
+    public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                Random random = new Random();
+                WaitlistEntry entry = new WaitlistEntry(
+                        userID,
+                        eventID,
+                        WaitlistEntry.STATUS_INVITED,
+                        random.nextInt(100000),
+                        System.currentTimeMillis()
+                );
+                remoteDataSource.joinWaitlistSync(eventID, entry);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {

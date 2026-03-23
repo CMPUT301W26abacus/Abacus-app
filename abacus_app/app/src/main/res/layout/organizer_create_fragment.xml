@@ -22,7 +22,7 @@
             android:orientation="vertical"
             android:paddingTop="100dp"
             android:paddingHorizontal="16dp"
-            android:paddingBottom="40dp">
+            android:paddingBottom="120dp">
 
             <!-- Title + description -->
             <androidx.cardview.widget.CardView
@@ -42,18 +42,14 @@
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Event Title"
+                        android:hint="Event Title *"
                         android:layout_marginBottom="8dp">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_event_title"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/black"
-                            android:textColorHighlight="@color/black"
-                            android:textColorHint="@color/black"
-                            android:textColorLink="@color/orange"
-                            android:textCursorDrawable="@color/orange" />
+                            android:textColor="@color/black" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -67,10 +63,7 @@
                             android:layout_height="wrap_content"
                             android:gravity="top"
                             android:minLines="3"
-                            android:textColor="@color/black"
-                            android:textColorHint="@color/black"
-                            android:textColorLink="@color/orange"
-                            android:textCursorDrawable="@color/orange" />
+                            android:textColor="@color/black" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
@@ -108,12 +101,9 @@
                         android:layout_height="52dp"
                         android:gravity="start|center_vertical"
                         android:paddingHorizontal="16dp"
-                        android:text="Set Start Date / Time"
+                        android:text="Set Start Date / Time *"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black"
-                        android:textColorHighlight="@color/black"
-                        android:textColorHint="@color/black"
-                        android:textColorLink="@color/orange" />
+                        android:textColor="@color/black" />
 
                     <View
                         android:layout_width="match_parent"
@@ -128,12 +118,9 @@
                         android:layout_height="52dp"
                         android:gravity="start|center_vertical"
                         android:paddingHorizontal="16dp"
-                        android:text="Set End Date / Time"
+                        android:text="Set End Date / Time *"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black"
-                        android:textColorHighlight="@color/black"
-                        android:textColorHint="@color/black"
-                        android:textColorLink="@color/orange" />
+                        android:textColor="@color/black" />
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -164,17 +151,28 @@
                     android:padding="16dp">
 
                     <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switch_private"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:text="Private Event (No QR)"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/grey"
+                        android:layout_marginBottom="12dp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/switch_geo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
                         android:text="Require Geolocation"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black"
-                        android:textColorHighlight="@color/black"
-                        android:textColorHint="@color/black"
-                        android:textColorLink="@color/orange"
-                        app:thumbIconTint="@color/black" />
+                        android:textColor="@color/black" />
 
                     <View
                         android:layout_width="match_parent"
@@ -206,9 +204,7 @@
                             android:enabled="false"
                             android:hint="e.g. 50"
                             android:inputType="number"
-                            android:textAppearance="?attr/textAppearanceBodyLarge"
-                            android:textColor="@color/black"
-                            android:textColorHint="@color/grey" />
+                            android:textColor="@color/black" />
 
                     </LinearLayout>
 
@@ -227,7 +223,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Event Capacity"
+                            android:text="Event Capacity *"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
                             android:textColor="@color/black" />
 
@@ -239,9 +235,7 @@
                             android:layout_marginStart="12dp"
                             android:hint="e.g. 20"
                             android:inputType="number"
-                            android:textAppearance="?attr/textAppearanceBodyLarge"
-                            android:textColor="@color/black"
-                            android:textColorHint="@color/grey" />
+                            android:textColor="@color/black" />
 
                     </LinearLayout>
                 </LinearLayout>
@@ -280,21 +274,22 @@
                         android:background="@color/grey"
                         android:layout_margin="12dp" />
 
+                    <Button
+                        android:id="@+id/btn_select_poster"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="Choose from Gallery"
+                        android:layout_marginBottom="8dp"/>
+
                     <EditText
                         android:id="@+id/et_poster_url"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Direct image URL (ends in .jpg or .png)"
+                        android:hint="Or enter direct image URL"
                         android:textColor="@color/black" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Tip: On Imgur, right-click the image → 'Copy image address' to get a direct URL"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="@color/grey"
-                        android:paddingHorizontal="4dp"
-                        android:paddingBottom="8dp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

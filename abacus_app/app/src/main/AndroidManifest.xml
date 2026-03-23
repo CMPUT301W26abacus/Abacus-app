@@ -2,11 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions for Firebase -->
+    <!-- Permissions for Geolocation -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Other Permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -22,7 +24,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Abacusapp">
 
-        <!-- TODO: Add the activity for Splash -->
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+
         <activity android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
@@ -31,19 +37,13 @@
             </intent-filter>
         </activity>
 
-        <!-- MainActivity has NO intent filter -->
         <activity
             android:name=".MainActivity"
             android:exported="false">
         </activity>
 
-        <!-- TODO: Add the activity for Login -->
         <activity android:name=".LoginActivity"/>
-
-        <!-- TODO: Add the activity for Register -->
         <activity android:name=".RegisterActivity"/>
-
-        <!-- TODO: Add the service for FCM -->
 
     </application>
 

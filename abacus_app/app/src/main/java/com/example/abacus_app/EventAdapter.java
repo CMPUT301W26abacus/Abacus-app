@@ -38,6 +38,7 @@ import java.util.List;
  * Visual states:
  * - "Join"   — orange background, white text
  * - "Joined" — white background, grey stroke, grey text
+ * - "Edit"   — white background, blue stroke, blue text (for organizers)
  */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
@@ -122,17 +123,23 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         holder.btnJoinStatus.setVisibility(View.VISIBLE);
         holder.btnFavourite.setVisibility(View.VISIBLE);
 
-        // Check if current user is the organizer of this event
-        if (userKey != null && userKey.equals(event.getOrganizerId())) {
-            holder.btnJoinStatus.setVisibility(View.GONE);
-        } else {
-            holder.btnJoinStatus.setVisibility(View.VISIBLE);
-        }
-
         // Card tap — open details, no auto-join
         holder.itemView.setOnClickListener(v -> {
             if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
         });
+
+        // Check if current user is the organizer of this event
+        if (userKey != null && userKey.equals(event.getOrganizerId())) {
+            // Organizer mode: show "Edit" instead of "Join"
+            applyEditButtonState(holder, holder.itemView.getContext());
+            holder.btnJoinStatus.setOnClickListener(v -> {
+                if (clickListener != null) {
+                    // Navigate to event details, which will then allow editing
+                    clickListener.onEventClick(event.getTitle(), false);
+                }
+            });
+            return;
+        }
 
         // ── Join status check ──────────────────────────────────────────────────
         String eventId = event.getEventId();
@@ -200,6 +207,17 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                     ContextCompat.getColor(context, R.color.orange)));
             btn.setStrokeWidth(0);
         }
+    }
+
+    private void applyEditButtonState(@NonNull EventViewHolder holder,
+                                      @NonNull Context context) {
+        MaterialButton btn = holder.btnJoinStatus;
+        btn.setText("Edit");
+        btn.setTextColor(ContextCompat.getColor(context, android.R.color.holo_blue_dark));
+        btn.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
+        btn.setStrokeColor(ColorStateList.valueOf(
+                ContextCompat.getColor(context, android.R.color.holo_blue_dark)));
+        btn.setStrokeWidth(2);
     }
 
     @Override

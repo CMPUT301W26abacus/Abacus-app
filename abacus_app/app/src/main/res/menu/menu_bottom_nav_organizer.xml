@@ -4,25 +4,26 @@
     <item
         android:id="@+id/nav_home"
         android:icon="@drawable/ic_home"
-        android:title="Home"
-        android:titleCondensed="Home" />
+        android:title="Home" />
 
     <item
-        android:id="@+id/nav_tools"
+        android:id="@+id/nav_create"
+        android:icon="@drawable/ic_create"
+        android:title="Create" />
+
+    <item
+        android:id="@+id/nav_manage"
         android:icon="@drawable/ic_tool"
-        android:title="Tools"
-        android:titleCondensed="Tools" />
+        android:title="Manage" />
 
     <item
         android:id="@+id/nav_logs"
-        android:icon="@drawable/ic_history"
-        android:title="Logs"
-        android:titleCondensed="Logs" />
+        android:icon="@android:drawable/ic_menu_search"
+        android:title="Browse" />
 
     <item
         android:id="@+id/nav_notifications"
         android:icon="@drawable/ic_notifications"
-        android:title="Notifications"
-        android:titleCondensed="Notifications" />
+        android:title="Notifications" />
 
 </menu>
