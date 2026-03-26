@@ -55,6 +55,8 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
+import org.checkerframework.common.returnsreceiver.qual.This;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -347,11 +349,22 @@ public class MainActivity extends AppCompatActivity {
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || description.contains(activeKeyword);
-
+            // Project pt3 bug fix: checks if the date you picked falls within the event's registration
+            // window instead of only matching the exact start date.
             boolean dateMatch = true;
-            if (!activeDate.isEmpty() && event.getRegistrationStart() != null) {
-                String eventDate = sdf.format(event.getRegistrationStart().toDate());
-                dateMatch = eventDate.equals(activeDate);
+            if (!activeDate.isEmpty()) {
+                try {
+                    Date picked = sdf.parse(activeDate);
+                    if (picked != null && event.getRegistrationStart() != null) {
+                        Date start = event.getRegistrationStart().toDate();
+                        Date end   = event.getRegistrationEnd() != null
+                                ? event.getRegistrationEnd().toDate() : start;
+                        // normalize all to midnight for date-only comparison
+                        dateMatch = !picked.before(start) && !picked.after(end);
+                    }
+                } catch (Exception e) {
+                    dateMatch = true;
+                }
             }
 
             boolean notExpired = true;
