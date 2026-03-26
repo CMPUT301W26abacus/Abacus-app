@@ -2,14 +2,13 @@ package com.example.abacus_app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.provider.Settings;
 
 /**
  * Architecture Layer: Local Data Source
  *
  * Stores and retrieves user-related data using SharedPreferences.
- * Replaces the Kotlin DataStore implementation with a pure Java equivalent.
- *
- * Used by: UserRepository
+ * Provides a stable device identifier to persist identity across re-installs.
  */
 public class UserLocalDataSource {
 
@@ -17,51 +16,38 @@ public class UserLocalDataSource {
     static final String KEY_UUID   = "device_uuid";
 
     private final SharedPreferences prefs;
+    private final Context context;
 
     public UserLocalDataSource(Context context) {
+        this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     /**
-     * Retrieves the device UUID from SharedPreferences.
-     * This is the implementation for getDeviceId() from specification.
-     *
-     * @return The device UUID, or null if not yet set.
+     * Returns a stable identifier for this device that survives app re-installs.
+     * Uses ANDROID_ID.
      */
+    public String getStableDeviceID() {
+        String androidId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+        return (androidId != null) ? androidId : "fallback_id";
+    }
+
     public String getUUIDSync() {
         return prefs.getString(KEY_UUID, null);
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls getUUIDSync() internally.
-     */
     public String getDeviceId() {
         return getUUIDSync();
     }
 
-    /**
-     * Saves the device UUID to SharedPreferences.
-     * This is the implementation for saveDeviceId() from specification.
-     *
-     * @param uuid The UUID to persist.
-     */
     public void saveUUIDSync(String uuid) {
         prefs.edit().putString(KEY_UUID, uuid).apply();
     }
 
-    /**
-     * Alternative method name from specification for consistency.
-     * Calls saveUUIDSync() internally.
-     */
     public void saveDeviceId(String uuid) {
         saveUUIDSync(uuid);
     }
 
-    /**
-     * Removes the stored UUID from SharedPreferences.
-     * Called on logout so the next launch generates a fresh identity.
-     */
     public void clearDeviceId() {
         prefs.edit().remove(KEY_UUID).apply();
     }

@@ -1,10 +1,12 @@
 package com.example.abacus_app;
 
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -46,6 +48,17 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
         String dateString = sdf.format(new Date(notification.getTimestamp()));
         holder.timestampTextView.setText(dateString);
+
+        holder.itemView.setOnClickListener(v -> {
+            String eventId = notification.getEventId();
+            if (eventId != null && !eventId.isEmpty()) {
+                Bundle args = new Bundle();
+                args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                // We don't have the event title in the notification, 
+                // but EventDetailsFragment will load it from Firestore using the ID.
+                Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
+            }
+        });
     }
 
     @Override

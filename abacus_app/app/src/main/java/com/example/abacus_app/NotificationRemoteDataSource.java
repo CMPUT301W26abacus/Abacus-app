@@ -1,5 +1,6 @@
 package com.example.abacus_app;
 
+import android.util.Log;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -7,57 +8,28 @@ import com.google.firebase.firestore.WriteBatch;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Data source class that interacts directly with the Google Firebase Firestore database.
- * This class follows the Data Source design pattern, encapsulating the persistence logic
- * for notifications.
- *
- * Role: Provides the low-level API for CRUD operations and real-time listeners on the
- * "notifications" collection in Firestore.
- *
- * Design Pattern: Data Access Object (DAO) / Data Source.
- *
- * Outstanding Issues:
- * - Error handling in Firestore listeners is minimal (currently just returns on error).
- * - No pagination implemented; fetching a very large number of notifications may affect performance.
- */
 public class NotificationRemoteDataSource {
 
     private final FirebaseFirestore db;
+    private static final String TAG = "NotificationRDS";
 
-    /**
-     * Interface for receiving updates when notifications are retrieved or changed in Firestore.
-     */
     public interface OnNotificationsUpdatedListener {
-        /**
-         * Called when the list of notifications for a user has been updated.
-         *
-         * @param notifications The updated list of {@link Notification} objects.
-         */
         void onUpdate(List<Notification> notifications);
     }
 
-    /**
-     * Initializes the Firestore instance.
-     */
     public NotificationRemoteDataSource() {
         db = FirebaseFirestore.getInstance();
     }
 
     /**
-     * Saves a single notification to the Firestore "notifications" collection.
-     *
-     * @param notification The {@link Notification} object to persist.
+     * Saves a single notification to Firestore.
      */
     public void saveNotification(Notification notification) {
         db.collection("notifications").add(notification);
     }
 
     /**
-     * Saves multiple notifications efficiently using a Firestore {@link WriteBatch}.
-     * This is an atomic operation; all saves will succeed or none will.
-     *
-     * @param notifications The list of {@link Notification} objects to persist.
+     * Saves multiple notifications efficiently using a WriteBatch.
      */
     public void saveNotificationsBatch(List<Notification> notifications) {
         if (notifications == null || notifications.isEmpty()) return;
@@ -70,21 +42,56 @@ public class NotificationRemoteDataSource {
     }
 
     /**
-     * Establishes a real-time listener for notifications targeted at a specific user.
-     * Notifications are ordered by timestamp in descending order (newest first).
-     *
-     * @param userId   The unique identifier of the user whose notifications to watch.
-     * @param listener The callback to trigger when data changes.
+     * Listens for real-time updates to a user's notifications by email.
+     * Restored .orderBy() for server-side sorting.
+     * Note: This requires a composite index on (userEmail ASC, timestamp DESC).
+     */
+    public void listenForNotificationsByEmail(String email, OnNotificationsUpdatedListener listener) {
+        if (email == null || email.isEmpty()) {
+            Log.e(TAG, "Cannot listen: email is null or empty");
+            return;
+        }
+
+        Log.d(TAG, "Setting up listener for email: " + email);
+        db.collection("notifications")
+                .whereEqualTo("userEmail", email)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener((value, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Listen failed: " + error.getMessage());
+                        return;
+                    }
+                    if (value == null) return;
+
+                    Log.d(TAG, "Snapshot updated. Document count: " + value.size());
+                    List<Notification> list = new ArrayList<>();
+                    for (DocumentSnapshot doc : value.getDocuments()) {
+                        Notification n = doc.toObject(Notification.class);
+                        if (n != null) list.add(n);
+                    }
+                    listener.onUpdate(list);
+                });
+    }
+
+    /**
+     * Listens for real-time updates to a user's notifications by userId.
      */
     public void listenForNotifications(String userId, OnNotificationsUpdatedListener listener) {
+        Log.d(TAG, "Setting up listener for userId: " + userId);
         db.collection("notifications")
                 .whereEqualTo("userId", userId)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((value, error) -> {
-                    if (error != null || value == null) return;
+                    if (error != null) {
+                        Log.e(TAG, "Listen failed: " + error.getMessage());
+                        return;
+                    }
+                    if (value == null) return;
+
                     List<Notification> list = new ArrayList<>();
                     for (DocumentSnapshot doc : value.getDocuments()) {
-                        list.add(doc.toObject(Notification.class));
+                        Notification n = doc.toObject(Notification.class);
+                        if (n != null) list.add(n);
                     }
                     listener.onUpdate(list);
                 });

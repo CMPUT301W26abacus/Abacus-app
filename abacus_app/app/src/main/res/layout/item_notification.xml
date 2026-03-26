@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/white"
+    android:layout_marginBottom="8dp"
     android:padding="12dp">
 
     <TextView
@@ -12,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:textColor="#000"
+        android:textColor="@color/black"
         tools:text="Congratulations! You have been selected for the event."/>
 
     <TextView
@@ -21,7 +23,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:textSize="12sp"
-        android:textColor="#777"
+        android:textColor="@color/grey"
         tools:text="Oct 24, 2023 14:30"/>
 
 </LinearLayout>

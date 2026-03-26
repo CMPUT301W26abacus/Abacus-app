@@ -12,11 +12,13 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.util.List;
 
 /**
  * Inbox screen — displays notifications for the current user.
- * Delegates to NotificationRepository via NotificationAdapter.
+ * Uses email as a stable identifier to survive app reinstalls.
  */
 public class MainInboxFragment extends Fragment {
 
@@ -31,7 +33,6 @@ public class MainInboxFragment extends Fragment {
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
-        view.setBackgroundResource(android.R.color.white);
 
         RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -40,23 +41,28 @@ public class MainInboxFragment extends Fragment {
 
         notificationRepository = new NotificationRepository();
 
-        UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
-        String currentUserId = localDataSource.getUUIDSync();
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(local, remote);
 
-        Log.d(TAG, "Loading notifications for UID: " + currentUserId);
-
-        if (currentUserId != null) {
-            notificationRepository.listenForNotifications(currentUserId,
-                    notifications -> {
-                        if (notifications != null) {
-                            Log.d(TAG, "Received " + notifications.size() + " notifications");
-                            adapter.setNotifications(notifications);
-                        }
-                    });
-        } else {
-            Log.e(TAG, "currentUserId is null — cannot load notifications");
-        }
+        userRepository.getProfile(user -> {
+            if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
+                Log.d(TAG, "Resolved email: " + user.getEmail() + ". Loading notifications...");
+                startListening(user.getEmail());
+            } else {
+                Log.e(TAG, "Failed to resolve user email for notifications.");
+            }
+        });
 
         return view;
+    }
+
+    private void startListening(String email) {
+        notificationRepository.listenForNotificationsByEmail(email, notifications -> {
+            if (notifications != null && isAdded()) {
+                Log.d(TAG, "Received " + notifications.size() + " notifications for " + email);
+                adapter.setNotifications(notifications);
+            }
+        });
     }
 }

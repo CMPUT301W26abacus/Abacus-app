@@ -18,6 +18,10 @@ public class UserRemoteDataSource {
 
     private final FirebaseFirestore db;
 
+    public interface UserCallback {
+        void onCallback(User user);
+    }
+
     public UserRemoteDataSource(FirebaseFirestore db) {
         this.db = db;
     }
@@ -26,12 +30,31 @@ public class UserRemoteDataSource {
         Tasks.await(db.collection(COLLECTION).document(uuid).set(data));
     }
 
+    public void getUser(String uuid, UserCallback callback) {
+        db.collection(COLLECTION).document(uuid).get()
+                .addOnSuccessListener(snap -> {
+                    if (!snap.exists()) {
+                        callback.onCallback(null);
+                        return;
+                    }
+                    callback.onCallback(parseUser(snap));
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting user: " + uuid, e);
+                    callback.onCallback(null);
+                });
+    }
+
     public User getUserSync(String uuid) throws Exception {
         DocumentSnapshot snap = Tasks.await(
                 db.collection(COLLECTION).document(uuid).get());
 
         if (!snap.exists()) return null;
 
+        return parseUser(snap);
+    }
+
+    private User parseUser(DocumentSnapshot snap) {
         User user = new User();
         user.setUid(snap.getId());
 
