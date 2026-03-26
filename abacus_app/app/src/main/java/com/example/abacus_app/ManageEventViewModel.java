@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import android.util.Log;
+import android.widget.Toast;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -53,6 +55,18 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    public void loadLotteryStatus(String eventId) {
+        isLoading.setValue(true);
+        eventRepository.getEventByIdAsync(eventId, event -> {
+            if (event != null) {
+                lotteryCompleted.setValue(event.isLotteryDrawn());
+            } else {
+                error.setValue("Failed to load lottery status");
+            }
+            isLoading.setValue(false);
+        });
+    }
+
     public void loadOrganizerEvents(String organizerId) {
         isLoading.setValue(true);
         eventRepository.getEventsByOrganizer(organizerId).addOnSuccessListener(queryDocumentSnapshots -> {
@@ -78,92 +92,31 @@ public class ManageEventViewModel extends ViewModel {
         isLoading.setValue(true);
         Log.d(TAG, "Starting lottery for event: " + eventId);
 
-        // 1. Get Event Capacity from the event document
-        db.collection("events").document(eventId).get().addOnSuccessListener(eventDoc -> {
-            if (!eventDoc.exists()) {
-                error.setValue("Event not found");
+        registrationRepository.runLottery(eventId, new RegistrationRepository.VoidCallback() {
+            @Override
+            public void onComplete(Exception error) {
                 isLoading.setValue(false);
-                return;
-            }
-
-            Event event = eventDoc.toObject(Event.class);
-            if (event == null) {
-                error.setValue("Error reading event data");
-                isLoading.setValue(false);
-                return;
-            }
-
-            int capacity = (event.getEventCapacity() != null) ? event.getEventCapacity() : 0;
-            Log.d(TAG, "Event capacity found: " + capacity);
-
-            // 2. Get all waitlisted users for this event
-            registrationRepository.getWaitlisted(eventId, waitlist -> {
-                if (waitlist == null || waitlist.isEmpty()) {
-                    error.setValue("No waitlisted users found for this event");
-                    isLoading.setValue(false);
-                    return;
+                if (error != null) {
+                    Log.d(TAG, error.getMessage());
+                } else {
+                    lotteryCompleted.setValue(true);
+                    // trigger notifications
                 }
-
-                // 3. Shuffle and pick winners
-                Collections.shuffle(waitlist);
-                int numToPick = Math.min(waitlist.size(), capacity);
-                
-                List<WaitlistEntry> winners = waitlist.subList(0, numToPick);
-                List<WaitlistEntry> losers = waitlist.subList(numToPick, waitlist.size());
-
-                // 4. Update status in Users and Registrations collections
-                updateLotteryStatuses(eventId, winners, losers);
-            });
-
-        }).addOnFailureListener(e -> {
-            error.setValue("Failed to fetch event: " + e.getMessage());
-            isLoading.setValue(false);
+            }
         });
     }
 
-    private void updateLotteryStatuses(String eventId, List<WaitlistEntry> winners, List<WaitlistEntry> losers) {
-        WriteBatch batch = db.batch();
-
-        List<String> winnerIds = new ArrayList<>();
-        List<String> loserIds = new ArrayList<>();
-
-        // Process Winners
-        for (WaitlistEntry winner : winners) {
-            String uid = winner.getUserId();
-            winnerIds.add(uid);
-            
-            // Update User status
-            batch.update(db.collection("users").document(uid), "status", "winner");
-            
-            // Update Registration status (to "invited" as per system flow)
-            batch.update(db.collection("registrations").document(uid + "_" + eventId), "status", "invited");
+    public void drawReplacement(String eventId) {
+        if (eventId == null || eventId.isEmpty()) {
+            error.setValue("Invalid Event ID");
+            return;
         }
-
-        // Process Losers
-        for (WaitlistEntry loser : losers) {
-            String uid = loser.getUserId();
-            loserIds.add(uid);
-            
-            // Update User status
-            batch.update(db.collection("users").document(uid), "status", "loser");
-            
-            // Keep registration as waitlisted or update to "not_selected" if preferred
-            // We'll keep it waitlisted so they can be re-drawn if winners decline
-        }
-
-        batch.commit().addOnSuccessListener(aVoid -> {
-            Log.i(TAG, "Lottery statuses updated successfully.");
-            
-            // 5. Send notifications
-            if (!winnerIds.isEmpty()) notificationRepository.notifySelected(eventId, winnerIds);
-            if (!loserIds.isEmpty()) notificationRepository.notifyNotSelected(eventId, loserIds);
-
-            lotteryCompleted.setValue(true);
-            isLoading.setValue(false);
-            loadWaitlist(eventId); // Refresh the UI list
-        }).addOnFailureListener(e -> {
-            error.setValue("Failed to update lottery results: " + e.getMessage());
-            isLoading.setValue(false);
+        isLoading.setValue(true);
+        registrationRepository.drawReplacement(eventId, new RegistrationRepository.EntryCallback() {
+            @Override
+            public void onResult(WaitlistEntry entry) {
+                // trigger notifications
+            }
         });
     }
 }

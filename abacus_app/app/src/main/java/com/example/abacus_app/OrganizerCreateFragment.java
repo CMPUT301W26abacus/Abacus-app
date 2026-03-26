@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -185,7 +186,7 @@ public class OrganizerCreateFragment extends Fragment {
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                waitlistLimit, eventCapacity, switchGeo.isChecked());
+                waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
 
         String posterUrl = etPosterUrl.getText().toString().trim();
         viewModel.createEvent(event, posterUrl);
