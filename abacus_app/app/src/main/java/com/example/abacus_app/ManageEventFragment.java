@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -62,6 +63,8 @@ public class ManageEventFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_manage_fragment, container, false);
 
+        Log.d("mytagmanageevent", "onCreateView: ManageEventFragment is running!!");
+
         viewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
 
         tvEventName  = view.findViewById(R.id.tv_event_name);
@@ -89,6 +92,9 @@ public class ManageEventFragment extends Fragment {
 
         if (eventId != null) {
             viewModel.loadWaitlist(eventId);
+        }
+        if (eventId != null) {
+            viewModel.loadLotteryStatus(eventId);
         }
 
         return view;

@@ -47,8 +47,16 @@ public class EventRepository {
         });
     }
 
-    public Task<Void> updateEvent(Event event) {
-        return remoteDataSource.updateEvent(event);
+    /** Async callback version — use from UI/ViewModel. */
+    public void updateEventAsync(Event event, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                remoteDataSource.updateEvent(event);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     public Task<Void> deleteEvent(String eventId) {
@@ -57,5 +65,9 @@ public class EventRepository {
 
     public interface EventCallback {
         void onResult(Event event);
+    }
+
+    public interface VoidCallback {
+        void onComplete(Exception error);
     }
 }

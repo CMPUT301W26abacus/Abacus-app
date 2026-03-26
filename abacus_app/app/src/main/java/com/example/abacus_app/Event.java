@@ -22,6 +22,7 @@ public class Event implements Serializable {
     private Integer eventCapacity;
     private Integer waitlistCount;    // Current number of people on waitlist
     private boolean geoRequired;
+    private boolean lotteryDrawn;
     private String posterImageUrl;
     private String qrCodeUrl;
 
@@ -38,10 +39,11 @@ public class Event implements Serializable {
      * @param registrationEnd   When registration closes.
      * @param waitlistCapacity  Max entrants allowed (null if unlimited).
      * @param geoRequired       Whether entrants must provide geolocation.
+     * @param lotteryDrawn      Whether the lottery has been run.
      */
     public Event(String eventId, String title, String description, String organizerId, 
                  Timestamp registrationStart, Timestamp registrationEnd, 
-                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired) {
+                 Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired, boolean lotteryDrawn) {
         this.eventId = eventId;
         this.title = title;
         this.description = description;
@@ -51,6 +53,7 @@ public class Event implements Serializable {
         this.waitlistCapacity = waitlistCapacity;
         this.eventCapacity = eventCapacity;
         this.geoRequired = geoRequired;
+        this.lotteryDrawn = lotteryDrawn;
     }
 
     /**
@@ -135,6 +138,13 @@ public class Event implements Serializable {
      * @param geoRequired sets geolocation requirement.
      */
     public void setGeoRequired(boolean geoRequired) { this.geoRequired = geoRequired; }
+
+    public boolean isLotteryDrawn() { return lotteryDrawn; }
+
+    /**
+     * @param lotteryDrawn sets lottery status
+     */
+    public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
 
     /**
      * @return public URL of the poster image.

@@ -4,7 +4,7 @@ import com.google.firebase.firestore.Exclude;
 
 /**
  * Entity class for a waitlist entry.
- * Fields match the Firestore 'registrations' collection.
+ * Fields match the Firestore 'waitlist' documents.
  */
 public class WaitlistEntry implements Comparable<WaitlistEntry> {
 

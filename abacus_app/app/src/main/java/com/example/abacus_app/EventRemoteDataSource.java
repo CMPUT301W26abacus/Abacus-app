@@ -3,6 +3,7 @@ package com.example.abacus_app;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -44,8 +45,9 @@ public class EventRemoteDataSource {
         return eventsRef.whereEqualTo("organizerId", organizerId).get();
     }
 
-    public Task<Void> updateEvent(Event event) {
-        return eventsRef.document(event.getEventId()).set(event);
+    public void updateEvent(Event event) throws ExecutionException, InterruptedException {
+        DocumentReference docRef = eventsRef.document(event.getEventId());
+        Tasks.await(docRef.set(event));
     }
 
     public Task<Void> deleteEvent(String eventId) {
