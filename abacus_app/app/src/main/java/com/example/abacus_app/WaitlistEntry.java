@@ -1,5 +1,6 @@
 package com.example.abacus_app;
 
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.Exclude;
 
 /**
@@ -25,15 +26,29 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     @Exclude private String userName;
     @Exclude private String userEmail;
 
+    /** Firebase Timestamp — stored for tests and code that uses getJoinTime(). */
+    @Exclude private Timestamp joinTime;
+
     /** Required no-arg constructor for Firestore */
     public WaitlistEntry() {}
 
+    /** Primary constructor — accepts epoch-ms Long timestamp (used by production code). */
     public WaitlistEntry(String userId, String eventId, String status, Integer lotteryNumber, Long timestamp) {
         this.userId        = userId;
         this.eventId       = eventId;
         this.status        = status;
         this.lotteryNumber = lotteryNumber;
         this.timestamp     = timestamp;
+    }
+
+    /** Overloaded constructor — accepts a Firebase Timestamp (used by tests). */
+    public WaitlistEntry(String userId, String eventId, String status, Integer lotteryNumber, Timestamp joinTime) {
+        this.userId        = userId;
+        this.eventId       = eventId;
+        this.status        = status;
+        this.lotteryNumber = lotteryNumber;
+        this.joinTime      = joinTime;
+        this.timestamp     = joinTime != null ? joinTime.toDate().getTime() : null;
     }
 
     public String getUserId()              { return userId; }
@@ -56,6 +71,10 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
 
     @Exclude public String getUserEmail()            { return userEmail; }
     @Exclude public void   setUserEmail(String v)    { this.userEmail = v; }
+
+    /** Returns the Firebase Timestamp set via the Timestamp constructor (may be null). */
+    @Exclude public Timestamp getJoinTime()          { return joinTime; }
+    @Exclude public void      setJoinTime(Timestamp v) { this.joinTime = v; }
 
     // Compatibility getters for code using uppercase ID
     @Exclude public String getUserID()  { return userId; }

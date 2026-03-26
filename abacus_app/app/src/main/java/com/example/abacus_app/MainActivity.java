@@ -214,6 +214,17 @@ public class MainActivity extends AppCompatActivity {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
                     if (!navController.popBackStack()) {
                         showHome();
+                    } else {
+                        // After a successful pop, restore the bottom nav if we've
+                        // landed back on a tab-level destination.
+                        androidx.navigation.NavBackStackEntry current =
+                                navController.getCurrentBackStackEntry();
+                        if (current != null) {
+                            int destId = current.getDestination().getId();
+                            if (isTabDestination(destId)) {
+                                bottomNav.setVisibility(View.VISIBLE);
+                            }
+                        }
                     }
                 } else {
                     finish();
@@ -704,12 +715,30 @@ public class MainActivity extends AppCompatActivity {
 
     private void clearBackStack() {
         int startId = navController.getGraph().getStartDestinationId();
-        NavOptions noAnim = new NavOptions.Builder()
-                .setPopUpTo(startId, true)
-                .build();
         if (navController.getCurrentBackStackEntry() != null) {
-            navController.popBackStack(startId, true);
+            // Try the fast path first; if the start destination is no longer on the
+            // back stack (e.g. after direct NavController.navigate() calls inside
+            // fragments), fall back to popping everything one by one.
+            boolean cleared = navController.popBackStack(startId, true);
+            if (!cleared) {
+                while (navController.getCurrentBackStackEntry() != null) {
+                    if (!navController.popBackStack()) break;
+                }
+            }
         }
+    }
+
+    /**
+     * Returns true for destinations that should always show the bottom navigation bar.
+     * Used to restore bottom-nav visibility when the user presses back into a tab.
+     */
+    private boolean isTabDestination(int destinationId) {
+        return destinationId == R.id.nav_history
+                || destinationId == R.id.nav_saved
+                || destinationId == R.id.nav_inbox
+                || destinationId == R.id.organizerToolsFragment
+                || destinationId == R.id.organizerLogsFragment
+                || destinationId == R.id.adminLogsFragment;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

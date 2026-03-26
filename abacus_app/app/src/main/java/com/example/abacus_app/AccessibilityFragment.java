@@ -47,6 +47,21 @@ public class AccessibilityFragment extends Fragment {
         view.<android.widget.ImageButton>findViewById(R.id.btnBack).setOnClickListener(v ->
                 Navigation.findNavController(view).navigateUp());
 
+        // ── Quick toggles (colorBlindMode + largeText boolean keys) ──
+        android.content.SharedPreferences quickPrefs =
+                requireContext().getSharedPreferences("accessibility_prefs",
+                        android.content.Context.MODE_PRIVATE);
+
+        SwitchMaterial switchColorBlind = view.findViewById(R.id.switchColorBlind);
+        switchColorBlind.setChecked(quickPrefs.getBoolean("colorBlindMode", false));
+        switchColorBlind.setOnCheckedChangeListener((btn, isChecked) ->
+                quickPrefs.edit().putBoolean("colorBlindMode", isChecked).apply());
+
+        SwitchMaterial switchLargeText = view.findViewById(R.id.switchLargeText);
+        switchLargeText.setChecked(quickPrefs.getBoolean("largeText", false));
+        switchLargeText.setOnCheckedChangeListener((btn, isChecked) ->
+                quickPrefs.edit().putBoolean("largeText", isChecked).apply());
+
         // ── Color-blind type — manual single selection ──
         RadioButton rbNone    = view.findViewById(R.id.rbColorBlindNone);
         RadioButton rbProtan  = view.findViewById(R.id.rbProtanopia);

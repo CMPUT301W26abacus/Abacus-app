@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
 
@@ -5,6 +7,14 @@ plugins {
     id("com.google.gms.google-services")
 
 }
+
+// Load local.properties for API keys
+val mapsApiKey: String by lazy {
+    val props = Properties()
+    rootProject.file("local.properties").inputStream().use { stream -> props.load(stream) }
+    props.getProperty("MAPS_API_KEY") ?: ""
+}
+
 
 android {
     namespace = "com.example.abacus_app"
@@ -18,11 +28,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Load local.properties for API keys
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -67,6 +79,10 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-messaging")
+
+    // Google Maps
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")

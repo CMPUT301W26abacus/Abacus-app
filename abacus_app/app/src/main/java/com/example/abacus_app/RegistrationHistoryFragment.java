@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import com.google.android.material.chip.ChipGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -83,6 +84,7 @@ public class RegistrationHistoryFragment extends Fragment {
         setupSwipeRefresh();
         setupTabs(root);
         setupDateFilter(root);
+        setupChipFilter(root);
 
         return root;
     }
@@ -156,7 +158,7 @@ public class RegistrationHistoryFragment extends Fragment {
     }
 
     private void setupDateFilter(View root) {
-        ImageButton btnDateFilter = root.findViewById(R.id.btn_date_filter);
+        ImageButton btnDateFilter = root.findViewById(R.id.btnDateFilter);
         btnDateFilter.setOnClickListener(v -> {
             MaterialDatePicker<Pair<Long, Long>> picker =
                     MaterialDatePicker.Builder.dateRangePicker()
@@ -188,6 +190,25 @@ public class RegistrationHistoryFragment extends Fragment {
                 tvDateRangeLabel.setVisibility(View.GONE);
                 btnDateFilter.clearColorFilter();
             });
+        });
+    }
+
+    private void setupChipFilter(View root) {
+        ChipGroup cgStatusFilter = root.findViewById(R.id.cgStatusFilter);
+        if (cgStatusFilter == null) return;
+        cgStatusFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) {
+                activeTabGroup = "all";
+            } else {
+                int id = checkedIds.get(0);
+                if      (id == R.id.chipWaitlist)  activeTabGroup = "waitlisted";
+                else if (id == R.id.chipSelected)   activeTabGroup = "selected";
+                else if (id == R.id.chipEnrolled)   activeTabGroup = "enrolled";
+                else if (id == R.id.chipDeclined)   activeTabGroup = "closed";
+                else if (id == R.id.chipCancelled)  activeTabGroup = "closed";
+                else                                activeTabGroup = "all";
+            }
+            applyCurrentFilter();
         });
     }
 

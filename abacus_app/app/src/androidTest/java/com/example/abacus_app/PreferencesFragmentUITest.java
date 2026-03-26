@@ -41,7 +41,7 @@ public class PreferencesFragmentUITest {
                 PreferencesFragment.class,
                 null,
                 R.style.Theme_Abacusapp,
-                null);
+                (androidx.fragment.app.FragmentFactory) null);
     }
 
     @After

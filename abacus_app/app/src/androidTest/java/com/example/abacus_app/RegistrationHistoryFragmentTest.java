@@ -51,7 +51,7 @@ public class RegistrationHistoryFragmentTest {
                 RegistrationHistoryFragment.class,
                 /*fragmentArgs=*/ null,
                 R.style.Theme_Abacusapp,
-                /*factory=*/ null);
+                (androidx.fragment.app.FragmentFactory) null);
     }
 
     @After
