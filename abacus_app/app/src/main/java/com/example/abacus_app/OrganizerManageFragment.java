@@ -77,8 +77,7 @@ public class OrganizerManageFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if (currentMode == Mode.WAITLIST && selectedEventId != null) {
-                    Log.d("mytagOrgManageFrag", "onClick: " + "draw replacement was click: NOT disabled");
-                    Log.d("mytagOrgManageFrag", "isEnabled?: " + btnDrawReplacement.isEnabled());
+                    viewModel.drawReplacement(selectedEventId);
                 }
             }
         });
