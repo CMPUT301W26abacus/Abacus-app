@@ -4,4 +4,9 @@
     <color name="white">#000000</color>
     <color name="grey">#636365</color>
     <color name="light_grey">#161617</color>
+
+    <!-- Dark Mode Overrides for Notifications -->
+    <color name="surface_tint">#2C2C2E</color>
+    <color name="claude_clay">#E67E4D</color>
+    <color name="card_stroke">#333333</color>
 </resources>
