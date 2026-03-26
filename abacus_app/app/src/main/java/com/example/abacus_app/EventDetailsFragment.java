@@ -29,13 +29,8 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
@@ -48,7 +43,7 @@ public class EventDetailsFragment extends Fragment {
      * join flow (or guest sign-up) as soon as the user ID is resolved.
      * Set by EventAdapter when the user taps the Join button on a home card.
      */
-    public static final String ARG_AUTO_JOIN   = "autoJoin";
+    public static final String ARG_AUTO_JOIN = "autoJoin";
 
     private String currentEventId = null;
     private String currentUserId  = null;
@@ -56,10 +51,12 @@ public class EventDetailsFragment extends Fragment {
     private boolean isGuest       = false;
     private boolean autoJoin      = false;
 
-    private FirebaseFirestore db;
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
     private TextView tvWaitlistCount;
+
+    private EventRepository eventRepository;
+    private RegistrationRepository registrationRepository;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -77,6 +74,9 @@ public class EventDetailsFragment extends Fragment {
 
         isGuest  = requireActivity().getIntent().getBooleanExtra("isGuest", false);
         autoJoin = getArguments() != null && getArguments().getBoolean(ARG_AUTO_JOIN, false);
+
+        eventRepository        = new EventRepository();
+        registrationRepository = new RegistrationRepository();
 
         // ── Back ───────────────────────────────────────────────────────────────
         ImageButton btnBack = view.findViewById(R.id.btn_back);
@@ -118,7 +118,6 @@ public class EventDetailsFragment extends Fragment {
         if (currentEventId != null) loadEventDetails();
 
         // ── Waitlist setup ─────────────────────────────────────────────────────
-        db               = FirebaseFirestore.getInstance();
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
@@ -152,36 +151,30 @@ public class EventDetailsFragment extends Fragment {
         }
 
         String guestKey = GuestSignUpFragment.emailToKey(savedEmail);
-        String docId    = guestKey + "_" + currentEventId;
 
-        db.collection("registrations").document(docId).get()
-                .addOnSuccessListener(snapshot -> {
-                    if (snapshot.exists()) {
-                        showLeaveButton();
-                        btnLeaveWaitlist.setEnabled(true);
-                        btnLeaveWaitlist.setOnClickListener(v ->
-                                showGuestLeaveConfirmationDialog(savedEmail));
-                    } else {
-                        showJoinButton();
-                        btnJoinWaitlist.setEnabled(true);
-                        btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
-                        // Auto-join: go straight to guest sign-up form
-                        if (autoJoin) openGuestSignUp(view);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    showJoinButton();
-                    btnJoinWaitlist.setEnabled(true);
-                    btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
-                });
+        registrationRepository.isOnWaitlist(guestKey, currentEventId, isOn -> {
+            if (isOn) {
+                showLeaveButton();
+                btnLeaveWaitlist.setEnabled(true);
+                btnLeaveWaitlist.setOnClickListener(v ->
+                        showGuestLeaveConfirmationDialog(savedEmail));
+            } else {
+                showJoinButton();
+                btnJoinWaitlist.setEnabled(true);
+                btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
+                // Auto-join: go straight to guest sign-up form
+                if (autoJoin) openGuestSignUp(view);
+            }
+        });
     }
 
     // ── Authenticated waitlist ────────────────────────────────────────────────
 
     private void setupAuthenticatedWaitlist() {
         UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
-        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
-        UserRepository userRepository         = new UserRepository(localDataSource, remoteDataSource);
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(
+                com.google.firebase.firestore.FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
@@ -195,24 +188,21 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Checks Firestore for the current user's registration status and shows
+     * Checks registration status via RegistrationRepository and shows
      * the correct button. If autoJoin is set and the user is NOT yet on the
      * waitlist, immediately fires joinWaitlist().
      */
     private void checkWaitlistStatus() {
         if (currentEventId == null) return;
-        db.collection("registrations")
-                .document(currentUserId + "_" + currentEventId)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    if (snapshot.exists()) {
-                        showLeaveButton();
-                    } else {
-                        showJoinButton();
-                        // Auto-join: fire immediately, no extra tap needed
-                        if (autoJoin) joinWaitlist();
-                    }
-                });
+        registrationRepository.isOnWaitlist(currentUserId, currentEventId, isOn -> {
+            if (isOn) {
+                showLeaveButton();
+            } else {
+                showJoinButton();
+                // Auto-join: fire immediately, no extra tap needed
+                if (autoJoin) joinWaitlist();
+            }
+        });
     }
 
     // ── Guest routing ─────────────────────────────────────────────────────────
@@ -235,129 +225,110 @@ public class EventDetailsFragment extends Fragment {
 
     private void leaveGuestWaitlist(@NonNull String guestEmail) {
         if (currentEventId == null) return;
-
         String guestKey = GuestSignUpFragment.emailToKey(guestEmail);
-        String docId    = guestKey + "_" + currentEventId;
-
-        DocumentReference regRef      = db.collection("registrations").document(docId);
-        DocumentReference eventRef    = db.collection("events").document(currentEventId);
-        DocumentReference waitlistRef = db.collection("events")
-                .document(currentEventId).collection("waitlist").document(guestKey);
-
-        regRef.delete()
-                .addOnSuccessListener(unused ->
-                        waitlistRef.delete()
-                                .addOnSuccessListener(unused2 -> {
-                                    eventRef.update("waitlistCount", FieldValue.increment(-1));
-                                    Toast.makeText(requireContext(),
-                                            "You have left the waiting list.",
-                                            Toast.LENGTH_SHORT).show();
-                                    View root = getView();
-                                    if (root != null) {
-                                        showJoinButton();
-                                        btnJoinWaitlist.setOnClickListener(
-                                                v -> openGuestSignUp(root));
-                                    }
-                                    loadWaitlistCount();
-                                })
-                                .addOnFailureListener(e ->
-                                        Toast.makeText(requireContext(),
-                                                "Something went wrong. Please try again.",
-                                                Toast.LENGTH_SHORT).show()))
-                .addOnFailureListener(e ->
-                        Toast.makeText(requireContext(),
-                                "Something went wrong. Please try again.",
-                                Toast.LENGTH_SHORT).show());
+        registrationRepository.leaveWaitlist(guestKey, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+            View root = getView();
+            if (root != null) {
+                showJoinButton();
+                btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(root));
+            }
+            loadWaitlistCount();
+        });
     }
 
-    // ── Firestore: event details ──────────────────────────────────────────────
+    // ── Event details ─────────────────────────────────────────────────────────
 
     private void loadEventDetails() {
-        FirebaseFirestore.getInstance()
-                .collection("events")
-                .document(currentEventId)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    if (!snapshot.exists()) return;
-                    Event event = snapshot.toObject(Event.class);
-                    if (event == null) return;
+        eventRepository.getEventByIdAsync(currentEventId, event -> {
+            if (event == null || getView() == null) return;
 
-                    ImageView ivPoster = getView() != null
-                            ? getView().findViewById(R.id.iv_event_poster) : null;
-                    if (ivPoster != null) {
-                        String posterUrl = event.getPosterImageUrl();
-                        if (posterUrl != null && !posterUrl.isEmpty()) {
-                            Glide.with(this).load(posterUrl)
-                                    .placeholder(R.drawable.ic_event_poster)
-                                    .error(R.drawable.ic_event_poster)
-                                    .centerCrop().into(ivPoster);
-                        } else {
-                            ivPoster.setImageResource(R.drawable.ic_event_poster);
-                        }
-                    }
+            ImageView ivPoster = getView().findViewById(R.id.iv_event_poster);
+            if (ivPoster != null) {
+                String posterUrl = event.getPosterImageUrl();
+                if (posterUrl != null && !posterUrl.isEmpty()) {
+                    Glide.with(this).load(posterUrl)
+                            .placeholder(R.drawable.ic_event_poster)
+                            .error(R.drawable.ic_event_poster)
+                            .centerCrop().into(ivPoster);
+                } else {
+                    ivPoster.setImageResource(R.drawable.ic_event_poster);
+                }
+            }
 
-                    TextView tvDescription = getView() != null
-                            ? getView().findViewById(R.id.tv_description) : null;
-                    if (tvDescription != null && event.getDescription() != null)
-                        tvDescription.setText(event.getDescription());
+            TextView tvDescription = getView().findViewById(R.id.tv_description);
+            if (tvDescription != null && event.getDescription() != null)
+                tvDescription.setText(event.getDescription());
 
-                    TextView tvDateTime = getView() != null
-                            ? getView().findViewById(R.id.tv_date_time) : null;
-                    if (tvDateTime != null && event.getRegistrationStart() != null) {
-                        SimpleDateFormat sdf =
-                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-                        String start = sdf.format(event.getRegistrationStart().toDate());
-                        tvDateTime.setText(event.getRegistrationEnd() != null
-                                ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
-                                : start);
-                    }
+            TextView tvDateTime = getView().findViewById(R.id.tv_date_time);
+            if (tvDateTime != null && event.getRegistrationStart() != null) {
+                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+                String start = sdf.format(event.getRegistrationStart().toDate());
+                tvDateTime.setText(event.getRegistrationEnd() != null
+                        ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
+                        : start);
+            }
 
-                    if (tvWaitlistCount != null) {
-                        Integer capacity = event.getWaitlistCapacity();
-                        tvWaitlistCount.setText(capacity == null
-                                ? "Unlimited spots" : "Capacity: " + capacity);
-                    }
+            if (tvWaitlistCount != null) {
+                Integer capacity = event.getWaitlistCapacity();
+                tvWaitlistCount.setText(capacity == null
+                        ? "Unlimited spots" : "Capacity: " + capacity);
+            }
 
-                    String organizerId = event.getOrganizerId();
-                    if (organizerId != null) {
-                        FirebaseFirestore.getInstance()
-                                .collection("users").document(organizerId).get()
-                                .addOnSuccessListener(userSnapshot -> {
-                                    TextView tvOrganizer = getView() != null
-                                            ? getView().findViewById(R.id.tv_organizer) : null;
-                                    if (tvOrganizer != null) {
-                                        String name = userSnapshot.exists()
-                                                ? userSnapshot.getString("name") : null;
-                                        tvOrganizer.setText("Hosted by " +
-                                                (name != null ? name : "Unknown"));
-                                    }
-                                });
-                    }
-                });
+            // Organizer name — direct Firestore read used here intentionally.
+            // UserRepository only exposes getProfile() which fetches the CURRENT
+            // user by their locally stored UUID. There is no getUserById(id) method
+            // to look up an arbitrary user by ID. Until UserRepository is extended
+            // to support that, this lookup stays as a direct Firestore call.
+            String organizerId = event.getOrganizerId();
+            if (organizerId != null) {
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("users").document(organizerId).get()
+                        .addOnSuccessListener(userSnapshot -> {
+                            TextView tvOrganizer = getView() != null
+                                    ? getView().findViewById(R.id.tv_organizer) : null;
+                            if (tvOrganizer != null) {
+                                String name = userSnapshot.exists()
+                                        ? userSnapshot.getString("name") : null;
+                                tvOrganizer.setText("Hosted by " +
+                                        (name != null ? name : "Unknown"));
+                            }
+                        });
+            }
+        });
     }
 
-    // ── Firestore: waitlist count ─────────────────────────────────────────────
+    // ── Waitlist count ────────────────────────────────────────────────────────
 
     private void loadWaitlistCount() {
         if (currentEventId == null) return;
-        db.collection("events").document(currentEventId).get()
-                .addOnSuccessListener(snapshot -> {
-                    if (snapshot.exists() && tvWaitlistCount != null) {
-                        Long count    = snapshot.getLong("waitlistCount");
-                        Long capacity = snapshot.getLong("waitlistCapacity");
-                        if (count == null) count = 0L;
-                        if (capacity == null || capacity == -1) {
-                            tvWaitlistCount.setText(count + " on waiting list");
-                        } else {
-                            long spotsLeft = Math.max(0, capacity - count);
-                            tvWaitlistCount.setText(count + " on waiting list · "
-                                    + spotsLeft + " spots left");
-                        }
-                    }
-                });
+        eventRepository.getEventByIdAsync(currentEventId, event -> {
+            if (tvWaitlistCount == null || event == null) return;
+            int count        = event.getWaitlistCount() != null ? event.getWaitlistCount() : 0;
+            Integer capacity = event.getWaitlistCapacity();
+            //BUG FIX from part3: Disables button and changes text to EVENT FULL when spotsLeft is 0, only when the join button is currently showing (so the user isnt on the waitlist)
+            if (capacity == null) {
+                tvWaitlistCount.setText(count + " on waiting list");
+            } else {
+                long spotsLeft = Math.max(0, capacity - count);
+                tvWaitlistCount.setText(count + " on waiting list · " + spotsLeft + " spots left");
+                if (spotsLeft == 0 && btnJoinWaitlist != null
+                        && btnJoinWaitlist.getVisibility() == View.VISIBLE) {
+                    btnJoinWaitlist.setEnabled(false);
+                    btnJoinWaitlist.setText("Event Full");
+                }
+            }
+        });
     }
 
-    // ── Firestore: join / leave (authenticated) ───────────────────────────────
+    // ── Join / leave (authenticated) ──────────────────────────────────────────
 
     private void joinWaitlist() {
         if (currentUserId == null || currentEventId == null) {
@@ -366,12 +337,9 @@ public class EventDetailsFragment extends Fragment {
             return;
         }
 
-        DocumentReference registrationRef = db.collection("registrations")
-                .document(currentUserId + "_" + currentEventId);
-        DocumentReference eventRef = db.collection("events").document(currentEventId);
-
-        registrationRef.get().addOnSuccessListener(snapshot -> {
-            if (snapshot.exists()) {
+        // Check if already on waitlist, then check capacity before joining
+        registrationRepository.isOnWaitlist(currentUserId, currentEventId, isOn -> {
+            if (isOn) {
                 Toast.makeText(requireContext(),
                         "You are already on the waiting list for this event.",
                         Toast.LENGTH_LONG).show();
@@ -379,61 +347,32 @@ public class EventDetailsFragment extends Fragment {
                 return;
             }
 
-            eventRef.get().addOnSuccessListener(eventSnapshot -> {
-                Long count    = eventSnapshot.getLong("waitlistCount");
-                Long capacity = eventSnapshot.getLong("waitlistCapacity");
-                if (count == null) count = 0L;
-                if (capacity != null && capacity != -1 && count >= capacity) {
-                    Toast.makeText(requireContext(),
-                            "This waiting list is full.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                Map<String, Object> registration = new HashMap<>();
-                registration.put("userId",    currentUserId);
-                registration.put("eventId",   currentEventId);
-                registration.put("status",    "waitlisted");
-                registration.put("timestamp", System.currentTimeMillis());
-
-                registrationRef.set(registration).addOnSuccessListener(unused -> {
-                    DocumentReference waitlistRef = db.collection("events")
-                            .document(currentEventId)
-                            .collection("waitlist").document(currentUserId);
-
-                    Map<String, Object> waitlistEntry = new HashMap<>();
-                    waitlistEntry.put("userID",        currentUserId);
-                    waitlistEntry.put("eventID",       currentEventId);
-                    waitlistEntry.put("status",        "waitlisted");
-                    waitlistEntry.put("joinTime",      com.google.firebase.Timestamp.now());
-                    waitlistEntry.put("lotteryNumber", 0);
-
-                    waitlistRef.set(waitlistEntry)
-                            .addOnSuccessListener(unused2 -> {
-                                eventRef.update("waitlistCount", FieldValue.increment(1));
-                                Toast.makeText(requireContext(),
-                                        "You have joined the waiting list!",
-                                        Toast.LENGTH_SHORT).show();
-                                showLeaveButton();
-                                loadWaitlistCount();
-                            })
-                            .addOnFailureListener(e ->
-                                    Toast.makeText(requireContext(),
-                                            "Something went wrong. Please try again.",
-                                            Toast.LENGTH_SHORT).show());
-                }).addOnFailureListener(e ->
+            registrationRepository.getWaitListSize(currentEventId, count -> {
+                if (count == null) count = 0;
+                final int finalCount = count;
+                eventRepository.getEventByIdAsync(currentEventId, event -> {
+                    Integer capacity = event != null ? event.getWaitlistCapacity() : null;
+                    if (capacity != null && finalCount >= capacity) {
                         Toast.makeText(requireContext(),
-                                "Something went wrong. Please try again.",
-                                Toast.LENGTH_SHORT).show());
+                                "This waiting list is full.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
 
-            }).addOnFailureListener(e ->
-                    Toast.makeText(requireContext(),
-                            "Something went wrong. Please try again.",
-                            Toast.LENGTH_SHORT).show());
-
-        }).addOnFailureListener(e ->
-                Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show());
+                    registrationRepository.joinWaitlist(currentUserId, currentEventId, error -> {
+                        if (error != null) {
+                            Toast.makeText(requireContext(),
+                                    "Something went wrong. Please try again.",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        Toast.makeText(requireContext(),
+                                "You have joined the waiting list!", Toast.LENGTH_SHORT).show();
+                        showLeaveButton();
+                        loadWaitlistCount();
+                    });
+                });
+            });
+        });
     }
 
     private void showLeaveConfirmationDialog() {
@@ -452,31 +391,18 @@ public class EventDetailsFragment extends Fragment {
             return;
         }
 
-        DocumentReference registrationRef = db.collection("registrations")
-                .document(currentUserId + "_" + currentEventId);
-        DocumentReference eventRef = db.collection("events").document(currentEventId);
-        DocumentReference waitlistRef = db.collection("events")
-                .document(currentEventId).collection("waitlist").document(currentUserId);
-
-        registrationRef.delete()
-                .addOnSuccessListener(unused ->
-                        waitlistRef.delete()
-                                .addOnSuccessListener(unused2 -> {
-                                    eventRef.update("waitlistCount", FieldValue.increment(-1));
-                                    Toast.makeText(requireContext(),
-                                            "You have left the waiting list.",
-                                            Toast.LENGTH_SHORT).show();
-                                    showJoinButton();
-                                    loadWaitlistCount();
-                                })
-                                .addOnFailureListener(e ->
-                                        Toast.makeText(requireContext(),
-                                                "Something went wrong. Please try again.",
-                                                Toast.LENGTH_SHORT).show()))
-                .addOnFailureListener(e ->
-                        Toast.makeText(requireContext(),
-                                "Something went wrong. Please try again.",
-                                Toast.LENGTH_SHORT).show());
+        registrationRepository.leaveWaitlist(currentUserId, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+            showJoinButton();
+            loadWaitlistCount();
+        });
     }
 
     // ── Button visibility ─────────────────────────────────────────────────────
