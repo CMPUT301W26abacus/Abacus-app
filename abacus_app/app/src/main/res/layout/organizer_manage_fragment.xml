@@ -51,7 +51,7 @@
                         style="@style/Widget.MaterialComponents.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Add"
+                        android:text="Invite"
                         app:icon="@android:drawable/ic_input_add" />
                 </LinearLayout>
 

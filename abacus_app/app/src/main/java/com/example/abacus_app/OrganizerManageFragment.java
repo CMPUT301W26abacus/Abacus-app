@@ -89,8 +89,9 @@ public class OrganizerManageFragment extends Fragment {
         // Setup search adapter
         searchAdapter = new UserSearchAdapter(searchResultsList, user -> {
             if (selectedEventId != null) {
-                Log.d(TAG, "Adding co-organizer: " + user.getUid() + " to event: " + selectedEventId);
-                viewModel.addCoOrganizer(selectedEventId, user);
+                Log.d(TAG, "Inviting co-organizer: " + user.getUid() + " to event: " + selectedEventId);
+                viewModel.sendCoOrganizerInvite(selectedEventId, tvEventName.getText().toString(), user);
+                Toast.makeText(getContext(), "Invitation sent to " + user.getName(), Toast.LENGTH_SHORT).show();
                 etSearchEntrant.setText("");
                 layoutSearchCoOrganizer.setVisibility(View.GONE);
                 rvSearchResults.setVisibility(View.GONE);

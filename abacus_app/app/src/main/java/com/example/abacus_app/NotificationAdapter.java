@@ -8,6 +8,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.button.MaterialButton;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -21,7 +24,17 @@ import java.util.Locale;
  */
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.NotificationViewHolder> {
 
+    public interface OnNotificationActionListener {
+        void onAccept(Notification notification);
+        void onDecline(Notification notification);
+    }
+
     private List<Notification> notifications = new ArrayList<>();
+    private OnNotificationActionListener actionListener;
+
+    public void setOnNotificationActionListener(OnNotificationActionListener listener) {
+        this.actionListener = listener;
+    }
 
     /**
      * Updates the data set of the adapter and refreshes the UI.
@@ -49,13 +62,23 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         String dateString = sdf.format(new Date(notification.getTimestamp()));
         holder.timestampTextView.setText(dateString);
 
+        if ("CO_ORGANIZER_INVITE".equals(notification.getType())) {
+            holder.layoutActions.setVisibility(View.VISIBLE);
+            holder.btnAccept.setOnClickListener(v -> {
+                if (actionListener != null) actionListener.onAccept(notification);
+            });
+            holder.btnDecline.setOnClickListener(v -> {
+                if (actionListener != null) actionListener.onDecline(notification);
+            });
+        } else {
+            holder.layoutActions.setVisibility(View.GONE);
+        }
+
         holder.itemView.setOnClickListener(v -> {
             String eventId = notification.getEventId();
             if (eventId != null && !eventId.isEmpty()) {
                 Bundle args = new Bundle();
                 args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-                // We don't have the event title in the notification, 
-                // but EventDetailsFragment will load it from Firestore using the ID.
                 Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
             }
         });
@@ -73,6 +96,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView;
         TextView timestampTextView;
+        View layoutActions;
+        MaterialButton btnAccept, btnDecline;
 
         /**
          * Constructs a ViewHolder and initializes its view references.
@@ -83,6 +108,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);
             timestampTextView = itemView.findViewById(R.id.notificationTimestamp);
+            layoutActions = itemView.findViewById(R.id.layout_notification_actions);
+            btnAccept = itemView.findViewById(R.id.btn_accept_notification);
+            btnDecline = itemView.findViewById(R.id.btn_decline_notification);
         }
     }
 }

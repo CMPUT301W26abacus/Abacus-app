@@ -5,16 +5,18 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,9 +35,11 @@ public class MainInboxFragment extends Fragment {
     private FirebaseFirestore db;
     private String currentUserId;
     private String currentUserEmail;
+    private ManageEventViewModel manageEventViewModel;
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
     private final Map<String, Notification> allNotifications = new HashMap<>();
+    private final Map<String, String> notificationDocIds = new HashMap<>();
 
     @Nullable
     @Override
@@ -45,10 +49,14 @@ public class MainInboxFragment extends Fragment {
         View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
 
         db = FirebaseFirestore.getInstance();
+        manageEventViewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
+        
         RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new NotificationAdapter();
         recyclerView.setAdapter(adapter);
+
+        setupNotificationActions();
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         currentUserId = local.getUUIDSync();
@@ -66,6 +74,65 @@ public class MainInboxFragment extends Fragment {
         return view;
     }
 
+    private void setupNotificationActions() {
+        adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
+            @Override
+            public void onAccept(Notification notification) {
+                String docId = notificationDocIds.get("MSG_" + notification.getTimestamp()); // Use timestamp as proxy or store docId
+                // Better: we need the actual doc ID from Firestore to delete/update it.
+                // Let's find the correct MSG_ key.
+                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+                    if (entry.getValue().equals(notification)) {
+                        String key = entry.getKey();
+                        if (key.startsWith("MSG_")) {
+                            String actualDocId = key.substring(4);
+                            acceptInvite(notification, actualDocId);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onDecline(Notification notification) {
+                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+                    if (entry.getValue().equals(notification)) {
+                        String key = entry.getKey();
+                        if (key.startsWith("MSG_")) {
+                            String actualDocId = key.substring(4);
+                            declineInvite(actualDocId);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private void acceptInvite(Notification n, String docId) {
+        if (n.getEventId() == null) return;
+        
+        // Use the ViewModel method we created earlier to handle the logic
+        manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
+        
+        // Remove notification from Firestore
+        db.collection("notifications").document(docId).delete()
+                .addOnSuccessListener(aVoid -> {
+                    allNotifications.remove("MSG_" + docId);
+                    updateUI();
+                    Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void declineInvite(String docId) {
+        db.collection("notifications").document(docId).delete()
+                .addOnSuccessListener(aVoid -> {
+                    allNotifications.remove("MSG_" + docId);
+                    updateUI();
+                    Toast.makeText(getContext(), "Invitation declined", Toast.LENGTH_SHORT).show();
+                });
+    }
+
     private void startListening() {
         // 1. Listen to Registration Status Changes (Lottery Results)
         db.collection("registrations")
@@ -75,7 +142,7 @@ public class MainInboxFragment extends Fragment {
                     processRegistrations(value.getDocuments());
                 });
 
-        // 2. Listen to Custom Messages (Organizer Announcements)
+        // 2. Listen to Custom Messages (Organizer Announcements + Invites)
         if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
             db.collection("notifications")
                     .whereEqualTo("userEmail", currentUserEmail)

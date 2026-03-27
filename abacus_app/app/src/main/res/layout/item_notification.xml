@@ -16,46 +16,78 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/notificationIcon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_notifications"
-            android:padding="8dp"
-            android:background="@drawable/bg_notification_card"
-            android:backgroundTint="@color/surface_tint"
-            app:tint="@color/claude_clay"
-            android:contentDescription="Notification Icon" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginStart="16dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/notificationMessage"
-                android:layout_width="match_parent"
+            <ImageView
+                android:id="@+id/notificationIcon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_notifications"
+                android:padding="8dp"
+                android:background="@drawable/bg_notification_card"
+                android:backgroundTint="@color/surface_tint"
+                app:tint="@color/claude_clay"
+                android:contentDescription="Notification Icon" />
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textColor="@color/black"
-                android:lineSpacingExtra="2dp"
-                tools:text="Congratulations! You have been selected for the event."/>
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp">
 
-            <TextView
-                android:id="@+id/notificationTimestamp"
+                <TextView
+                    android:id="@+id/notificationMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textColor="@color/black"
+                    android:lineSpacingExtra="2dp"
+                    tools:text="Congratulations! You have been selected for the event."/>
+
+                <TextView
+                    android:id="@+id/notificationTimestamp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="12sp"
+                    android:textColor="@color/grey"
+                    tools:text="Oct 24, 2023 14:30"/>
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_notification_actions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end"
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_decline_notification"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:textSize="12sp"
-                android:textColor="@color/grey"
-                tools:text="Oct 24, 2023 14:30"/>
+                android:text="Decline"
+                android:textColor="@color/grey" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_accept_notification"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Accept"
+                android:textColor="@color/orange" />
         </LinearLayout>
 
     </LinearLayout>

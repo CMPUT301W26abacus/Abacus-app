@@ -150,14 +150,35 @@ public class ManageEventViewModel extends ViewModel {
                 });
     }
 
-    public void addCoOrganizer(String eventId, User user) {
+    public void sendCoOrganizerInvite(String eventId, String eventTitle, User user) {
         if (eventId == null || user == null) return;
 
+        Notification notification = new Notification(
+                user.getUid(),
+                user.getEmail(),
+                eventId,
+                "You have been invited to be a co-organizer for the event: " + eventTitle,
+                "CO_ORGANIZER_INVITE"
+        );
+        
+        db.collection("notifications")
+                .add(notification)
+                .addOnSuccessListener(documentReference -> {
+                    searchResults.setValue(new ArrayList<>());
+                })
+                .addOnFailureListener(e -> {
+                    error.setValue("Failed to send invite: " + e.getMessage());
+                });
+    }
+
+    public void addCoOrganizer(String eventId, String userId) {
+        if (eventId == null || userId == null) return;
+
         db.collection("events").document(eventId)
-                .update("coOrganizers", FieldValue.arrayUnion(user.getUid()))
+                .update("coOrganizers", FieldValue.arrayUnion(userId))
                 .addOnSuccessListener(aVoid -> {
                     // Remove from waitlist if exists
-                    registrationRepository.leaveWaitlist(user.getUid(), eventId, e -> {
+                    registrationRepository.leaveWaitlist(userId, eventId, e -> {
                         if (e != null) {
                             Log.d(TAG, "User was not on waitlist or error removing: " + e.getMessage());
                         }
@@ -165,7 +186,6 @@ public class ManageEventViewModel extends ViewModel {
                         loadCoOrganizers(eventId);
                         loadWaitlist(eventId);
                     });
-                    searchResults.setValue(new ArrayList<>()); // Clear search results after adding
                 })
                 .addOnFailureListener(e -> {
                     error.setValue("Failed to add co-organizer: " + e.getMessage());
