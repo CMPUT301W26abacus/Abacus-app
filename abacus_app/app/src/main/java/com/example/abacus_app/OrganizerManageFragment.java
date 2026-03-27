@@ -66,7 +66,7 @@ public class OrganizerManageFragment extends Fragment {
                 showEventList();
             } else {
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showHome();
+                    ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
                 }
             }
         });

@@ -55,6 +55,11 @@
         android:label="Manage Event" />
 
     <fragment
+        android:id="@+id/organizerToolsFragment"
+        android:name="com.example.abacus_app.OrganizerToolsFragment"
+        android:label="Tools" />
+
+    <fragment
         android:id="@+id/organizerLogsFragment"
         android:name="com.example.abacus_app.OrganizerLogsFragment"
         android:label="Logs" />

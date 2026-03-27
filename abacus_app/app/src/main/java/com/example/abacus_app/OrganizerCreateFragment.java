@@ -52,7 +52,6 @@ public class OrganizerCreateFragment extends Fragment {
 
     private final ActivityResultLauncher<Intent> imagePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                // Fixed Activity.RESULT_OK syntax
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     selectedImageUri = result.getData().getData();
                     ivPosterPreview.setImageURI(selectedImageUri);
@@ -84,7 +83,8 @@ public class OrganizerCreateFragment extends Fragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
-                ((MainActivity) getActivity()).showHome();
+                // Reverted to Tools page
+                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
             }
         });
 
@@ -189,7 +189,7 @@ public class OrganizerCreateFragment extends Fragment {
         String capStr = etEventCapacity.getText().toString().trim();
 
         if (title.isEmpty() || startTimestamp == null || endTimestamp == null || capStr.isEmpty()) {
-            Toast.makeText(getContext(), "Please fill all mandatory fields (*)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Please fill all mandatory fields", Toast.LENGTH_SHORT).show();
             return;
         }
 

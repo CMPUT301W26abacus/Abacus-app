@@ -199,11 +199,8 @@ public class MainActivity extends AppCompatActivity {
                 if (id == R.id.nav_home) {
                     showHome();
                     return true;
-                } else if (id == R.id.nav_create) {
-                    showFragment(R.id.organizerCreateFragment, true);
-                    return true;
-                } else if (id == R.id.nav_manage) {
-                    showFragment(R.id.organizerManageFragment, true);
+                } else if (id == R.id.nav_tools) {
+                    showFragment(R.id.organizerToolsFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
                     if ("admin".equals(userRole)) {

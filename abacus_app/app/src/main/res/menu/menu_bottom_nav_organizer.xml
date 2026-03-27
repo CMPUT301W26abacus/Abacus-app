@@ -7,19 +7,14 @@
         android:title="Home" />
 
     <item
-        android:id="@+id/nav_create"
-        android:icon="@drawable/ic_create"
-        android:title="Create" />
-
-    <item
-        android:id="@+id/nav_manage"
+        android:id="@+id/nav_tools"
         android:icon="@drawable/ic_tool"
-        android:title="Manage" />
+        android:title="Tools" />
 
     <item
         android:id="@+id/nav_logs"
-        android:icon="@android:drawable/ic_menu_search"
-        android:title="Browse" />
+        android:icon="@drawable/ic_history"
+        android:title="Logs" />
 
     <item
         android:id="@+id/nav_notifications"
