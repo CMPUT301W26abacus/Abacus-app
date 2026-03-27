@@ -143,15 +143,14 @@ public class OrganizerManageFragment extends Fragment {
                 long countInvitedAccepted = entries.stream()
                         .filter(entry -> (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED) || entry.getStatus().equals(WaitlistEntry.STATUS_ACCEPTED)))
                         .count();
-                Log.d("mytagOrgManageFrag", "countInvitedAccepted: " + countInvitedAccepted);
-                Log.d("mytagOrgManageFrag", "eventCap: " + selectedEvent.getEventCapacity());
-                Log.d("mytagOrgManageFrag", "waitListSize: " + selectedEventWaitlistSize);
-                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
-                    btnDrawReplacement.setEnabled(true);
-                } else {
-                    btnDrawReplacement.setEnabled(false);
+                
+                if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
+                    if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
+                        btnDrawReplacement.setEnabled(true);
+                    } else {
+                        btnDrawReplacement.setEnabled(false);
+                    }
                 }
-                Log.d("mytagOrgManageFrag", "isEnabled?: " + btnDrawReplacement.isEnabled());
             }
         });
 
