@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="280dp"
+    android:layout_height="160dp"
+    android:layout_marginEnd="12dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="0dp">
+
+    <!-- Full-bleed poster image -->
+    <ImageView
+        android:id="@+id/iv_carousel_poster"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_event_poster"
+        android:contentDescription="Event poster" />
+
+    <!-- Dark gradient scrim for text legibility -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/gradient_scrim_bottom" />
+
+    <!-- Event title, bottom-start -->
+    <TextView
+        android:id="@+id/tv_carousel_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="72dp"
+        android:layout_marginBottom="12dp"
+        android:text="Event Title"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <!-- Date chip, bottom-end -->
+    <com.google.android.material.chip.Chip
+        android:id="@+id/chip_carousel_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:text="Jan 1"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:clickable="false"
+        android:focusable="false"
+        app:chipBackgroundColor="#66000000"
+        app:chipMinHeight="24dp" />
+
+</com.google.android.material.card.MaterialCardView>

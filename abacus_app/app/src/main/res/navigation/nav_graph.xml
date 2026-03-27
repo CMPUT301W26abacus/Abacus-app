@@ -83,5 +83,15 @@
         android:label="Join as Guest"
         tools:layout="@layout/fragment_guest_sign_up"/>
 
+    <fragment
+        android:id="@+id/preferencesFragment"
+        android:name="com.example.abacus_app.PreferencesFragment"
+        android:label="Event Preferences" />
+
+    <fragment
+        android:id="@+id/accessibilityFragment"
+        android:name="com.example.abacus_app.AccessibilityFragment"
+        android:label="Accessibility" />
+
 
 </navigation>

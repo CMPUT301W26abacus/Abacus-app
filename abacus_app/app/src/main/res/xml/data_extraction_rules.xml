@@ -5,15 +5,16 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Exclude SharedPreferences with PII or auth tokens from cloud backup (API 31+) -->
+        <exclude domain="sharedpref" path="user_prefs.xml"/>
+        <exclude domain="sharedpref" path="guest_prefs.xml"/>
+        <exclude domain="sharedpref" path="abacus_prefs.xml"/>
+        <exclude domain="sharedpref" path="accessibility_prefs.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <!-- Also exclude from local device-to-device transfers -->
+        <exclude domain="sharedpref" path="user_prefs.xml"/>
+        <exclude domain="sharedpref" path="guest_prefs.xml"/>
+        <exclude domain="sharedpref" path="abacus_prefs.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

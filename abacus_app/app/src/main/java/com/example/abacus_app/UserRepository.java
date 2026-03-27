@@ -72,7 +72,6 @@ public class UserRepository {
                 if (existing == null) {
                     java.util.Map<String, Object> userData = new java.util.HashMap<>();
                     userData.put("deviceId", uuid);
-                    userData.put("uid",      uuid);
                     userData.put("email",    "");
                     userData.put("name",     "New User");
                     userData.put("createdAt", Timestamp.now());
@@ -140,6 +139,21 @@ public class UserRepository {
 
     public void saveProfile(Map<String, Object> profileData, VoidCallback callback) {
         saveProfileAsync(profileData, callback);
+    }
+
+    public void savePreferencesAsync(Map<String, Object> preferences, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                String uuid = getOrCreateUUID();
+                java.util.Map<String, Object> data = new java.util.HashMap<>();
+                data.put("preferences", preferences);
+                remoteDataSource.updateUserSync(uuid, data);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                e.printStackTrace();
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     public void deleteProfileAsync(VoidCallback callback) {

@@ -40,6 +40,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -66,11 +67,12 @@ public class MainActivity extends AppCompatActivity {
 
     private NavController navController;
     private FragmentContainerView navHostFragment;
-    private View homeContent;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout homeContent;
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
-    private String userRole = "entrant";
+    private String userRole        = "entrant";
+    private String bottomNavRole   = null;   // tracks which role the bottom nav was last built for
 
     private String activeKeyword = "";
     private String activeDate    = "";
@@ -78,6 +80,15 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout layoutEmptyState;
 
     private final List<Event> allEvents = new ArrayList<>();
+
+    private RecyclerView carouselRecyclerView;
+    private CarouselEventAdapter carouselAdapter;
+    private TextView tvFeaturedLabel;
+    private TextView tvForYouLabel;
+    private View layoutPreferencesFooter;
+    private TextView tvPreferencesFooter;
+
+    private java.util.Map<String, Object> userPreferences = null;
 
     private EventRepository eventRepository;
     private UserRepository userRepository;
@@ -94,6 +105,14 @@ public class MainActivity extends AppCompatActivity {
     private ListenerRegistration eventsListener;
 
     @Override
+    protected void attachBaseContext(android.content.Context newBase) {
+        AccessibilityHelper helper = new AccessibilityHelper(newBase);
+        android.content.res.Configuration config =
+                AccessibilityHelper.buildConfig(newBase, helper.getTextScale());
+        super.attachBaseContext(newBase.createConfigurationContext(config));
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -103,18 +122,14 @@ public class MainActivity extends AppCompatActivity {
         userRepository = new UserRepository(localDataSource, remoteDataSource);
         userRepository.initializeUserAsync();
 
-        isGuest = getIntent().getBooleanExtra("isGuest", false);
+        isGuest  = getIntent().getBooleanExtra("isGuest", false);
+        String intentRole = getIntent().getStringExtra("userRole");
+        if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        android.util.Log.d("MainActivity", "isGuest from intent: " + isGuest);
-        if (currentUser != null) {
-            android.util.Log.d("MainActivity", "Current user: " + currentUser.getUid() +
-                    " (Anonymous: " + currentUser.isAnonymous() +
-                    ", Email: " + currentUser.getEmail() + ")");
-        } else {
-            android.util.Log.d("MainActivity", "No current user");
-        }
+        android.util.Log.d("MainActivity", "isGuest=" + isGuest
+                + " authenticated=" + (currentUser != null));
 
         if (!isGuest && currentUser == null) {
             goToSplash();
@@ -132,9 +147,28 @@ public class MainActivity extends AppCompatActivity {
         appBar          = findViewById(R.id.app_bar);
         bottomNav       = findViewById(R.id.bottom_nav);
 
+        homeContent.setColorSchemeResources(R.color.black);
+        homeContent.setOnRefreshListener(() -> {
+            allEvents.clear();
+            if (eventsListener != null) eventsListener.remove();
+            loadEventsFromFirestore();
+            userRepository.getProfile(user -> {
+                if (user != null) userPreferences = user.getPreferences();
+                runOnUiThread(() -> homeContent.setRefreshing(false));
+            });
+        });
+
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
         navController = navHost.getNavController();
+
+        // If we recreated the activity to apply text scale, go back to accessibility settings
+        AccessibilityHelper a11yHelper = new AccessibilityHelper(this);
+        if (a11yHelper.shouldReturnToAccessibility()) {
+            a11yHelper.clearReturnToAccessibility();
+            navController.navigate(R.id.mainProfileFragment);
+            navController.navigate(R.id.accessibilityFragment);
+        }
 
         SearchBar searchBar = findViewById(R.id.search_bar);
         setSearchBarTextColor(searchBar);
@@ -149,23 +183,30 @@ public class MainActivity extends AppCompatActivity {
         layoutEmptyState = findViewById(R.id.layout_empty_state);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                showHome();
-                return true;
-            } else if (id == R.id.nav_saved) {
-                showFragment(R.id.nav_saved, true);
-                return true;
-            } else if (id == R.id.nav_history) {
-                showFragment(R.id.nav_history, true);
-                return true;
-            } else if (id == R.id.nav_inbox) {
-                showFragment(R.id.nav_inbox, true);
-                return true;
-            }
-            return false;
+        layoutPreferencesFooter = findViewById(R.id.layoutPreferencesFooter);
+        tvPreferencesFooter     = findViewById(R.id.tvPreferencesFooter);
+        TextView tvChangePreferences = findViewById(R.id.tvChangePreferences);
+        tvChangePreferences.setOnClickListener(v ->
+                showFragment(R.id.preferencesFragment, false));
+
+        // Carousel setup
+        carouselRecyclerView = findViewById(R.id.rv_carousel);
+        tvFeaturedLabel      = findViewById(R.id.tv_featured_label);
+        tvForYouLabel        = findViewById(R.id.tv_for_you_label);
+        carouselRecyclerView.setLayoutManager(
+                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        carouselAdapter = new CarouselEventAdapter(new ArrayList<>(), event -> {
+            Bundle args = new Bundle();
+            args.putString(EventDetailsFragment.ARG_EVENT_TITLE,
+                    event.getTitle() != null ? event.getTitle() : "");
+            args.putString(EventDetailsFragment.ARG_EVENT_ID,
+                    event.getEventId() != null ? event.getEventId() : "");
+            args.putBoolean(EventDetailsFragment.ARG_AUTO_JOIN, false);
+            showFragment(R.id.eventDetailsFragment, false, args);
         });
+        carouselRecyclerView.setAdapter(carouselAdapter);
+
+        setupBottomNav();   // build nav immediately using the role from the Intent
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -173,6 +214,17 @@ public class MainActivity extends AppCompatActivity {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
                     if (!navController.popBackStack()) {
                         showHome();
+                    } else {
+                        // After a successful pop, restore the bottom nav if we've
+                        // landed back on a tab-level destination.
+                        androidx.navigation.NavBackStackEntry current =
+                                navController.getCurrentBackStackEntry();
+                        if (current != null) {
+                            int destId = current.getDestination().getId();
+                            if (isTabDestination(destId)) {
+                                bottomNav.setVisibility(View.VISIBLE);
+                            }
+                        }
                     }
                 } else {
                     finish();
@@ -191,9 +243,12 @@ public class MainActivity extends AppCompatActivity {
             if (user != null) {
                 userRole = (user.getRole() != null && !user.getRole().isEmpty())
                         ? user.getRole() : "entrant";
-                Toast.makeText(this, "Logged in as: " + user.getUid(), Toast.LENGTH_LONG).show();
-                android.util.Log.d("MainActivity", "User Role: " + userRole + " | ID: " + user.getUid());
-                runOnUiThread(this::setupBottomNav);
+                userPreferences = user.getPreferences();
+                android.util.Log.d("MainActivity", "User role resolved: " + userRole);
+                runOnUiThread(() -> {
+                    setupBottomNav();
+                    if (!allEvents.isEmpty()) applyFilters();
+                });
             } else {
                 runOnUiThread(this::setupBottomNav);
             }
@@ -237,6 +292,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupBottomNav() {
+        // Avoid clearing and re-inflating the menu when the role group hasn't changed
+        String roleGroup = ("organizer".equals(userRole) || "admin".equals(userRole))
+                ? "organizer" : "entrant";
+        if (roleGroup.equals(bottomNavRole)) return;
+        bottomNavRole = roleGroup;
         bottomNav.getMenu().clear();
 
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
@@ -362,14 +422,39 @@ public class MainActivity extends AppCompatActivity {
             if (keywordMatch && dateMatch && notExpired) filtered.add(event);
         }
 
+        // ── Update carousel with up to 5 soonest events ───────────────────────
+        List<Event> featuredEvents = new ArrayList<>(filtered);
+        featuredEvents.sort((a, b) -> {
+            if (a.getRegistrationStart() == null) return 1;
+            if (b.getRegistrationStart() == null) return -1;
+            return a.getRegistrationStart().compareTo(b.getRegistrationStart());
+        });
+        if (featuredEvents.size() > 5) featuredEvents = featuredEvents.subList(0, 5);
+        carouselAdapter.setEvents(featuredEvents);
+        boolean showCarousel = !featuredEvents.isEmpty();
+        carouselRecyclerView.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
+        tvFeaturedLabel.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
+
+        // ── Preference-based filter + sort ("For You") ───────────────────────
+        boolean hasPreferences = hasActivePreferences(userPreferences);
+        if (hasPreferences) {
+            filtered = applyPreferenceFilter(filtered, userPreferences);
+            tvForYouLabel.setVisibility(View.VISIBLE);
+            tvForYouLabel.setText("For You");
+        } else {
+            tvForYouLabel.setVisibility(View.VISIBLE);
+            tvForYouLabel.setText("All Events");
+        }
+
         boolean isAdminUser = "admin".equals(userRole);
+        final List<Event> finalFiltered = filtered;
 
         recyclerView.setAdapter(new EventAdapter(
-                filtered,
+                finalFiltered,
                 (eventTitle, autoJoin) -> {
                     // Resolve eventId from filtered list
                     String eventId = "";
-                    for (Event e : filtered) {
+                    for (Event e : finalFiltered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
                             eventId = e.getEventId() != null ? e.getEventId() : "";
                             break;
@@ -387,18 +472,72 @@ public class MainActivity extends AppCompatActivity {
                 isGuest
         ));
 
-        if (filtered.isEmpty()) {
+        if (finalFiltered.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             layoutEmptyState.setVisibility(View.VISIBLE);
+            layoutPreferencesFooter.setVisibility(View.GONE);
             TextView tvEmpty = layoutEmptyState.findViewById(R.id.tv_empty_message);
             if (tvEmpty != null) {
-                boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
-                tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+                if (hasPreferences) {
+                    tvEmpty.setText("No events match your preferences");
+                } else {
+                    boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                    tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
+                }
+            }
+            TextView tvEmptySub = layoutEmptyState.findViewById(R.id.tv_empty_sub);
+            if (tvEmptySub != null) {
+                tvEmptySub.setText(hasPreferences
+                        ? "Try changing your preferences to see more events."
+                        : "Check back later for upcoming events.");
             }
         } else {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmptyState.setVisibility(View.GONE);
+            layoutPreferencesFooter.setVisibility(hasPreferences ? View.VISIBLE : View.GONE);
+            if (hasPreferences && tvPreferencesFooter != null) {
+                tvPreferencesFooter.setText("Showing " + finalFiltered.size()
+                        + " event" + (finalFiltered.size() == 1 ? "" : "s")
+                        + " matching your preferences.");
+            }
         }
+    }
+
+    /** True when the user has at least one category preference saved. */
+    private boolean hasActivePreferences(java.util.Map<String, Object> prefs) {
+        if (prefs == null || prefs.isEmpty()) return false;
+        Object raw = prefs.get("categories");
+        if (!(raw instanceof java.util.List)) return false;
+        return !((java.util.List<?>) raw).isEmpty();
+    }
+
+    /**
+     * Filters events to only those matching at least one preferred category
+     * (checked against title + description). Non-matching events are removed.
+     */
+    private List<Event> applyPreferenceFilter(List<Event> events,
+                                               java.util.Map<String, Object> prefs) {
+        Object categoriesRaw = prefs.get("categories");
+        if (!(categoriesRaw instanceof java.util.List)) return events;
+        @SuppressWarnings("unchecked")
+        java.util.List<String> preferred = (java.util.List<String>) categoriesRaw;
+        if (preferred.isEmpty()) return events;
+
+        List<Event> matching = new ArrayList<>();
+        for (Event e : events) {
+            if (eventMatchesAny(e, preferred)) matching.add(e);
+        }
+        return matching;
+    }
+
+    private boolean eventMatchesAny(Event event, java.util.List<String> keywords) {
+        String title = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
+        String desc  = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
+        for (String kw : keywords) {
+            String lower = kw.toLowerCase();
+            if (title.contains(lower) || desc.contains(lower)) return true;
+        }
+        return false;
     }
 
     // ── onResume: refresh join states when returning from EventDetailsFragment ─
@@ -513,31 +652,93 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
+    private static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
+            .setEnterAnim(R.anim.nav_slide_in_right)
+            .setExitAnim(R.anim.nav_slide_out_left)
+            .setPopEnterAnim(R.anim.nav_slide_in_left)
+            .setPopExitAnim(R.anim.nav_slide_out_right)
+            .build();
+
+    // No animation for bottom nav tab switches — avoids the swipe glitch
+    private static final NavOptions NAV_OPTS_TAB = new NavOptions.Builder()
+            .setEnterAnim(0)
+            .setExitAnim(0)
+            .setPopEnterAnim(0)
+            .setPopExitAnim(0)
+            .build();
+
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         clearBackStack();
-        navHostFragment.setVisibility(View.VISIBLE);
-        homeContent.setVisibility(View.GONE);
-        appBar.setVisibility(View.GONE);
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
-        navController.navigate(destinationId, args);
+        if (navHostFragment.getVisibility() != View.VISIBLE) {
+            // Transitioning from home — cross-fade the containers
+            navHostFragment.setAlpha(0f);
+            navHostFragment.setVisibility(View.VISIBLE);
+            navHostFragment.animate().alpha(1f).setDuration(180).start();
+            homeContent.animate().alpha(0f).setDuration(140)
+                    .withEndAction(() -> {
+                        homeContent.setVisibility(View.GONE);
+                        homeContent.setAlpha(1f);
+                        appBar.setVisibility(View.GONE);
+                    }).start();
+        } else {
+            homeContent.setVisibility(View.GONE);
+            appBar.setVisibility(View.GONE);
+        }
+        // Bottom nav tabs use instant switch; sub-pages use slide animation
+        NavOptions opts = showBottomNav ? NAV_OPTS_TAB : NAV_OPTS_FORWARD;
+        navController.navigate(destinationId, args, opts);
     }
 
     public void showHome() {
         clearBackStack();
-        navHostFragment.setVisibility(View.GONE);
-        homeContent.setVisibility(View.VISIBLE);
-        appBar.setVisibility(View.VISIBLE);
         bottomNav.setVisibility(View.VISIBLE);
+        if (homeContent.getVisibility() != View.VISIBLE) {
+            homeContent.setAlpha(0f);
+            homeContent.setVisibility(View.VISIBLE);
+            appBar.setVisibility(View.VISIBLE);
+            homeContent.animate().alpha(1f).setDuration(180).start();
+            navHostFragment.animate().alpha(0f).setDuration(140)
+                    .withEndAction(() -> {
+                        navHostFragment.setVisibility(View.GONE);
+                        navHostFragment.setAlpha(1f);
+                    }).start();
+        } else {
+            navHostFragment.setVisibility(View.GONE);
+            appBar.setVisibility(View.VISIBLE);
+        }
     }
 
     private void clearBackStack() {
-        while (navController.getCurrentBackStackEntry() != null) {
-            if (!navController.popBackStack()) break;
+        int startId = navController.getGraph().getStartDestinationId();
+        if (navController.getCurrentBackStackEntry() != null) {
+            // Try the fast path first; if the start destination is no longer on the
+            // back stack (e.g. after direct NavController.navigate() calls inside
+            // fragments), fall back to popping everything one by one.
+            boolean cleared = navController.popBackStack(startId, true);
+            if (!cleared) {
+                while (navController.getCurrentBackStackEntry() != null) {
+                    if (!navController.popBackStack()) break;
+                }
+            }
         }
+    }
+
+    /**
+     * Returns true for destinations that should always show the bottom navigation bar.
+     * Used to restore bottom-nav visibility when the user presses back into a tab.
+     */
+    private boolean isTabDestination(int destinationId) {
+        return destinationId == R.id.nav_history
+                || destinationId == R.id.nav_saved
+                || destinationId == R.id.nav_inbox
+                || destinationId == R.id.organizerToolsFragment
+                || destinationId == R.id.organizerLogsFragment
+                || destinationId == R.id.adminLogsFragment;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -565,6 +766,21 @@ public class MainActivity extends AppCompatActivity {
     public NavController getNavController() { return navController; }
 
     public String getUserRole() { return userRole; }
+
+    /**
+     * Called by ProfileFragment when an admin switches their view mode.
+     * Updates the bottom nav and event adapter to reflect the chosen role.
+     * Has no effect for non-admin users (they cannot reach this code path).
+     *
+     * @param role "entrant" | "organizer" | "admin"
+     */
+    public void setEffectiveRole(String role) {
+        userRole = role;
+        runOnUiThread(() -> {
+            setupBottomNav();
+            applyFilters();
+        });
+    }
 
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");

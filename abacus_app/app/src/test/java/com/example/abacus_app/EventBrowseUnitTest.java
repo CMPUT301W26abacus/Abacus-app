@@ -73,11 +73,11 @@ public class EventBrowseUnitTest {
      */
     @Test
     public void testAdapterItemCount() {
-        List<String> titles = new ArrayList<>();
-        titles.add("Event A");
-        titles.add("Event B");
-        titles.add("Event C");
-        EventAdapter adapter = new EventAdapter(titles);
+        List<Event> events = new ArrayList<>();
+        events.add(new Event());
+        events.add(new Event());
+        events.add(new Event());
+        EventAdapter adapter = new EventAdapter(events, null);
         assertEquals(3, adapter.getItemCount());
     }
 
@@ -86,7 +86,7 @@ public class EventBrowseUnitTest {
      */
     @Test
     public void testAdapterEmptyList() {
-        EventAdapter adapter = new EventAdapter(new ArrayList<>());
+        EventAdapter adapter = new EventAdapter(new ArrayList<>(), null);
         assertEquals(0, adapter.getItemCount());
     }
 

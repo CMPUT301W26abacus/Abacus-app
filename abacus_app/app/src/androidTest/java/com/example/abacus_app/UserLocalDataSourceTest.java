@@ -132,4 +132,33 @@ public class UserLocalDataSourceTest {
         verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, "first-uuid");
         verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, "second-uuid");
     }
+
+    // ── clearDeviceId ────────────────────────────────────────────────────────
+
+    /**
+     * clearDeviceId removes the UUID key from SharedPreferences so the next
+     * launch sees a fresh device.
+     */
+    @Test
+    public void clearDeviceId_removesUUIDKey() {
+        when(mockEditor.remove(anyString())).thenReturn(mockEditor);
+
+        dataSource.clearDeviceId();
+
+        verify(mockEditor).remove(UserLocalDataSource.KEY_UUID);
+        verify(mockEditor).apply();
+    }
+
+    /**
+     * After clearing, getUUIDSync returns null — device appears unregistered.
+     */
+    @Test
+    public void clearDeviceId_thenGet_returnsNull() {
+        when(mockEditor.remove(anyString())).thenReturn(mockEditor);
+
+        dataSource.clearDeviceId();
+        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(null);
+
+        assertNull(dataSource.getUUIDSync());
+    }
 }

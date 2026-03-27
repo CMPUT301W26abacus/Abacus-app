@@ -91,7 +91,7 @@ public class AdminViewModel extends ViewModel {
         u.setPhone(safeString(doc, "phone"));
         u.setCreatedAt(safeString(doc, "createdAt"));
         u.setDeleted(safeBoolean(doc, "isDeleted"));
-        u.setLastLoginAt(safeLong(doc, "lastLoginAt"));
+        u.setLastLoginAt(safeString(doc, "lastLoginAt"));
         u.setRole(safeString(doc, "role"));
         u.setNotificationsEnabled(safeBoolean(doc, "notificationsEnabled"));
 
@@ -117,7 +117,8 @@ public class AdminViewModel extends ViewModel {
         if (guestRaw instanceof Boolean) {
             u.setIsGuest((Boolean) guestRaw);
         } else {
-            u.setIsGuest(u.getLastLoginAt() == 0);
+            String lastLogin = u.getLastLoginAt();
+            u.setIsGuest(lastLogin == null || lastLogin.isEmpty());
         }
 
         return u;

@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
@@ -50,6 +51,13 @@ public class AdminLogsFragment extends Fragment {
                 Log.d("AdminLogsFragment", "Profiles LiveData fired, size=" + (users != null ? users.size() : "null")));
         viewModel.getImages().observe(getViewLifecycleOwner(), events ->
                 Log.d("AdminLogsFragment", "Images LiveData fired, size=" + (events != null ? events.size() : "null")));
+
+        SwipeRefreshLayout swipeRefresh = view.findViewById(R.id.admin_logs_swipe_refresh);
+        swipeRefresh.setOnRefreshListener(() -> {
+            viewModel.loadImages();
+            viewModel.loadProfiles();
+            swipeRefresh.setRefreshing(false);
+        });
 
         ViewPager2 viewPager = view.findViewById(R.id.view_pager);
         TabLayout tabLayout  = view.findViewById(R.id.tab_layout);
