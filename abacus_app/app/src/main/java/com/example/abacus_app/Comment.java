@@ -15,7 +15,7 @@ public class Comment {
     /**
      * Default constructor for FireBase.
      */
-    Comment() { }
+    public Comment() { }
     public Comment(String commentId, String userId, String eventId, String content, Long timestamp) {
         this.commentId = commentId;
         this.userId = userId;

@@ -105,7 +105,15 @@ public class EventDetailsFragment extends Fragment {
             args.putString(EventQrFragment.ARG_EVENT_NAME, eventTitle);
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
-
+        // ── Comment Button ─────────────────────────────────────────────────
+        Button btnViewComments = view.findViewById(R.id.btn_view_comments);
+        btnViewComments.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putString(CommentsFragment.ARG_EVENT_ID, currentEventId != null ? currentEventId : "");
+            CommentsFragment commentsFragment = new CommentsFragment();
+            commentsFragment.setArguments(args);
+            commentsFragment.show(getParentFragmentManager(), "comments");
+        });
         // ── Lottery Guidelines ─────────────────────────────────────────────────
         Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
         btnLotteryGuidelines.setOnClickListener(v -> {

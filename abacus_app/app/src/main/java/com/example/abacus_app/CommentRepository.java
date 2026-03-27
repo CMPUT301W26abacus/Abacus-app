@@ -2,6 +2,7 @@ package com.example.abacus_app;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.concurrent.Executor;
@@ -41,7 +42,9 @@ public class CommentRepository {
     public void addComment(String eventId, String userId, String content, VoidCallback callback) {
         executor.submit(() -> {
            try {
+               Log.d("mytagcommentrepo", "addComment: got to comment repo");
                remoteDataSource.addCommentSync(eventId, userId, content);
+               Log.d("mytagcommentrepo", "addComment: finished addcommentSync");
                mainHandler.post(() -> callback.onComplete(null));
            } catch (Exception e) {
                mainHandler.post(() -> callback.onComplete(e));

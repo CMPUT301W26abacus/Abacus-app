@@ -1,6 +1,9 @@
 package com.example.abacus_app;
 
+import android.util.Log;
+
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -8,6 +11,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -27,14 +33,14 @@ public class CommentRemoteDataSource {
      *
      * NOTE: This class should only be utilized from repository classes.
      */
-    CommentRemoteDataSource() {
+    public CommentRemoteDataSource() {
         firestore = FirebaseFirestore.getInstance();
     }
 
-    private CollectionReference getCollectionRef(String eventID) {
+    private CollectionReference getCollectionRef(String eventId) {
         return firestore
                 .collection("events")
-                .document(eventID)
+                .document(eventId)
                 .collection("comments");
     }
 
@@ -59,9 +65,15 @@ public class CommentRemoteDataSource {
      * @throws Exception something went wrong
      */
     public void addCommentSync(String eventId, String userId, String content) throws Exception {
+
         DocumentReference docRef = getCollectionRef(eventId).document();
+        Log.d("mytagcommentRDS", "addCommentSync: " + docRef.getId());
         Comment comment = new Comment(docRef.getId(), userId, eventId, content, System.currentTimeMillis());
+        Log.d("mytagcommentRDS", "addCommentSync: " + comment.getTimestamp());
+        Log.d("mytagcommentRDS", FirebaseAuth.getInstance().getCurrentUser().getUid());
+        Log.d("mytagcommentRDS", "addCommentSync: before set");
         Tasks.await(docRef.set(comment));
+        Log.d("mytagcommentRDS", "addCommentSync: after set");
     }
 
     /**
