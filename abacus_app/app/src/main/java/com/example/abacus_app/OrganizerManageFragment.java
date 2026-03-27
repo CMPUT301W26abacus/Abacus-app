@@ -1,12 +1,15 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,6 +19,9 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +39,14 @@ public class OrganizerManageFragment extends Fragment {
     private TextView tvEventName, tvCount;
     private Button btnDrawLottery;
     private Button btnDrawReplacement;
+
+    // Co-organizer UI
+    private LinearLayout layoutCoOrganizers;
+    private MaterialButton btnAddCoOrganizer;
+    private LinearLayout layoutSearchCoOrganizer;
+    private TextInputEditText etSearchEntrant;
+    private RecyclerView rvSearchResults;
+    private RecyclerView rvCoOrganizers;
 
     private List<WaitlistEntry> entries = new ArrayList<>();
 
@@ -54,7 +68,17 @@ public class OrganizerManageFragment extends Fragment {
         btnDrawLottery = view.findViewById(R.id.btn_draw_lottery);
         btnDrawReplacement = view.findViewById(R.id.btn_draw_replacement);
 
+        // Co-organizer UI binding
+        layoutCoOrganizers = view.findViewById(R.id.layout_co_organizers);
+        btnAddCoOrganizer = view.findViewById(R.id.btn_add_co_organizer);
+        layoutSearchCoOrganizer = view.findViewById(R.id.layout_search_co_organizer);
+        etSearchEntrant = view.findViewById(R.id.et_search_entrant);
+        rvSearchResults = view.findViewById(R.id.rv_search_results);
+        rvCoOrganizers = view.findViewById(R.id.rv_co_organizers);
+
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        rvCoOrganizers.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
+        rvSearchResults.setLayoutManager(new LinearLayoutManager(getContext()));
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
@@ -82,6 +106,34 @@ public class OrganizerManageFragment extends Fragment {
             }
         });
 
+        btnAddCoOrganizer.setOnClickListener(v -> {
+            if (layoutSearchCoOrganizer.getVisibility() == View.GONE) {
+                layoutSearchCoOrganizer.setVisibility(View.VISIBLE);
+            } else {
+                layoutSearchCoOrganizer.setVisibility(View.GONE);
+                rvSearchResults.setVisibility(View.GONE);
+            }
+        });
+
+        etSearchEntrant.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String query = s.toString().trim();
+                if (!query.isEmpty()) {
+                    rvSearchResults.setVisibility(View.VISIBLE);
+                    // Search logic will be implemented here
+                } else {
+                    rvSearchResults.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
         observeViewModel();
         showEventList();
         return view;
@@ -93,6 +145,7 @@ public class OrganizerManageFragment extends Fragment {
         tvCount.setText("");
         btnDrawLottery.setVisibility(View.GONE);
         btnDrawReplacement.setVisibility(View.GONE);
+        layoutCoOrganizers.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
@@ -185,6 +238,8 @@ public class OrganizerManageFragment extends Fragment {
         currentMode = Mode.WAITLIST;
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
+        layoutCoOrganizers.setVisibility(View.VISIBLE);
+        layoutSearchCoOrganizer.setVisibility(View.GONE);
 
         waitlistAdapter = new WaitlistAdapter(entries);
         recyclerView.setAdapter(waitlistAdapter);
