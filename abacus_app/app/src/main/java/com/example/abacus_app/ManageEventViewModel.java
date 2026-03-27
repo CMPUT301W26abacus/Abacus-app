@@ -100,7 +100,14 @@ public class ManageEventViewModel extends ViewModel {
                     Log.d(TAG, error.getMessage());
                 } else {
                     lotteryCompleted.setValue(true);
-                    // trigger notifications
+                    notificationRepository.notifyLotteryResults(eventId, new NotificationRepository.VoidCallback() {
+                        @Override
+                        public void onComplete(Exception error) {
+                            if (error != null) {
+                                Log.d(TAG, "onComplete: error sending notifications");
+                            }
+                        }
+                    });
                 }
             }
         });
@@ -115,7 +122,14 @@ public class ManageEventViewModel extends ViewModel {
         registrationRepository.drawReplacement(eventId, new RegistrationRepository.EntryCallback() {
             @Override
             public void onResult(WaitlistEntry entry) {
-                // trigger notifications
+                notificationRepository.notifyReplacement(eventId, entry.getUserID(), new NotificationRepository.VoidCallback() {
+                    @Override
+                    public void onComplete(Exception error) {
+                        if (error != null) {
+                            Log.d(TAG, "onComplete: error sending notifications");
+                        }
+                    }
+                });
             }
         });
     }

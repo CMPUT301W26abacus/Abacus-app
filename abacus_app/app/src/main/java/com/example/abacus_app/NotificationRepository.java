@@ -1,11 +1,18 @@
 package com.example.abacus_app;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class NotificationRepository {
 
     private final NotificationRemoteDataSource remote;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final android.os.Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public NotificationRepository() {
         remote = new NotificationRemoteDataSource();
@@ -54,5 +61,74 @@ public class NotificationRepository {
      */
     public void listenForNotifications(String userId, NotificationRemoteDataSource.OnNotificationsUpdatedListener listener) {
         remote.listenForNotifications(userId, listener);
+    }
+
+    /**
+     * Sends notifications to winners and losers when the lottery of an event is drawn.
+     *
+     * @param eventId the unique ID of the event in the database
+     */
+    public void notifyLotteryResults(String eventId, VoidCallback callback) {
+        executor.submit(() -> {
+           try {
+               RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
+               EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+
+               ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
+               Event event = eventRDS.getEventById(eventId);
+
+               ArrayList<Notification> notifications = new ArrayList<>();
+               for (WaitlistEntry entry : entries) {
+                   if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                       notifications.add(new Notification(
+                               entry.getUserId(),
+                               eventId,
+                               "Congratulations! You have been invited to " + event.getTitle(),
+                               Notification.TYPE_SELECTED
+                       ));
+                   } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
+                       notifications.add(new Notification(
+                               entry.getUserId(),
+                               eventId,
+                               "The lottery for " + event.getTitle() + " has been draw. Unfortunately you have not been selected at this time.",
+                               Notification.TYPE_NOT_SELECTED
+                       ));
+                   }
+               }
+
+               remote.saveNotificationsBatch(notifications);
+               mainHandler.post(() -> callback.onComplete(null));
+           } catch (Exception e) {
+               mainHandler.post(() -> callback.onComplete(e));
+           }
+        });
+    }
+
+    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+                Event event = eventRDS.getEventById(eventId);
+
+                Notification notification = (new Notification(
+                        userId,
+                        eventId,
+                        "Congratulations! You have been invited to " + event.getTitle(),
+                        Notification.TYPE_SELECTED
+                ));
+
+                remote.saveNotification(notification);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    /**
+     * Callback interface for void methods.
+     */
+    public interface VoidCallback {
+        void onComplete(Exception error);
     }
 }
