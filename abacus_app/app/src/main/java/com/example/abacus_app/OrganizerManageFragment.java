@@ -60,6 +60,7 @@ public class OrganizerManageFragment extends Fragment {
     private String selectedEventId;
     private Event selectedEvent;
     private int selectedEventWaitlistSize;
+    private boolean isDirectAccess = false; // Flag for co-organizer direct access
 
     @Nullable
     @Override
@@ -104,8 +105,17 @@ public class OrganizerManageFragment extends Fragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (currentMode == Mode.WAITLIST) {
-                showEventList();
+                if (isDirectAccess) {
+                    // Co-organizer came directly from home/saved
+                    if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).showFragment(R.id.nav_saved, true);
+                    }
+                } else {
+                    // Primary organizer viewing an event waitlist
+                    showEventList();
+                }
             } else {
+                // Primary organizer at the "My Events" list level
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
                 }
@@ -159,7 +169,18 @@ public class OrganizerManageFragment extends Fragment {
         });
 
         observeViewModel();
-        showEventList();
+
+        // Check if arguments were passed (from co-organizer direct access)
+        if (getArguments() != null && getArguments().containsKey("EVENT_ID")) {
+            isDirectAccess = true;
+            selectedEventId = getArguments().getString("EVENT_ID");
+            String title = getArguments().getString("EVENT_TITLE", "Event");
+            showWaitlist(title, selectedEventId);
+        } else {
+            isDirectAccess = false;
+            showEventList();
+        }
+
         return view;
     }
 

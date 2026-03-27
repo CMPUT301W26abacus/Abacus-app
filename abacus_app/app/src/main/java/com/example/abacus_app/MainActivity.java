@@ -341,6 +341,12 @@ public class MainActivity extends AppCompatActivity {
         Date now = new Date();
 
         for (Event event : allEvents) {
+            // EXCLUDE co-organized events from the browse screen
+            if (resolvedUserKey != null && event.getCoOrganizers() != null 
+                    && event.getCoOrganizers().contains(resolvedUserKey)) {
+                continue;
+            }
+
             String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
@@ -382,6 +388,13 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.eventDetailsFragment, false, args);
                 },
                 isAdminUser ? this::confirmDeleteEvent : null,
+                event -> {
+                    // Handle co-organizer Manage click
+                    Bundle args = new Bundle();
+                    args.putString("EVENT_ID", event.getEventId());
+                    args.putString("EVENT_TITLE", event.getTitle());
+                    showFragment(R.id.organizerManageFragment, false, args);
+                },
                 isAdminUser,
                 resolvedUserKey,   // null until resolved — adapter handles gracefully
                 isGuest
