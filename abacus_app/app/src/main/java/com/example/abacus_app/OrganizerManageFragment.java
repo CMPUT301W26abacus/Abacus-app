@@ -33,6 +33,7 @@ import java.util.List;
  */
 public class OrganizerManageFragment extends Fragment {
 
+    private static final String TAG = "OrganizerManageFragment";
     private ManageEventViewModel viewModel;
     private RecyclerView recyclerView;
     private WaitlistAdapter waitlistAdapter;
@@ -47,8 +48,12 @@ public class OrganizerManageFragment extends Fragment {
     private TextInputEditText etSearchEntrant;
     private RecyclerView rvSearchResults;
     private RecyclerView rvCoOrganizers;
+    private UserSearchAdapter searchAdapter;
+    private CoOrganizerAdapter coOrganizerAdapter;
 
     private List<WaitlistEntry> entries = new ArrayList<>();
+    private List<User> searchResultsList = new ArrayList<>();
+    private List<User> coOrganizersList = new ArrayList<>();
 
     private enum Mode { EVENT_LIST, WAITLIST }
     private Mode currentMode = Mode.EVENT_LIST;
@@ -80,6 +85,22 @@ public class OrganizerManageFragment extends Fragment {
         rvCoOrganizers.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         rvSearchResults.setLayoutManager(new LinearLayoutManager(getContext()));
 
+        // Setup search adapter
+        searchAdapter = new UserSearchAdapter(searchResultsList, user -> {
+            if (selectedEventId != null) {
+                Log.d(TAG, "Adding co-organizer: " + user.getUid() + " to event: " + selectedEventId);
+                viewModel.addCoOrganizer(selectedEventId, user);
+                etSearchEntrant.setText("");
+                layoutSearchCoOrganizer.setVisibility(View.GONE);
+                rvSearchResults.setVisibility(View.GONE);
+            }
+        });
+        rvSearchResults.setAdapter(searchAdapter);
+
+        // Setup co-organizers adapter
+        coOrganizerAdapter = new CoOrganizerAdapter(coOrganizersList);
+        rvCoOrganizers.setAdapter(coOrganizerAdapter);
+
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (currentMode == Mode.WAITLIST) {
@@ -109,9 +130,11 @@ public class OrganizerManageFragment extends Fragment {
         btnAddCoOrganizer.setOnClickListener(v -> {
             if (layoutSearchCoOrganizer.getVisibility() == View.GONE) {
                 layoutSearchCoOrganizer.setVisibility(View.VISIBLE);
+                etSearchEntrant.requestFocus();
             } else {
                 layoutSearchCoOrganizer.setVisibility(View.GONE);
                 rvSearchResults.setVisibility(View.GONE);
+                etSearchEntrant.setText("");
             }
         });
 
@@ -122,10 +145,11 @@ public class OrganizerManageFragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 String query = s.toString().trim();
-                if (!query.isEmpty()) {
-                    rvSearchResults.setVisibility(View.VISIBLE);
-                    // Search logic will be implemented here
+                if (query.length() >= 3) {
+                    viewModel.searchUsersByEmail(query);
                 } else {
+                    searchResultsList.clear();
+                    searchAdapter.notifyDataSetChanged();
                     rvSearchResults.setVisibility(View.GONE);
                 }
             }
@@ -169,8 +193,6 @@ public class OrganizerManageFragment extends Fragment {
             tvCount.setText(eventList.size() + " event(s)");
 
             recyclerView.setAdapter(new EventAdapter(eventList, (title, autoJoin) -> {
-                // autoJoin is always false in organizer context — tapping an event
-                // here shows its waitlist, not the join flow.
                 for (Event e : eventList) {
                     if (title.equals(e.getTitle())) {
                         selectedEventId = e.getEventId();
@@ -192,7 +214,6 @@ public class OrganizerManageFragment extends Fragment {
                 tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
                 waitlistAdapter.notifyDataSetChanged();
 
-                // draw button logic based on invited/accepted users
                 long countInvitedAccepted = entries.stream()
                         .filter(entry -> (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED) || entry.getStatus().equals(WaitlistEntry.STATUS_ACCEPTED)))
                         .count();
@@ -203,6 +224,35 @@ public class OrganizerManageFragment extends Fragment {
                     } else {
                         btnDrawReplacement.setEnabled(false);
                     }
+                }
+            }
+        });
+
+        // Search results
+        viewModel.getSearchResults().observe(getViewLifecycleOwner(), users -> {
+            if (users != null && !users.isEmpty()) {
+                searchResultsList.clear();
+                searchResultsList.addAll(users);
+                searchAdapter.notifyDataSetChanged();
+                rvSearchResults.setVisibility(View.VISIBLE);
+            } else {
+                searchResultsList.clear();
+                searchAdapter.notifyDataSetChanged();
+                rvSearchResults.setVisibility(View.GONE);
+            }
+        });
+
+        // Co-organizers
+        viewModel.getCoOrganizers().observe(getViewLifecycleOwner(), users -> {
+            Log.d(TAG, "Observed co-organizers update: " + (users != null ? users.size() : "null"));
+            if (users != null) {
+                coOrganizersList.clear();
+                coOrganizersList.addAll(users);
+                coOrganizerAdapter.notifyDataSetChanged();
+                
+                // Ensure the layout is visible if there are co-organizers
+                if (!coOrganizersList.isEmpty()) {
+                    layoutCoOrganizers.setVisibility(View.VISIBLE);
                 }
             }
         });
@@ -245,6 +295,7 @@ public class OrganizerManageFragment extends Fragment {
         recyclerView.setAdapter(waitlistAdapter);
         viewModel.loadWaitlist(eventId);
         viewModel.loadLotteryStatus(eventId);
+        viewModel.loadCoOrganizers(eventId);
     }
 
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {

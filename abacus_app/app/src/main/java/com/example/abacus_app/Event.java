@@ -2,6 +2,8 @@ package com.example.abacus_app;
 
 import com.google.firebase.Timestamp;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Entity class representing an Event in the system.
@@ -25,6 +27,7 @@ public class Event implements Serializable {
     private boolean lotteryDrawn;
     private String posterImageUrl;
     private String qrCodeUrl;
+    private List<String> coOrganizers = new ArrayList<>();
 
     public Event() {}
 
@@ -54,6 +57,7 @@ public class Event implements Serializable {
         this.eventCapacity = eventCapacity;
         this.geoRequired = geoRequired;
         this.lotteryDrawn = lotteryDrawn;
+        this.coOrganizers = new ArrayList<>();
     }
 
     /**
@@ -165,4 +169,7 @@ public class Event implements Serializable {
      * @param qrCodeUrl sets the promotional QR code URL.
      */
     public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }
+
+    public List<String> getCoOrganizers() { return coOrganizers; }
+    public void setCoOrganizers(List<String> coOrganizers) { this.coOrganizers = coOrganizers; }
 }
