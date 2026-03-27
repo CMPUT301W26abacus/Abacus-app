@@ -4,7 +4,7 @@ package com.example.abacus_app;
  * Entity class for a comment.
  * Fields match the Firestore 'comments' documents.
  */
-public class Comment {
+public class Comment { 
 
     private String commentId;
     private String userId;

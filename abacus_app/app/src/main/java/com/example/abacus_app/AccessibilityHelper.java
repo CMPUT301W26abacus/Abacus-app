@@ -27,6 +27,7 @@ public class AccessibilityHelper {
     private static final String KEY_TEXT_SCALE       = "textScale";
     private static final String KEY_REDUCE_MOTION    = "reduceMotion";
     private static final String KEY_HIGH_CONTRAST    = "highContrast";
+    private static final String KEY_ONE_HANDED_MODE  = "oneHandedMode";
 
     private final SharedPreferences prefs;
 
@@ -67,6 +68,16 @@ public class AccessibilityHelper {
 
     public void setReduceMotion(boolean enabled) {
         prefs.edit().putBoolean(KEY_REDUCE_MOTION, enabled).apply();
+    }
+
+    // --- One-handed mode ---
+
+    public boolean isOneHandedMode() {
+        return prefs.getBoolean(KEY_ONE_HANDED_MODE, false);
+    }
+
+    public void setOneHandedMode(boolean enabled) {
+        prefs.edit().putBoolean(KEY_ONE_HANDED_MODE, enabled).apply();
     }
 
     // --- High contrast ---

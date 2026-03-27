@@ -35,7 +35,8 @@
         <!-- MainActivity has NO intent filter -->
         <activity
             android:name=".MainActivity"
-            android:exported="false">
+            android:exported="false"
+            android:enableOnBackInvokedCallback="true">
         </activity>
 
         <!-- TODO: Add the activity for Login -->

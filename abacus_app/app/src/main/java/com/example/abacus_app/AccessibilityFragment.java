@@ -115,6 +115,12 @@ public class AccessibilityFragment extends Fragment {
             requireActivity().recreate();
         });
 
+        // ── One-handed mode ──
+        SwitchMaterial switchOneHanded = view.findViewById(R.id.switchOneHanded);
+        switchOneHanded.setChecked(helper.isOneHandedMode());
+        switchOneHanded.setOnCheckedChangeListener((btn, isChecked) ->
+                helper.setOneHandedMode(isChecked));
+
         // ── Reduce motion ──
         SwitchMaterial switchReduceMotion = view.findViewById(R.id.switchReduceMotion);
         switchReduceMotion.setChecked(helper.isReduceMotion());
