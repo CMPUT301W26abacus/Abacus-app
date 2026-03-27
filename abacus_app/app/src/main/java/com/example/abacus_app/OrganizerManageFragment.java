@@ -108,6 +108,7 @@ public class OrganizerManageFragment extends Fragment {
         // Event list mode
         viewModel.getEvents().observe(getViewLifecycleOwner(), eventList -> {
             if (currentMode != Mode.EVENT_LIST) return;
+            entries.clear();
             if (eventList == null || eventList.isEmpty()) {
                 tvCount.setText("No events found");
                 recyclerView.setAdapter(null);
@@ -143,15 +144,11 @@ public class OrganizerManageFragment extends Fragment {
                 long countInvitedAccepted = entries.stream()
                         .filter(entry -> (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED) || entry.getStatus().equals(WaitlistEntry.STATUS_ACCEPTED)))
                         .count();
-                Log.d("mytagOrgManageFrag", "countInvitedAccepted: " + countInvitedAccepted);
-                Log.d("mytagOrgManageFrag", "eventCap: " + selectedEvent.getEventCapacity());
-                Log.d("mytagOrgManageFrag", "waitListSize: " + selectedEventWaitlistSize);
                 if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
                     btnDrawReplacement.setEnabled(true);
                 } else {
                     btnDrawReplacement.setEnabled(false);
                 }
-                Log.d("mytagOrgManageFrag", "isEnabled?: " + btnDrawReplacement.isEnabled());
             }
         });
 
@@ -175,7 +172,9 @@ public class OrganizerManageFragment extends Fragment {
                     btnDrawLottery.setEnabled(!loading);
                     btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
                 } else if (btnDrawReplacement.getVisibility() == View.VISIBLE) {
-                    btnDrawReplacement.setEnabled(false);
+                    if (loading) {
+                        btnDrawReplacement.setEnabled(false);
+                    }
                     btnDrawReplacement.setText(loading ? "Processing..." : "Draw Replacement");
                 }
             }
@@ -213,6 +212,5 @@ public class OrganizerManageFragment extends Fragment {
     private void showDrawReplacementButton() {
         if (btnDrawLottery  != null) btnDrawLottery.setVisibility(View.GONE);
         if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.VISIBLE);
-        if (btnDrawReplacement != null) btnDrawReplacement.setEnabled(false);
     }
 }

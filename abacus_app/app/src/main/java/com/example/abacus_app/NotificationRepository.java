@@ -90,7 +90,7 @@ public class NotificationRepository {
                        notifications.add(new Notification(
                                entry.getUserId(),
                                eventId,
-                               "The lottery for " + event.getTitle() + " has been draw. Unfortunately you have not been selected at this time.",
+                               "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                                Notification.TYPE_NOT_SELECTED
                        ));
                    }

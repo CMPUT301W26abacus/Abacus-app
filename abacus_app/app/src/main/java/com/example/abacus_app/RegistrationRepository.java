@@ -311,6 +311,9 @@ public class RegistrationRepository {
                 Collections.sort(entries);
 
                 WaitlistEntry replacement = entries.isEmpty() ? null : entries.get(0);
+                if (replacement != null) {
+                    remoteDataSource.updateUserEntryStatusSync(eventID, replacement.getUserID(), WaitlistEntry.STATUS_INVITED);
+                }
                 mainHandler.post(() -> callback.onResult(replacement));
 
             } catch (Exception e) {
