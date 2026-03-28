@@ -21,22 +21,30 @@
  */
 package com.example.abacus_app;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GestureDetectorCompat;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
 import androidx.navigation.NavOptions;
@@ -48,11 +56,14 @@ import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+
+import org.checkerframework.common.returnsreceiver.qual.This;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -69,8 +80,8 @@ public class MainActivity extends AppCompatActivity {
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
-    private String userRole      = "entrant";
-    private String bottomNavRole = null; // tracks which role the bottom nav was last built for
+    private String userRole        = "entrant";
+    private String bottomNavRole   = null;   // tracks which role the bottom nav was last built for
 
     private String activeKeyword = "";
     private String activeDate    = "";
@@ -102,6 +113,16 @@ public class MainActivity extends AppCompatActivity {
 
     private ListenerRegistration eventsListener;
 
+    // ── One-handed mode ───────────────────────────────────────────────────────
+    private boolean  isOneHandedActive = false;
+    private Animator chevronAnimator   = null;
+    // Raw touch tracking for one-handed swipe (emulator-friendly, no GestureDetector)
+    private float ohTouchStartX = 0f, ohTouchStartY = -1f;
+    private long  ohTouchStartMs = 0;
+
+    // ── Swipe back / forward navigation ──────────────────────────────────────
+    private GestureDetectorCompat navSwipeDetector;
+
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
         AccessibilityHelper helper = new AccessibilityHelper(newBase);
@@ -120,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
         userRepository = new UserRepository(localDataSource, remoteDataSource);
         userRepository.initializeUserAsync();
 
-        isGuest = getIntent().getBooleanExtra("isGuest", false);
+        isGuest  = getIntent().getBooleanExtra("isGuest", false);
         String intentRole = getIntent().getStringExtra("userRole");
         if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
 
@@ -168,21 +189,8 @@ public class MainActivity extends AppCompatActivity {
             navController.navigate(R.id.accessibilityFragment);
         }
 
-        // ── Search bar real-time filtering ────────────────────────────────────
-        TextInputEditText searchBar = findViewById(R.id.search_bar);
-        searchBar.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                activeKeyword = s.toString().trim().toLowerCase();
-                applyFilters();
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {}
-        });
+        SearchBar searchBar = findViewById(R.id.search_bar);
+        setSearchBarTextColor(searchBar);
 
         ImageButton btnProfile = findViewById(R.id.btn_profile);
         btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
@@ -217,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
         });
         carouselRecyclerView.setAdapter(carouselAdapter);
 
-        setupBottomNav(); // build nav immediately using the role from the Intent
+        setupBottomNav();   // build nav immediately using the role from the Intent
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -226,16 +234,9 @@ public class MainActivity extends AppCompatActivity {
                     if (!navController.popBackStack()) {
                         showHome();
                     } else {
-                        // After a successful pop, restore the bottom nav if we've
-                        // landed back on a tab-level destination.
-                        androidx.navigation.NavBackStackEntry current =
-                                navController.getCurrentBackStackEntry();
-                        if (current != null) {
-                            int destId = current.getDestination().getId();
-                            if (isTabDestination(destId)) {
-                                bottomNav.setVisibility(View.VISIBLE);
-                            }
-                        }
+                        // Landed on a fragment that may have been shown without a bottom nav
+                        // (e.g. event details hides it). Always restore it after popping back.
+                        bottomNav.setVisibility(View.VISIBLE);
                     }
                 } else {
                     finish();
@@ -267,6 +268,8 @@ public class MainActivity extends AppCompatActivity {
 
         eventRepository = new EventRepository();
         loadEventsFromFirestore();
+        setupOneHandedMode();
+        setupNavSwipeGesture();
     }
 
     // ── User key resolution ───────────────────────────────────────────────────
@@ -289,6 +292,8 @@ public class MainActivity extends AppCompatActivity {
             if (guestEmail != null) {
                 resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
             }
+            // applyFilters will be called by loadEventsFromFirestore when data arrives;
+            // if events are already loaded, re-apply now so button states update.
             if (!allEvents.isEmpty()) applyFilters();
         } else {
             UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
@@ -416,7 +421,6 @@ public class MainActivity extends AppCompatActivity {
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || description.contains(activeKeyword);
-
             // Project pt3 bug fix: checks if the date you picked falls within the event's registration
             // window instead of only matching the exact start date.
             boolean dateMatch = true;
@@ -456,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
         carouselRecyclerView.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
         tvFeaturedLabel.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
 
-        // ── Preference-based filter + sort ("For You") ────────────────────────
+        // ── Preference-based filter + sort ("For You") ───────────────────────
         boolean hasPreferences = hasActivePreferences(userPreferences);
         if (hasPreferences) {
             filtered = applyPreferenceFilter(filtered, userPreferences);
@@ -473,6 +477,7 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(new EventAdapter(
                 finalFiltered,
                 (eventTitle, autoJoin) -> {
+                    // Resolve eventId from filtered list
                     String eventId = "";
                     for (Event e : finalFiltered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
@@ -488,7 +493,7 @@ public class MainActivity extends AppCompatActivity {
                 },
                 isAdminUser ? this::confirmDeleteEvent : null,
                 isAdminUser,
-                resolvedUserKey,
+                resolvedUserKey,   // null until resolved — adapter handles gracefully
                 isGuest
         ));
 
@@ -536,7 +541,7 @@ public class MainActivity extends AppCompatActivity {
      * (checked against title + description). Non-matching events are removed.
      */
     private List<Event> applyPreferenceFilter(List<Event> events,
-                                              java.util.Map<String, Object> prefs) {
+                                               java.util.Map<String, Object> prefs) {
         Object categoriesRaw = prefs.get("categories");
         if (!(categoriesRaw instanceof java.util.List)) return events;
         @SuppressWarnings("unchecked")
@@ -560,7 +565,7 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // ── onResume ──────────────────────────────────────────────────────────────
+    // ── onResume: refresh join states when returning from EventDetailsFragment ─
 
     /**
      * Called when the user navigates back to the home screen (e.g. after
@@ -573,7 +578,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // If the user disabled one-handed mode in Accessibility settings while it was active, restore position
+        if (isOneHandedActive && !new AccessibilityHelper(this).isOneHandedMode()) {
+            deactivateOneHanded();
+        }
         if (isGuest && resolvedUserKey == null) {
+            // Guest may have just completed sign-up — try resolving again
             String guestEmail = getSharedPreferences(
                     GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
                     .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
@@ -581,6 +591,7 @@ public class MainActivity extends AppCompatActivity {
                 resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
             }
         }
+        // Rebuild adapter so join buttons re-query Firestore with latest state
         if (!allEvents.isEmpty()) applyFilters();
     }
 
@@ -690,9 +701,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
-        clearBackStack();
+        // Only wipe the back stack when switching top-level tabs (showBottomNav=true).
+        // Sub-page navigations (showBottomNav=false) keep the parent on the stack so that
+        // popBackStack() — used by both the system back button and the swipe gesture — can
+        // correctly return to the parent instead of falling through to showHome().
+        if (showBottomNav) clearBackStack();
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         if (navHostFragment.getVisibility() != View.VISIBLE) {
+            // Transitioning from home — cross-fade the containers
             navHostFragment.setAlpha(0f);
             navHostFragment.setVisibility(View.VISIBLE);
             navHostFragment.animate().alpha(1f).setDuration(180).start();
@@ -706,6 +722,7 @@ public class MainActivity extends AppCompatActivity {
             homeContent.setVisibility(View.GONE);
             appBar.setVisibility(View.GONE);
         }
+        // Bottom nav tabs use instant switch; sub-pages use slide animation
         NavOptions opts = showBottomNav ? NAV_OPTS_TAB : NAV_OPTS_FORWARD;
         navController.navigate(destinationId, args, opts);
     }
@@ -730,31 +747,309 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearBackStack() {
+        // popBackStack(startId, true) silently fails when the start destination was already
+        // popped in a previous clearBackStack() call, leaving stale fragments on the stack.
+        // Instead, try the fast path first and fall back to draining the stack one entry at a time.
         int startId = navController.getGraph().getStartDestinationId();
-        if (navController.getCurrentBackStackEntry() != null) {
-            // Try the fast path first; if the start destination is no longer on the
-            // back stack (e.g. after direct NavController.navigate() calls inside
-            // fragments), fall back to popping everything one by one.
-            boolean cleared = navController.popBackStack(startId, true);
-            if (!cleared) {
-                while (navController.getCurrentBackStackEntry() != null) {
-                    if (!navController.popBackStack()) break;
-                }
+        if (navController.getCurrentBackStackEntry() == null) return;
+        if (!navController.popBackStack(startId, true)) {
+            // Start destination is no longer on the stack — drain manually.
+            while (navController.getCurrentBackStackEntry() != null) {
+                if (!navController.popBackStack()) break;
             }
         }
     }
 
+    // ── One-handed mode ───────────────────────────────────────────────────────
+
     /**
-     * Returns true for destinations that should always show the bottom navigation bar.
-     * Used to restore bottom-nav visibility when the user presses back into a tab.
+     * Sets up the one-handed mode.
+     * Gesture detection is handled in dispatchTouchEvent() using raw coordinates
+     * so it works reliably on emulators (no GestureDetector velocity dependency).
+     *
+     * The bottom nav touch listener only exists to prevent vertical swipes from
+     * leaking into SwipeRefreshLayout — it no longer drives gesture detection.
      */
-    private boolean isTabDestination(int destinationId) {
-        return destinationId == R.id.nav_history
-                || destinationId == R.id.nav_saved
-                || destinationId == R.id.nav_inbox
-                || destinationId == R.id.organizerToolsFragment
-                || destinationId == R.id.organizerLogsFragment
-                || destinationId == R.id.adminLogsFragment;
+    private void setupOneHandedMode() {
+        View rootView = findViewById(R.id.main);
+        View handle   = findViewById(R.id.oneHandedHandle);
+
+        // Consume vertical movement on the nav bar so SwipeRefreshLayout never sees it
+        bottomNav.setOnTouchListener(new View.OnTouchListener() {
+            private float startY = 0f;
+            private boolean consumingSwipe = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        startY = event.getY();
+                        consumingSwipe = false;
+                        return false; // pass through so item clicks still work
+                    case MotionEvent.ACTION_MOVE:
+                        if (Math.abs(event.getY() - startY) > 8) consumingSwipe = true;
+                        return consumingSwipe;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        boolean was = consumingSwipe;
+                        consumingSwipe = false;
+                        return was;
+                    default:
+                        return false;
+                }
+            }
+        });
+
+        if (handle != null) {
+            handle.setOnClickListener(v -> deactivateOneHanded(rootView, handle));
+        }
+    }
+
+    private void activateOneHanded(View rootView, View handle) {
+        isOneHandedActive = true;
+        float shift = getResources().getDisplayMetrics().heightPixels * 0.42f;
+        rootView.animate().translationY(shift).setDuration(280).start();
+
+        if (handle != null) {
+            handle.post(() -> {
+                int screenH = getResources().getDisplayMetrics().heightPixels;
+                float margin = 6 * getResources().getDisplayMetrics().density;
+                float defaultY = screenH - handle.getHeight();
+                float targetY  = shift - handle.getHeight() - margin;
+                handle.setTranslationY(targetY - defaultY);
+                handle.setAlpha(0f);
+                handle.setVisibility(View.VISIBLE);
+                handle.animate().alpha(1f).setDuration(220)
+                        .withEndAction(() -> startChevronAnimation(handle))
+                        .start();
+            });
+        }
+    }
+
+    private void deactivateOneHanded(View rootView, View handle) {
+        isOneHandedActive = false;
+        stopChevronAnimation();
+        if (rootView == null) rootView = findViewById(R.id.main);
+        if (rootView != null) rootView.animate().translationY(0f).setDuration(280).start();
+
+        if (handle == null) handle = findViewById(R.id.oneHandedHandle);
+        if (handle != null) {
+            final View h = handle;
+            h.animate().alpha(0f).setDuration(180)
+                    .withEndAction(() -> {
+                        h.setVisibility(View.GONE);
+                        h.setAlpha(1f);
+                        // Reset individual chevron alphas for next activation
+                        if (h instanceof LinearLayout) {
+                            float[] rest = {1.0f, 0.6f, 0.3f, 0.1f};
+                            LinearLayout ll = (LinearLayout) h;
+                            for (int i = 0; i < Math.min(ll.getChildCount(), rest.length); i++)
+                                ll.getChildAt(i).setAlpha(rest[i]);
+                        }
+                    }).start();
+        }
+    }
+
+    // Convenience overload used by onResume when we don't have the local refs
+    private void deactivateOneHanded() {
+        deactivateOneHanded(findViewById(R.id.main), findViewById(R.id.oneHandedHandle));
+    }
+
+    /**
+     * Looping cascade: a brightness wave travels from the bottom chevron (index 3)
+     * up to the top (index 0), pauses 350 ms, then repeats — matching the multi-
+     * chevron upward-flow design reference.
+     */
+    private void startChevronAnimation(View handle) {
+        if (!(handle instanceof LinearLayout)) return;
+        LinearLayout group = (LinearLayout) handle;
+        if (group.getChildCount() < 4) return;
+
+        stopChevronAnimation();
+
+        // Resting alpha: index 0 = top (brightest) … index 3 = bottom (dimmest)
+        final float[] rest = {1.0f, 0.6f, 0.3f, 0.1f};
+
+        Runnable[] loop = new Runnable[1];
+        loop[0] = () -> {
+            if (!handle.isAttachedToWindow() || handle.getVisibility() != View.VISIBLE) return;
+
+            // Wave goes BOTTOM → TOP: child[3] first, then [2], [1], [0]
+            ObjectAnimator[] anims = new ObjectAnimator[4];
+            int[] waveOrder = {3, 2, 1, 0};
+            for (int k = 0; k < 4; k++) {
+                int idx = waveOrder[k];
+                anims[k] = ObjectAnimator.ofFloat(
+                        group.getChildAt(idx), "alpha", rest[idx], 1.0f, rest[idx]);
+                anims[k].setDuration(380);
+                anims[k].setStartDelay(k * 120L);
+            }
+
+            AnimatorSet pass = new AnimatorSet();
+            pass.playTogether(anims[0], anims[1], anims[2], anims[3]);
+            pass.addListener(new AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(Animator a) {
+                    handle.postDelayed(loop[0], 350); // pause then repeat
+                }
+            });
+
+            chevronAnimator = pass;
+            pass.start();
+        };
+
+        loop[0].run();
+    }
+
+    private void stopChevronAnimation() {
+        if (chevronAnimator != null) {
+            chevronAnimator.cancel();
+            chevronAnimator = null;
+        }
+        // Remove any pending loop callbacks
+        View handle = findViewById(R.id.oneHandedHandle);
+        if (handle != null && handle.getHandler() != null)
+            handle.getHandler().removeCallbacksAndMessages(null);
+    }
+
+    // ── Swipe back / forward navigation ──────────────────────────────────────
+
+    /**
+     * Left-edge → swipe RIGHT  : go back (pop NavController stack, or return home).
+     * Right-edge → swipe LEFT  : go forward (shift to next bottom-nav tab).
+     *
+     * Edge zone is 64 dp from each side so horizontal RecyclerViews in the
+     * centre of the screen are never accidentally triggered.
+     * Swipes starting inside the bottom-nav bar are ignored (handled by the
+     * one-handed detector instead).
+     */
+    private void setupNavSwipeGesture() {
+        float edgePx = 64 * getResources().getDisplayMetrics().density;
+
+        navSwipeDetector = new GestureDetectorCompat(this,
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onFling(MotionEvent e1, MotionEvent e2,
+                                          float velocityX, float velocityY) {
+                        if (e1 == null || e2 == null) return false;
+                        float dx = e2.getX() - e1.getX();
+                        float dy = e2.getY() - e1.getY();
+
+                        // Must be primarily horizontal
+                        if (Math.abs(dy) > Math.abs(dx) * 0.75f) return false;
+                        if (Math.abs(velocityX) < 300 || Math.abs(dx) < 60) return false;
+
+                        // Ignore if the gesture started inside the bottom nav bar
+                        if (bottomNav.getVisibility() == View.VISIBLE) {
+                            int[] loc = new int[2];
+                            bottomNav.getLocationOnScreen(loc);
+                            if (e1.getRawY() >= loc[1]) return false;
+                        }
+
+                        float startX = e1.getRawX();
+                        float screenW = getResources().getDisplayMetrics().widthPixels;
+
+                        // LEFT EDGE → swipe RIGHT = back
+                        if (dx > 0 && startX <= edgePx) {
+                            if (navHostFragment.getVisibility() == View.VISIBLE) {
+                                // Delegate to the same dispatcher as the system back button so
+                                // both paths share identical stack-pop + showHome() logic.
+                                getOnBackPressedDispatcher().onBackPressed();
+                            } else {
+                                shiftTab(-1); // on home screen, go to previous tab
+                            }
+                            return true;
+                        }
+
+                        // RIGHT EDGE → swipe LEFT = forward (next tab)
+                        if (dx < 0 && startX >= screenW - edgePx) {
+                            shiftTab(+1);
+                            return true;
+                        }
+
+                        return false;
+                    }
+                });
+    }
+
+    /**
+     * Cycles the bottom nav selection by {@code delta} positions (+1 = forward, -1 = back).
+     * No-ops if already at the first or last tab.
+     */
+    private void shiftTab(int delta) {
+        android.view.Menu menu = bottomNav.getMenu();
+        int count = menu.size();
+        int currentId = bottomNav.getSelectedItemId();
+        int currentIndex = -1;
+        for (int i = 0; i < count; i++) {
+            if (menu.getItem(i).getItemId() == currentId) { currentIndex = i; break; }
+        }
+        if (currentIndex == -1) return;
+        int newIndex = currentIndex + delta;
+        if (newIndex < 0 || newIndex >= count) return;
+        bottomNav.setSelectedItemId(menu.getItem(newIndex).getItemId());
+    }
+
+    /**
+     * Central touch dispatcher.
+     *
+     * 1. Feeds the horizontal nav-swipe detector (back / tab-forward).
+     * 2. Tracks a raw swipe for one-handed mode using simple coordinate maths —
+     *    no GestureDetector velocity, so it works reliably on emulators too.
+     *
+     * One-handed detection zone: bottom 28 % of the screen (covers the nav bar
+     * and a comfortable thumb-drag area above it).
+     *   • Swipe UP  (dy ≤ −40 px, more vertical than horizontal, ≤ 700 ms) → activate
+     *   • Swipe DOWN (dy ≥  40 px, same criteria, active)                   → deactivate
+     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (navSwipeDetector != null) navSwipeDetector.onTouchEvent(ev);
+
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        float bottomZone = screenH * 0.28f; // bottom 28 % of screen
+
+        switch (ev.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                if (ev.getRawY() >= screenH - bottomZone) {
+                    ohTouchStartX  = ev.getRawX();
+                    ohTouchStartY  = ev.getRawY();
+                    ohTouchStartMs = System.currentTimeMillis();
+                } else {
+                    ohTouchStartY = -1f; // started outside zone — ignore
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+                if (ohTouchStartY >= 0) {
+                    float dx       = ev.getRawX() - ohTouchStartX;
+                    float dy       = ev.getRawY() - ohTouchStartY;
+                    long  duration = System.currentTimeMillis() - ohTouchStartMs;
+
+                    boolean primarilyVertical = Math.abs(dy) > Math.abs(dx) * 0.5f;
+                    boolean withinTime        = duration <= 700;
+
+                    if (primarilyVertical && withinTime) {
+                        if (dy >= 40 && !isOneHandedActive
+                                && new AccessibilityHelper(this).isOneHandedMode()) {
+                            // Swipe DOWN on nav bar → activate (pull UI into thumb reach)
+                            activateOneHanded(
+                                    findViewById(R.id.main),
+                                    findViewById(R.id.oneHandedHandle));
+                        } else if (dy <= -40 && isOneHandedActive) {
+                            // Swipe UP on nav bar → deactivate
+                            deactivateOneHanded();
+                        }
+                    }
+                    ohTouchStartY = -1f;
+                }
+                break;
+
+            case MotionEvent.ACTION_CANCEL:
+                ohTouchStartY = -1f;
+                break;
+        }
+
+        return super.dispatchTouchEvent(ev);
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

@@ -189,7 +189,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:visibility="gone"
-                app:cardBackgroundColor="#FFF8F0"
+                app:cardBackgroundColor="@color/color_guest_banner_bg"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp">
 
@@ -258,7 +258,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="#EF4444"
+                        android:textColor="@color/color_danger"
                         android:visibility="gone" />
 
                     <View
@@ -294,7 +294,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="#EF4444"
+                        android:textColor="@color/color_danger"
                         android:visibility="gone" />
 
                     <View
@@ -505,10 +505,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="@color/black"
+                android:backgroundTint="@color/orange"
                 android:text="Save changes"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="@color/white"
+                android:textColor="@android:color/white"
                 android:visibility="gone" />
 
             <Button
@@ -516,7 +516,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="#F3F4F6"
+                android:backgroundTint="@color/color_btn_secondary_bg"
                 android:text="Event Preferences"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="@color/black"
@@ -527,7 +527,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="#F3F4F6"
+                android:backgroundTint="@color/color_btn_secondary_bg"
                 android:text="Accessibility"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="@color/black"
@@ -538,10 +538,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="#F3F4F6"
+                android:backgroundTint="@color/color_btn_secondary_bg"
                 android:text="Log out"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="@color/black"
+                android:textColor="@color/orange"
                 android:visibility="gone" />
 
             <View
@@ -561,17 +561,17 @@
                 android:letterSpacing="0.1"
                 android:text="DANGER ZONE"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="#EF4444"
+                android:textColor="@color/color_danger"
                 android:visibility="gone" />
 
             <Button
                 android:id="@+id/btnDeleteProfile"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:backgroundTint="#FEF2F2"
+                android:backgroundTint="@color/color_danger_bg"
                 android:text="Delete profile"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="#EF4444"
+                android:textColor="@color/color_danger"
                 android:visibility="gone" />
 
         </LinearLayout>

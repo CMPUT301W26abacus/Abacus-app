@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- ── Base palette ────────────────────────────────────────────────── -->
     <color name="black">#1D1D1F</color>
     <color name="white">#F5F5F7</color>
     <color name="grey">#6E6E73</color>
@@ -11,5 +12,32 @@
     <color name="claude_clay">#C96A3A</color>
     <color name="claude_warm_white">#FAF7F2</color>
     <color name="claude_muted">#7A7168</color>
-    <color name="error_red">#B00020</color> <!-- Added to fix build error in item_entrant.xml -->
+    <color name="error_red">#B00020</color>
+
+    <!-- ── Semantic tokens (light) — auto-inverted via values-night/ ──── -->
+    <!-- Surfaces -->
+    <color name="color_surface">#FFFFFF</color>
+    <color name="color_surface_variant">#F3F4F6</color>
+
+    <!-- Text -->
+    <color name="color_on_surface">#111827</color>
+    <color name="color_on_surface_muted">#6B7280</color>
+    <color name="color_on_surface_subtle">#9CA3AF</color>
+    <color name="color_label">#374151</color>
+    <color name="color_hint">#D1D5DB</color>
+
+    <!-- Primary button (filled, high-contrast) -->
+    <color name="color_btn_primary_bg">#111827</color>
+    <color name="color_btn_primary_text">#FFFFFF</color>
+
+    <!-- Secondary button (tonal / ghost) -->
+    <color name="color_btn_secondary_bg">#F3F4F6</color>
+    <color name="color_btn_secondary_text">#111827</color>
+
+    <!-- Danger / error -->
+    <color name="color_danger">#EF4444</color>
+    <color name="color_danger_bg">#FEF2F2</color>
+
+    <!-- Guest banner -->
+    <color name="color_guest_banner_bg">#FFF8F0</color>
 </resources>

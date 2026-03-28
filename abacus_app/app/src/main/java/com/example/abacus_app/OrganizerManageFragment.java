@@ -10,6 +10,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -57,15 +58,8 @@ public class OrganizerManageFragment extends Fragment {
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
-        btnBack.setOnClickListener(v -> {
-            if (currentMode == Mode.WAITLIST) {
-                showEventList();
-            } else {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
-                }
-            }
-        });
+        btnBack.setOnClickListener(v ->
+                requireActivity().getOnBackPressedDispatcher().onBackPressed());
 
         btnDrawLottery.setOnClickListener(v -> {
             if (currentMode == Mode.WAITLIST && selectedEventId != null) {
@@ -84,6 +78,19 @@ public class OrganizerManageFragment extends Fragment {
 
         observeViewModel();
         showEventList();
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (currentMode == Mode.WAITLIST) {
+                            showEventList();
+                        } else if (getActivity() instanceof MainActivity) {
+                            ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                        }
+                    }
+                });
+
         return view;
     }
 

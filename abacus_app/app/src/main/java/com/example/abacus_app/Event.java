@@ -23,6 +23,7 @@ public class Event implements Serializable {
     private Integer waitlistCount;    // Current number of people on waitlist
     private boolean geoRequired;
     private boolean lotteryDrawn;
+    private boolean isPrivate;
     private String posterImageUrl;
     private String qrCodeUrl;
 
@@ -145,6 +146,9 @@ public class Event implements Serializable {
      * @param lotteryDrawn sets lottery status
      */
     public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
+
+    public boolean isPrivate() { return isPrivate; }
+    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
     /**
      * @return public URL of the poster image.
