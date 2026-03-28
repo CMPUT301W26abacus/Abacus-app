@@ -13,10 +13,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -44,7 +46,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
     private CommentRepository repo = new CommentRepository();
 
     private String eventId = null;
-    private String userId  = null;
+    private User currentUser  = null;
 
     @Override
     public void onStart() {
@@ -93,6 +95,26 @@ public class CommentsFragment extends BottomSheetDialogFragment {
 
         loadComments();
 
+        // get current user info
+        UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+        userRepository.getProfile(new UserRepository.UserCallback() {
+            @Override
+            public void onResult(User user) {
+                currentUser = user;
+                if (user == null) {
+                    Log.d("mytag", "onResult: null :(");
+                }
+                if (user.getName() == null) {
+                    Log.d("mytag", "onResult: null :(");
+                } else {
+                    Log.d("mytag", "onResult: " + user.getName());
+                }
+            }
+        });
+
         send.setOnClickListener(v -> {
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
@@ -101,13 +123,18 @@ public class CommentsFragment extends BottomSheetDialogFragment {
             }
         });
 
-        // get current userId
-        UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
-        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
-        UserRepository userRepository         = new UserRepository(localDataSource, remoteDataSource);
+        input.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
 
-        userRepository.getCurrentUserId(uuid -> {
-            userId = uuid;
+                String text = input.getText().toString().trim();
+                if (!text.isEmpty()) {
+                    addComment(text);
+                    input.setText("");
+                }
+
+                return true;
+            }
+            return false;
         });
     }
 
@@ -118,19 +145,20 @@ public class CommentsFragment extends BottomSheetDialogFragment {
             if (result != null) {
                 comments.addAll(result);
             }
+            tvEmpty.setVisibility(comments.isEmpty() ? View.VISIBLE : View.GONE);
+            recyclerView.setVisibility(comments.isEmpty() ? View.GONE : View.VISIBLE);
+            Collections.sort(comments, Collections.reverseOrder());
             adapter.notifyDataSetChanged();
         });
     }
 
     private void addComment(String content) {
-        Log.d("mytagcommentfrag", "addComment: adding comment...");
-
-        repo.addComment(eventId, userId, content, error -> {
-            Log.d("mytagcommentfrag", "addComment: recieved callback!");
+        Log.d("mytag", "addComment: " + currentUser.getName());
+        repo.addComment(eventId, currentUser.getUid(), currentUser.getName(), content, error -> {
             if (error == null) {
                 loadComments(); // refresh
             } else {
-                Log.d("mytagcommentfrag", error.getMessage());
+                Toast.makeText(getContext(),"Error: Failed to post comment.", Toast.LENGTH_LONG);
             }
         });
     }

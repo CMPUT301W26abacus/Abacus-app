@@ -39,11 +39,12 @@ public class CommentRepository {
      * @param content the content of the comment
      * @param callback callback called when the operation completes
      */
-    public void addComment(String eventId, String userId, String content, VoidCallback callback) {
+    public void addComment(String eventId, String userId, String username, String content, VoidCallback callback) {
         executor.submit(() -> {
            try {
                Log.d("mytagcommentrepo", "addComment: got to comment repo");
-               remoteDataSource.addCommentSync(eventId, userId, content);
+               Log.d("mytagcommentrepo", "repo: " + username);
+               remoteDataSource.addCommentSync(eventId, userId, username, content);
                Log.d("mytagcommentrepo", "addComment: finished addcommentSync");
                mainHandler.post(() -> callback.onComplete(null));
            } catch (Exception e) {

@@ -80,6 +80,11 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     @Exclude public String getUserID()  { return userId; }
     @Exclude public String getEventID() { return eventId; }
 
+    /**
+     * Compares WaitlistEntry by lottery numbers for lottery draw.
+     * @param other
+     * @return
+     */
     @Override
     public int compareTo(WaitlistEntry other) {
         return Integer.compare(this.getLotteryNumber(), other.getLotteryNumber());

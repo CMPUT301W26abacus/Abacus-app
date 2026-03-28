@@ -1,5 +1,7 @@
 package com.example.abacus_app;
 
+import static androidx.core.content.ContentProviderCompat.requireContext;
+
 import android.util.Log;
 
 import com.google.android.gms.tasks.Tasks;
@@ -49,11 +51,12 @@ public class CommentRemoteDataSource {
 
         String commentId = doc.getString("commentId");
         String userId = doc.getString("userId");
+        String username = doc.getString("username");
         String eventId = doc.getString("eventId");
         String content = doc.getString("content");
         Long timestamp = doc.getLong("timestamp");
 
-        return new Comment(commentId, userId, eventId, content, timestamp);
+        return new Comment(commentId, userId, username, eventId, content, timestamp);
     }
 
     /**
@@ -64,16 +67,15 @@ public class CommentRemoteDataSource {
      * @param content the content of the comment
      * @throws Exception something went wrong
      */
-    public void addCommentSync(String eventId, String userId, String content) throws Exception {
+    public void addCommentSync(String eventId, String userId, String username, String content) throws Exception {
 
         DocumentReference docRef = getCollectionRef(eventId).document();
-        Log.d("mytagcommentRDS", "addCommentSync: " + docRef.getId());
-        Comment comment = new Comment(docRef.getId(), userId, eventId, content, System.currentTimeMillis());
-        Log.d("mytagcommentRDS", "addCommentSync: " + comment.getTimestamp());
-        Log.d("mytagcommentRDS", FirebaseAuth.getInstance().getCurrentUser().getUid());
-        Log.d("mytagcommentRDS", "addCommentSync: before set");
+        Log.d("mytagCommentRDS", "addCommentSync: " + username);
+        Comment comment = new Comment(docRef.getId(), userId, username, eventId, content, System.currentTimeMillis());
+        Log.d("mytagCommentRDS", "addCommentSync: " + comment.getUsername());
+        Log.d("mytagCommentRDS", "addCommentSync: before");
         Tasks.await(docRef.set(comment));
-        Log.d("mytagcommentRDS", "addCommentSync: after set");
+        Log.d("mytagCommentRDS", "addCommentSync: after");
     }
 
     /**
