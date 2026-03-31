@@ -70,6 +70,17 @@ public class CommentRepository {
         });
     }
 
+    public void deleteComment(String eventId, String commentId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                remoteDataSource.deleteCommentSync(eventId, commentId);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     /**
      * Callback interface for void methods.
      */

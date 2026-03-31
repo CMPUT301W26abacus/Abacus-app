@@ -47,6 +47,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
 
     private String eventId = null;
     private User currentUser  = null;
+    private boolean canDelete = false;
 
     @Override
     public void onStart() {
@@ -89,6 +90,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
         tvEmpty.setVisibility(comments.isEmpty() ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(comments.isEmpty() ? View.GONE : View.VISIBLE);
 
+        // start adapter
         adapter = new CommentAdapter(comments);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         recyclerView.setAdapter(adapter);
@@ -104,17 +106,13 @@ public class CommentsFragment extends BottomSheetDialogFragment {
             @Override
             public void onResult(User user) {
                 currentUser = user;
-                if (user == null) {
-                    Log.d("mytag", "onResult: null :(");
-                }
-                if (user.getName() == null) {
-                    Log.d("mytag", "onResult: null :(");
-                } else {
-                    Log.d("mytag", "onResult: " + user.getName());
+                if (user != null) {
+                    determineCanDelete();
                 }
             }
         });
 
+        // onClick listeners
         send.setOnClickListener(v -> {
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
@@ -159,6 +157,42 @@ public class CommentsFragment extends BottomSheetDialogFragment {
                 loadComments(); // refresh
             } else {
                 Toast.makeText(getContext(),"Error: Failed to post comment.", Toast.LENGTH_LONG);
+            }
+        });
+    }
+
+    /**
+     * Determines if the user is allowed to delete comments for this event based on their role and
+     * communicates with adapter to display delete button.
+     */
+    private void determineCanDelete() {
+        // event organizer data needed
+        EventRepository eventRepository = new EventRepository();
+        // in case user is an admin
+        String role = ((MainActivity) requireActivity()).getEffectiveRole();
+        eventRepository.getEventByIdAsync(eventId, new EventRepository.EventCallback() {
+            @Override
+            public void onResult(Event event) {
+                // get user role to determine delete capabilities
+                // these states should probably be replaced by constants at some point...
+                if (role.equals("admin")) {
+                    canDelete = true;
+                    adapter.setCanDelete(canDelete);
+                } else if (role.equals("organizer")) {
+                    // check if user is organizer of this event
+                    if (event.getOrganizerId().equals(currentUser.getUid())) {
+                        canDelete = true;
+                        adapter.setCanDelete(canDelete);
+                    }
+                }
+                /**else if (currentUser.getRole().equals("entrant")) {
+                    // entrants do not have delete capabilities except for in the special case that they are a co-organizer
+                    if (event.get...) {
+                        canDelete = true;
+                        adapter.setCanDelete(canDelete);
+                    }
+                }
+                 **/
             }
         });
     }

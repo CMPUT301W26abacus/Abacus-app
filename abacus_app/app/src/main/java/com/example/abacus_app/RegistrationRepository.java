@@ -258,8 +258,6 @@ public class RegistrationRepository {
     public void runLottery(String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // unnecessary to fetch directly, there is already a method that does exactly this
-                // should use EventRemoteDataSource method, do not re-write methods
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
                 Event event = eventRDS.getEventById(eventID);
 

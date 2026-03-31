@@ -1,9 +1,12 @@
 package com.example.abacus_app;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -15,19 +18,24 @@ import java.util.List;
 public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHolder> {
 
     private List<Comment> comments;
+    private boolean canDelete;
+    private final CommentRepository repo = new CommentRepository();
 
     public CommentAdapter(List<Comment> comments) {
         this.comments = comments;
+        this.canDelete = false;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView username, timestamp, content;
+        ImageButton btn_delete;
 
         public ViewHolder(View view) {
             super(view);
             username = view.findViewById(R.id.tv_username_comment);
             timestamp = view.findViewById(R.id.tv_timestamp_comment);
             content = view.findViewById(R.id.tv_comment_text);
+            btn_delete = view.findViewById(R.id.btn_delete_comment);
         }
     }
 
@@ -56,6 +64,26 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
                     getTimeAgo(c.getTimestamp())
             );
         }
+
+        // delete button setup
+        if (canDelete) {
+            holder.btn_delete.setVisibility(View.VISIBLE);
+        } else {
+            holder.btn_delete.setVisibility(View.GONE);
+        }
+
+        holder.btn_delete.setOnClickListener(v -> {
+            repo.deleteComment(c.getEventId(), c.getCommentId(), new CommentRepository.VoidCallback() {
+                @Override
+                public void onComplete(Exception error) {
+                    comments.remove(c);
+                    notifyDataSetChanged();
+                    if (error != null) {
+                        Log.d("CommentAdapter", "deleteComment: error deleting comment");
+                    }
+                }
+            });
+        });
     }
 
     @Override
@@ -68,7 +96,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
      * current time.
      *
      * @param timestamp time comment was posted
-     * @return formmated time display
+     * @return formated time display
      */
     public static String getTimeAgo(long timestamp) {
         long now = System.currentTimeMillis();
@@ -86,5 +114,16 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
         if (hours < 24) return hours + "h ago";
         if (days < 7) return days + "d ago";
         return weeks + "w ago";
+    }
+
+    /**
+     * Sets boolean canDelete, which depends on user role and event and may come later as data must
+     * be fetched from database.
+     *
+     * @param canDelete whether or not the current user has delete capabilities
+     */
+    public void setCanDelete(boolean canDelete) {
+        this.canDelete = canDelete;
+        notifyDataSetChanged(); // refresh for change
     }
 }

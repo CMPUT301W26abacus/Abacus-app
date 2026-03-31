@@ -95,4 +95,16 @@ public class CommentRemoteDataSource {
         }
         return comments;
     }
+
+    /**
+     * Deletes a specific comment from the db by removing the document.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param commentId the unique ID of the comment in the database
+     * @throws Exception something went wrong
+     */
+    public void deleteCommentSync(String eventId, String commentId) throws Exception {
+        DocumentReference docRef = getCollectionRef(eventId).document(commentId);
+        Tasks.await(docRef.delete());
+    }
 }
