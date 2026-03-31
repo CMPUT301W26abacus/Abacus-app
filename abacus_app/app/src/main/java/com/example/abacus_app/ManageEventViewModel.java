@@ -30,6 +30,7 @@ public class ManageEventViewModel extends ViewModel {
     private final MutableLiveData<String>              error     = new MutableLiveData<>();
     private final MutableLiveData<Boolean>             isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean>             lotteryCompleted = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean>             eventDeleted = new MutableLiveData<>(false);
 
     public ManageEventViewModel() {
         this.registrationRepository = new RegistrationRepository();
@@ -42,6 +43,7 @@ public class ManageEventViewModel extends ViewModel {
     public LiveData<String>              getError()     { return error; }
     public LiveData<Boolean>             getIsLoading() { return isLoading; }
     public LiveData<Boolean>             getLotteryCompleted() { return lotteryCompleted; }
+    public LiveData<Boolean>             getEventDeleted() { return eventDeleted; }
 
     public void loadWaitlist(String eventId) {
         isLoading.setValue(true);
@@ -75,6 +77,17 @@ public class ManageEventViewModel extends ViewModel {
             isLoading.setValue(false);
         }).addOnFailureListener(e -> {
             error.setValue("Failed to load events: " + e.getMessage());
+            isLoading.setValue(false);
+        });
+    }
+
+    public void deleteEvent(String eventId, String organizerId) {
+        isLoading.setValue(true);
+        eventRepository.deleteEvent(eventId).addOnSuccessListener(aVoid -> {
+            eventDeleted.setValue(true);
+            loadOrganizerEvents(organizerId); // Refresh list
+        }).addOnFailureListener(e -> {
+            error.setValue("Failed to delete event: " + e.getMessage());
             isLoading.setValue(false);
         });
     }

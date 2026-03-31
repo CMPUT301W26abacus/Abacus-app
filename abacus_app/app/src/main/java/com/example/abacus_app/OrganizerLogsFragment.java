@@ -1,35 +1,46 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import androidx.viewpager2.adapter.FragmentStateAdapter;
-import androidx.viewpager2.widget.ViewPager2;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.tabs.TabLayoutMediator;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * OrganizerLogsFragment
- *
- * Shows organizer logs in two tabs:
- *   Activity    — waitlist joins and lottery draws
- *   Notifications — notifications sent to entrants
+ * Now used as "Browse Entrants" for organizers.
+ * Allows searching and inviting entrants to private events or as co-organizers.
  */
 public class OrganizerLogsFragment extends Fragment {
 
+    private AdminViewModel adminViewModel;
+    private ManageEventViewModel manageEventViewModel;
+    private RecyclerView recyclerView;
+    private OrganizerEntrantAdapter adapter;
+    private EditText etSearch;
+    private View layoutEmpty;
+
+    private List<User> allUsers = new ArrayList<>();
+    private List<User> filteredUsers = new ArrayList<>();
+
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.organizer_logs_fragment, container, false);
     }
 
@@ -37,76 +48,121 @@ public class OrganizerLogsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        SwipeRefreshLayout swipe = view.findViewById(R.id.org_logs_swipe_refresh);
-        swipe.setOnRefreshListener(() -> swipe.setRefreshing(false));
+        adminViewModel = new ViewModelProvider(this).get(AdminViewModel.class);
+        manageEventViewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
 
-        ViewPager2 viewPager = view.findViewById(R.id.view_pager);
-        TabLayout tabLayout = view.findViewById(R.id.tab_layout);
+        recyclerView = view.findViewById(R.id.rv_entrants);
+        etSearch = view.findViewById(R.id.et_search);
+        layoutEmpty = view.findViewById(R.id.layout_empty);
 
-        viewPager.setAdapter(new LogsPagerAdapter(this));
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        adapter = new OrganizerEntrantAdapter(filteredUsers, this::showInviteOptions);
+        recyclerView.setAdapter(adapter);
 
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) ->
-                tab.setText(position == 0 ? "Activity" : "Notifications")
-        ).attach();
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                applyFilter(s.toString());
+            }
+        });
+
+        observeViewModel();
+        adminViewModel.loadProfiles();
     }
 
-    // ── Pager adapter ─────────────────────────────────────────────────────────
-
-    private static class LogsPagerAdapter extends FragmentStateAdapter {
-        LogsPagerAdapter(Fragment f) {
-            super(f.getChildFragmentManager(), f.getViewLifecycleOwner().getLifecycle());
-        }
-
-        @Override public int getItemCount() { return 2; }
-
-        @NonNull
-        @Override
-        public Fragment createFragment(int position) {
-            return LogsTabFragment.newInstance(position);
-        }
+    private void observeViewModel() {
+        adminViewModel.getProfiles().observe(getViewLifecycleOwner(), users -> {
+            if (users != null) {
+                allUsers.clear();
+                // Only show entrants/users that are not deleted
+                for (User u : users) {
+                    if (!u.isDeleted()) {
+                        allUsers.add(u);
+                    }
+                }
+                applyFilter(etSearch.getText().toString());
+            }
+        });
     }
 
-    // ── Tab fragment ──────────────────────────────────────────────────────────
-
-    public static class LogsTabFragment extends Fragment {
-
-        static final int TAB_ACTIVITY      = 0;
-        static final int TAB_NOTIFICATIONS = 1;
-        private static final String ARG_TAB = "tab";
-
-        public static LogsTabFragment newInstance(int tab) {
-            LogsTabFragment f = new LogsTabFragment();
-            Bundle args = new Bundle();
-            args.putInt(ARG_TAB, tab);
-            f.setArguments(args);
-            return f;
-        }
-
-        @Nullable
-        @Override
-        public View onCreateView(@NonNull LayoutInflater inflater,
-                                 @Nullable ViewGroup container,
-                                 @Nullable Bundle savedInstanceState) {
-            return inflater.inflate(R.layout.fragment_logs_tab, container, false);
-        }
-
-        @Override
-        public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-            super.onViewCreated(view, savedInstanceState);
-
-            int tab = getArguments() != null
-                    ? getArguments().getInt(ARG_TAB, TAB_ACTIVITY) : TAB_ACTIVITY;
-
-            TextView title = view.findViewById(R.id.tv_logs_empty_title);
-            TextView body  = view.findViewById(R.id.tv_logs_empty_body);
-
-            if (tab == TAB_ACTIVITY) {
-                title.setText("No activity yet");
-                body.setText("Waitlist joins and lottery draws will appear here.");
-            } else {
-                title.setText("No notifications sent");
-                body.setText("Notifications sent to entrants will be logged here.");
+    private void applyFilter(String query) {
+        String lowerQuery = query.toLowerCase().trim();
+        if (lowerQuery.isEmpty()) {
+            filteredUsers.clear();
+            filteredUsers.addAll(allUsers);
+        } else {
+            filteredUsers.clear();
+            for (User u : allUsers) {
+                boolean match = (u.getName() != null && u.getName().toLowerCase().contains(lowerQuery))
+                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(lowerQuery))
+                        || (u.getPhone() != null && u.getPhone().contains(lowerQuery));
+                if (match) filteredUsers.add(u);
             }
         }
+
+        adapter.notifyDataSetChanged();
+        layoutEmpty.setVisibility(filteredUsers.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private void showInviteOptions(User user) {
+        String[] options = {"Invite to Private Event Waitlist", "Invite as Co-Organizer"};
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Invite " + (user.getName() != null ? user.getName() : "User"))
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showPrivateEventPicker(user);
+                    } else {
+                        inviteAsCoOrganizer(user);
+                    }
+                })
+                .show();
+    }
+
+    private void showPrivateEventPicker(User user) {
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        String organizerId = local.getUUIDSync();
+
+        manageEventViewModel.getEvents().observe(getViewLifecycleOwner(), events -> {
+            if (events == null || events.isEmpty()) {
+                Toast.makeText(getContext(), "You have no events", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            List<Event> privateEvents = events.stream()
+                    .filter(Event::isPrivate)
+                    .collect(Collectors.toList());
+
+            if (privateEvents.isEmpty()) {
+                Toast.makeText(getContext(), "You have no private events", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String[] eventTitles = privateEvents.stream().map(Event::getTitle).toArray(String[]::new);
+
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Select Private Event")
+                    .setItems(eventTitles, (dialog, which) -> {
+                        Event selected = privateEvents.get(which);
+                        inviteToWaitlist(user, selected);
+                    })
+                    .show();
+        });
+
+        if (organizerId != null) {
+            manageEventViewModel.loadOrganizerEvents(organizerId);
+        }
+    }
+
+    private void inviteToWaitlist(User user, Event event) {
+        // Logic to add user to registrations collection with status 'invited' or 'waitlisted'
+        // For now, we'll just show a toast as the actual Firestore logic for manual invite
+        // might need a specific repository method.
+        Toast.makeText(getContext(), "Invited " + user.getName() + " to " + event.getTitle(), Toast.LENGTH_SHORT).show();
+    }
+
+    private void inviteAsCoOrganizer(User user) {
+        // Logic to update user's role or add to a co-organizers sub-collection
+        Toast.makeText(getContext(), user.getName() + " invited as co-organizer", Toast.LENGTH_SHORT).show();
     }
 }

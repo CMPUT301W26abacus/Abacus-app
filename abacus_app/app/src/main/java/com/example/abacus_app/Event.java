@@ -55,6 +55,7 @@ public class Event implements Serializable {
         this.eventCapacity = eventCapacity;
         this.geoRequired = geoRequired;
         this.lotteryDrawn = lotteryDrawn;
+        this.isPrivate = false; // Default to public
     }
 
     /**

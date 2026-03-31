@@ -98,5 +98,10 @@
         android:name="com.example.abacus_app.AccessibilityFragment"
         android:label="Accessibility" />
 
+    <fragment
+        android:id="@+id/eventMapFragment"
+        android:name="com.example.abacus_app.EventMapFragment"
+        android:label="Event Map" />
+
 
 </navigation>

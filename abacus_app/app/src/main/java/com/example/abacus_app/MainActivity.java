@@ -38,6 +38,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
@@ -55,6 +56,7 @@ import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -297,6 +299,8 @@ public class MainActivity extends AppCompatActivity {
             if (guestEmail != null) {
                 resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
             }
+            // applyFilters will be called by loadEventsFromFirestore when data arrives;
+            // if events are already loaded, re-apply now so button states update.
             if (!allEvents.isEmpty()) applyFilters();
         } else {
             UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
@@ -448,7 +452,10 @@ public class MainActivity extends AppCompatActivity {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
             }
 
-            if (keywordMatch && dateMatch && notExpired) filtered.add(event);
+            // US: Private events should not be visible in public browse list
+            boolean isPublic = !event.isPrivate();
+
+            if (keywordMatch && dateMatch && notExpired && isPublic) filtered.add(event);
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────
@@ -481,6 +488,7 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(new EventAdapter(
                 finalFiltered,
                 (eventTitle, autoJoin) -> {
+                    // Resolve eventId from filtered list
                     String eventId = "";
                     for (Event e : finalFiltered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
@@ -496,7 +504,7 @@ public class MainActivity extends AppCompatActivity {
                 },
                 isAdminUser ? this::confirmDeleteEvent : null,
                 isAdminUser,
-                resolvedUserKey,
+                resolvedUserKey,   // null until resolved — adapter handles gracefully
                 isGuest
         ));
 

@@ -11,12 +11,16 @@
  */
 package com.example.abacus_app;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -25,12 +29,23 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.CancellationTokenSource;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
@@ -47,16 +62,27 @@ public class EventDetailsFragment extends Fragment {
 
     private String currentEventId = null;
     private String currentUserId  = null;
+    private Event  loadedEvent    = null;
     private String eventTitle     = "Event Details";
     private boolean isGuest       = false;
     private boolean autoJoin      = false;
+    private boolean isEditing     = false;
 
+    private FirebaseFirestore db;
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
+    private Button btnViewMap;
+    private ImageButton btnViewQr;
     private TextView tvWaitlistCount;
 
     private EventRepository eventRepository;
     private RegistrationRepository registrationRepository;
+
+    private EditText etTitle, etDescription, etPosterUrl;
+    private TextView tvTitle, tvDescription;
+    private ImageView ivPoster;
+
+    private FusedLocationProviderClient fusedLocationClient;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -74,7 +100,9 @@ public class EventDetailsFragment extends Fragment {
 
         isGuest  = requireActivity().getIntent().getBooleanExtra("isGuest", false);
         autoJoin = getArguments() != null && getArguments().getBoolean(ARG_AUTO_JOIN, false);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
 
+        db                     = FirebaseFirestore.getInstance();
         eventRepository        = new EventRepository();
         registrationRepository = new RegistrationRepository();
 
@@ -94,18 +122,19 @@ public class EventDetailsFragment extends Fragment {
                 ? getArguments().getString(ARG_EVENT_ID, null)
                 : null;
 
-        TextView tvTitle = view.findViewById(R.id.tv_event_title);
+        tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
 
         // ── QR button ─────────────────────────────────────────────────────────
-        ImageButton btnViewQr = view.findViewById(R.id.btn_view_qr);
+        btnViewQr = view.findViewById(R.id.btn_view_qr);
         btnViewQr.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putString(EventQrFragment.ARG_EVENT_ID,   currentEventId != null ? currentEventId : "");
             args.putString(EventQrFragment.ARG_EVENT_NAME, eventTitle);
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
-        // ── Comment Button ─────────────────────────────────────────────────
+
+        // ── Comment Button ─────────────────────────────────────────────────────
         Button btnViewComments = view.findViewById(R.id.btn_view_comments);
         btnViewComments.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -114,6 +143,7 @@ public class EventDetailsFragment extends Fragment {
             commentsFragment.setArguments(args);
             commentsFragment.show(getParentFragmentManager(), "comments");
         });
+
         // ── Lottery Guidelines ─────────────────────────────────────────────────
         Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
         btnLotteryGuidelines.setOnClickListener(v -> {
@@ -123,15 +153,32 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.lotteryGuidelinesFragment, args);
         });
 
+        ivPoster      = view.findViewById(R.id.iv_event_poster);
+        tvDescription = view.findViewById(R.id.tv_description);
+        etTitle       = view.findViewById(R.id.et_edit_title);
+        etDescription = view.findViewById(R.id.et_edit_description);
+        etPosterUrl   = view.findViewById(R.id.et_edit_poster_url);
+
         if (currentEventId != null) loadEventDetails();
 
         // ── Waitlist setup ─────────────────────────────────────────────────────
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
+        btnViewMap       = view.findViewById(R.id.btn_view_map);
 
         btnJoinWaitlist.setEnabled(false);
         btnLeaveWaitlist.setEnabled(false);
+
+        if (btnViewMap != null) {
+            btnViewMap.setVisibility(View.GONE);
+            btnViewMap.setOnClickListener(v -> {
+                Bundle args = new Bundle();
+                args.putString(EventMapFragment.ARG_EVENT_ID, currentEventId);
+                args.putString(EventMapFragment.ARG_EVENT_NAME, eventTitle);
+                Navigation.findNavController(view).navigate(R.id.eventMapFragment, args);
+            });
+        }
 
         if (isGuest) {
             setupGuestWaitlist(view);
@@ -181,7 +228,7 @@ public class EventDetailsFragment extends Fragment {
     private void setupAuthenticatedWaitlist() {
         UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(
-                com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                FirebaseFirestore.getInstance());
         UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
 
         userRepository.getCurrentUserId(uuid -> {
@@ -191,14 +238,21 @@ public class EventDetailsFragment extends Fragment {
             checkWaitlistStatus();
         });
 
-        btnJoinWaitlist.setOnClickListener(v -> joinWaitlist());
+        btnJoinWaitlist.setOnClickListener(v -> {
+            if (loadedEvent != null && currentUserId != null
+                    && currentUserId.equals(loadedEvent.getOrganizerId())) {
+                toggleEditMode();
+            } else {
+                handleJoinFlow();
+            }
+        });
         btnLeaveWaitlist.setOnClickListener(v -> showLeaveConfirmationDialog());
     }
 
     /**
      * Checks registration status via RegistrationRepository and shows
      * the correct button. If autoJoin is set and the user is NOT yet on the
-     * waitlist, immediately fires joinWaitlist().
+     * waitlist, immediately fires handleJoinFlow().
      */
     private void checkWaitlistStatus() {
         if (currentEventId == null) return;
@@ -208,7 +262,7 @@ public class EventDetailsFragment extends Fragment {
             } else {
                 showJoinButton();
                 // Auto-join: fire immediately, no extra tap needed
-                if (autoJoin) joinWaitlist();
+                if (autoJoin) handleJoinFlow();
             }
         });
     }
@@ -216,6 +270,11 @@ public class EventDetailsFragment extends Fragment {
     // ── Guest routing ─────────────────────────────────────────────────────────
 
     private void openGuestSignUp(@NonNull View view) {
+        if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null &&
+                loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
+            Toast.makeText(getContext(), "Registration has ended", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Bundle args = new Bundle();
         args.putString(GuestSignUpFragment.ARG_EVENT_ID,    currentEventId != null ? currentEventId : "");
         args.putString(GuestSignUpFragment.ARG_EVENT_TITLE, eventTitle);
@@ -255,62 +314,79 @@ public class EventDetailsFragment extends Fragment {
     // ── Event details ─────────────────────────────────────────────────────────
 
     private void loadEventDetails() {
-        eventRepository.getEventByIdAsync(currentEventId, event -> {
-            if (event == null || getView() == null) return;
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(currentEventId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.exists()) return;
+                    Event event = snapshot.toObject(Event.class);
+                    if (event == null) return;
+                    this.loadedEvent = event;
 
-            ImageView ivPoster = getView().findViewById(R.id.iv_event_poster);
-            if (ivPoster != null) {
-                String posterUrl = event.getPosterImageUrl();
-                if (posterUrl != null && !posterUrl.isEmpty()) {
-                    Glide.with(this).load(posterUrl)
-                            .placeholder(R.drawable.ic_event_poster)
-                            .error(R.drawable.ic_event_poster)
-                            .centerCrop().into(ivPoster);
-                } else {
-                    ivPoster.setImageResource(R.drawable.ic_event_poster);
-                }
-            }
+                    if (btnViewQr != null) {
+                        btnViewQr.setVisibility(event.isPrivate() ? View.GONE : View.VISIBLE);
+                    }
 
-            TextView tvDescription = getView().findViewById(R.id.tv_description);
-            if (tvDescription != null && event.getDescription() != null)
-                tvDescription.setText(event.getDescription());
+                    if (ivPoster != null) {
+                        String posterUrl = event.getPosterImageUrl();
+                        if (posterUrl != null && !posterUrl.isEmpty()) {
+                            Glide.with(this).load(posterUrl)
+                                    .placeholder(R.drawable.ic_event_poster)
+                                    .error(R.drawable.ic_event_poster)
+                                    .centerCrop().into(ivPoster);
+                        } else {
+                            ivPoster.setImageResource(R.drawable.ic_event_poster);
+                        }
+                    }
 
-            TextView tvDateTime = getView().findViewById(R.id.tv_date_time);
-            if (tvDateTime != null && event.getRegistrationStart() != null) {
-                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-                String start = sdf.format(event.getRegistrationStart().toDate());
-                tvDateTime.setText(event.getRegistrationEnd() != null
-                        ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
-                        : start);
-            }
+                    if (tvDescription != null && event.getDescription() != null)
+                        tvDescription.setText(event.getDescription());
 
-            if (tvWaitlistCount != null) {
-                Integer capacity = event.getWaitlistCapacity();
-                tvWaitlistCount.setText(capacity == null
-                        ? "Unlimited spots" : "Capacity: " + capacity);
-            }
+                    TextView tvDateTime = getView() != null
+                            ? getView().findViewById(R.id.tv_date_time) : null;
+                    if (tvDateTime != null && event.getRegistrationStart() != null) {
+                        SimpleDateFormat sdf =
+                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+                        String start = sdf.format(event.getRegistrationStart().toDate());
+                        tvDateTime.setText(event.getRegistrationEnd() != null
+                                ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
+                                : start);
+                    }
 
-            // Organizer name — direct Firestore read used here intentionally.
-            // UserRepository only exposes getProfile() which fetches the CURRENT
-            // user by their locally stored UUID. There is no getUserById(id) method
-            // to look up an arbitrary user by ID. Until UserRepository is extended
-            // to support that, this lookup stays as a direct Firestore call.
-            String organizerId = event.getOrganizerId();
-            if (organizerId != null) {
-                com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        .collection("users").document(organizerId).get()
-                        .addOnSuccessListener(userSnapshot -> {
-                            TextView tvOrganizer = getView() != null
-                                    ? getView().findViewById(R.id.tv_organizer) : null;
-                            if (tvOrganizer != null) {
-                                String name = userSnapshot.exists()
-                                        ? userSnapshot.getString("name") : null;
-                                tvOrganizer.setText("Hosted by " +
-                                        (name != null ? name : "Unknown"));
-                            }
-                        });
-            }
-        });
+                    if (tvWaitlistCount != null) {
+                        Integer capacity = event.getWaitlistCapacity();
+                        tvWaitlistCount.setText(capacity == null
+                                ? "Unlimited spots" : "Capacity: " + capacity);
+                    }
+
+                    if (btnViewMap != null && event.isGeoRequired()
+                            && currentUserId != null
+                            && currentUserId.equals(event.getOrganizerId())) {
+                        btnViewMap.setVisibility(View.VISIBLE);
+                    }
+
+                    // Organizer name — direct Firestore read used here intentionally.
+                    // UserRepository only exposes getProfile() which fetches the CURRENT
+                    // user by their locally stored UUID. There is no getUserById(id) method
+                    // to look up an arbitrary user by ID. Until UserRepository is extended
+                    // to support that, this lookup stays as a direct Firestore call.
+                    String organizerId = event.getOrganizerId();
+                    if (organizerId != null) {
+                        FirebaseFirestore.getInstance()
+                                .collection("users").document(organizerId).get()
+                                .addOnSuccessListener(userSnapshot -> {
+                                    TextView tvOrganizer = getView() != null
+                                            ? getView().findViewById(R.id.tv_organizer) : null;
+                                    if (tvOrganizer != null) {
+                                        String name = userSnapshot.exists()
+                                                ? userSnapshot.getString("name") : null;
+                                        tvOrganizer.setText("Hosted by " +
+                                                (name != null ? name : "Unknown"));
+                                    }
+                                });
+                    }
+                });
     }
 
     // ── Waitlist count ────────────────────────────────────────────────────────
@@ -338,48 +414,83 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Join / leave (authenticated) ──────────────────────────────────────────
 
-    private void joinWaitlist() {
+    private void handleJoinFlow() {
+        if (loadedEvent != null && loadedEvent.isGeoRequired()) {
+            if (ActivityCompat.checkSelfPermission(requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+            } else {
+                fetchLocationAndJoin();
+            }
+        } else {
+            joinWaitlist(null);
+        }
+    }
+
+    private void fetchLocationAndJoin() {
+        if (ActivityCompat.checkSelfPermission(requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return;
+
+        Toast.makeText(getContext(), "Joining with location...", Toast.LENGTH_SHORT).show();
+        fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_HIGH_ACCURACY,
+                        new CancellationTokenSource().getToken())
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        joinWaitlist(location);
+                    } else {
+                        fusedLocationClient.getLastLocation().addOnSuccessListener(lastLoc -> {
+                            if (lastLoc != null) {
+                                joinWaitlist(lastLoc);
+                            } else {
+                                Toast.makeText(getContext(),
+                                        "Could not retrieve location. Ensure GPS is enabled.",
+                                        Toast.LENGTH_LONG).show();
+                                joinWaitlist(null);
+                            }
+                        });
+                    }
+                })
+                .addOnFailureListener(e -> joinWaitlist(null));
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode == 100 && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            fetchLocationAndJoin();
+        } else if (requestCode == 100) {
+            Toast.makeText(getContext(),
+                    "Location permission is required to join this event.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void joinWaitlist(Location location) {
         if (currentUserId == null || currentEventId == null) {
-            Toast.makeText(requireContext(),
-                    "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Check if already on waitlist, then check capacity before joining
-        registrationRepository.isOnWaitlist(currentUserId, currentEventId, isOn -> {
-            if (isOn) {
+        registrationRepository.joinWaitlist(currentUserId, currentEventId, location, error -> {
+            if (error != null) {
                 Toast.makeText(requireContext(),
-                        "You are already on the waiting list for this event.",
-                        Toast.LENGTH_LONG).show();
-                showLeaveButton();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            registrationRepository.getWaitListSize(currentEventId, count -> {
-                if (count == null) count = 0;
-                final int finalCount = count;
-                eventRepository.getEventByIdAsync(currentEventId, event -> {
-                    Integer capacity = event != null ? event.getWaitlistCapacity() : null;
-                    if (capacity != null && finalCount >= capacity) {
-                        Toast.makeText(requireContext(),
-                                "This waiting list is full.", Toast.LENGTH_LONG).show();
-                        return;
-                    }
+            Toast.makeText(requireContext(),
+                    "You have joined the waiting list!",
+                    Toast.LENGTH_SHORT).show();
 
-                    registrationRepository.joinWaitlist(currentUserId, currentEventId, error -> {
-                        if (error != null) {
-                            Toast.makeText(requireContext(),
-                                    "Something went wrong. Please try again.",
-                                    Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        Toast.makeText(requireContext(),
-                                "You have joined the waiting list!", Toast.LENGTH_SHORT).show();
-                        showLeaveButton();
-                        loadWaitlistCount();
-                    });
-                });
-            });
+            showLeaveButton();
+            loadWaitlistCount();
         });
     }
 
@@ -393,11 +504,7 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private void leaveWaitlist() {
-        if (currentUserId == null || currentEventId == null) {
-            Toast.makeText(requireContext(),
-                    "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (currentUserId == null || currentEventId == null) return;
 
         registrationRepository.leaveWaitlist(currentUserId, currentEventId, error -> {
             if (error != null) {
@@ -418,12 +525,87 @@ public class EventDetailsFragment extends Fragment {
     private void showJoinButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setEnabled(true);
+
+        if (loadedEvent != null && currentUserId != null &&
+                currentUserId.equals(loadedEvent.getOrganizerId())) {
+            if (btnJoinWaitlist != null) {
+                btnJoinWaitlist.setEnabled(true);
+                btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
+            }
+        } else {
+            if (btnJoinWaitlist != null) {
+                boolean isEnded = loadedEvent != null
+                        && loadedEvent.getRegistrationEnd() != null
+                        && loadedEvent.getRegistrationEnd().toDate().before(new Date());
+                btnJoinWaitlist.setEnabled(currentUserId != null && !isEnded);
+                btnJoinWaitlist.setText(isEnded ? "Registration Ended" : "Join Waiting List");
+            }
+        }
     }
 
     private void showLeaveButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
+    }
+
+    // ── Edit mode (organizer) ─────────────────────────────────────────────────
+
+    private void toggleEditMode() {
+        if (loadedEvent == null) return;
+        if (!isEditing) {
+            isEditing = true;
+            btnJoinWaitlist.setText("Save Changes");
+            if (tvTitle != null) tvTitle.setVisibility(View.GONE);
+            if (tvDescription != null) tvDescription.setVisibility(View.GONE);
+            if (etTitle != null) {
+                etTitle.setVisibility(View.VISIBLE);
+                etTitle.setText(loadedEvent.getTitle());
+            }
+            if (etDescription != null) {
+                etDescription.setVisibility(View.VISIBLE);
+                etDescription.setText(loadedEvent.getDescription());
+            }
+            if (etPosterUrl != null) {
+                etPosterUrl.setVisibility(View.VISIBLE);
+                etPosterUrl.setText(loadedEvent.getPosterImageUrl());
+            }
+        } else {
+            saveChanges();
+        }
+    }
+
+    private void saveChanges() {
+        if (loadedEvent == null || currentEventId == null) return;
+        String newTitle = etTitle != null
+                ? etTitle.getText().toString().trim() : loadedEvent.getTitle();
+        String newDescription = etDescription != null
+                ? etDescription.getText().toString().trim() : loadedEvent.getDescription();
+        String newPosterUrl = etPosterUrl != null
+                ? etPosterUrl.getText().toString().trim() : loadedEvent.getPosterImageUrl();
+        if (newTitle.isEmpty()) {
+            Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        loadedEvent.setTitle(newTitle);
+        loadedEvent.setDescription(newDescription);
+        loadedEvent.setPosterImageUrl(newPosterUrl);
+        db.collection("events").document(currentEventId).set(loadedEvent)
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(requireContext(),
+                            "Event updated successfully", Toast.LENGTH_SHORT).show();
+                    isEditing = false;
+                    exitEditMode();
+                    loadEventDetails();
+                });
+    }
+
+    private void exitEditMode() {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setText("Edit");
+        if (tvTitle          != null) tvTitle.setVisibility(View.VISIBLE);
+        if (tvDescription    != null) tvDescription.setVisibility(View.VISIBLE);
+        if (etTitle          != null) etTitle.setVisibility(View.GONE);
+        if (etDescription    != null) etDescription.setVisibility(View.GONE);
+        if (etPosterUrl      != null) etPosterUrl.setVisibility(View.GONE);
     }
 }
