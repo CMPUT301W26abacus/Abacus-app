@@ -74,20 +74,22 @@
                 android:paddingHorizontal="12dp"
                 android:paddingBottom="8dp">
 
-                <com.google.android.material.search.SearchBar
-                    android:id="@+id/search_bar"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:hint="Search events..."
-                    android:textColor="@color/black"
-                    android:textColorHint="@color/grey"
-                    app:backgroundTint="@color/surface_tint"
-                    app:navigationIconTint="@color/black"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toStartOf="@id/btn_scan"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintTop_toTopOf="parent">
 
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/search_bar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Search events..."
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey"/>
+                </com.google.android.material.textfield.TextInputLayout>
                 <ImageButton
                     android:id="@+id/btn_scan"
                     android:layout_width="48dp"
