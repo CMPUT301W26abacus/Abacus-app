@@ -3,6 +3,8 @@ package com.example.abacus_app;
 /**
  * Entity class for a comment.
  * Fields match the Firestore 'comments' documents.
+ *
+ * @author Kaylee
  */
 public class Comment implements Comparable<Comment>{
 
@@ -17,6 +19,17 @@ public class Comment implements Comparable<Comment>{
      * Default constructor for FireBase.
      */
     public Comment() { }
+
+    /**
+     * Constructs a comment with all data filled in.
+     *
+     * @param commentId the unique ID of the comment in the database
+     * @param userId the unique ID of the user who posted the comment
+     * @param username the display name of the user, stored for ease of access
+     * @param eventId the unique ID of the event the comment is posted to
+     * @param content the text the comment will display, written by user
+     * @param timestamp the timestamp the comment was posted
+     */
     public Comment(String commentId, String userId, String username, String eventId, String content, Long timestamp) {
         this.commentId = commentId;
         this.userId = userId;

@@ -17,6 +17,8 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link CommentRemoteDataSource}.
  *  </p>
+ *
+ * @author Kaylee
  */
 public class CommentRepository {
 
@@ -70,6 +72,13 @@ public class CommentRepository {
         });
     }
 
+    /**
+     * Deletes a comment from the database.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param commentId the unique ID of the comment in the database
+     * @param callback callback called when the operation completes
+     */
     public void deleteComment(String eventId, String commentId, VoidCallback callback) {
         executor.submit(() -> {
             try {

@@ -27,6 +27,8 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link RegistrationRemoteDataSource}.
  *  </p>
+ *
+ * @author Kaylee
  */
 public class RegistrationRepository {
 

@@ -24,6 +24,8 @@ import java.util.concurrent.ExecutionException;
  *
  * NOTE: The methods in this class run SYNCHRONOUSLY and are only to be used in the architecture
  * layer (repositories). For methods related to UI, refer to {@link RegistrationRepository}.
+ *
+ * @author Kaylee
  */
 public class RegistrationRemoteDataSource {
 

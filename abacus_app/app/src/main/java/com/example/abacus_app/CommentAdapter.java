@@ -15,6 +15,12 @@ import java.text.DateFormat;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Adapter for {@link Comment} objects to the RecyclerView in {@link CommentsFragment} for display
+ * of event comment sections. Calculates difference in comment timestamps and present time.
+ *
+ * @author Kaylee
+ */
 public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHolder> {
 
     private List<Comment> comments;
