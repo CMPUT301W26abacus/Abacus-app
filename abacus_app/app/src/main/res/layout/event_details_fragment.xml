@@ -165,6 +165,16 @@
                     android:layout_marginBottom="20dp"
                     android:background="@color/light_grey" />
 
+                <Button
+                    android:id="@+id/btn_view_comments"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="View Comments"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp"
+                    android:textColor="@color/black"/>
+
                 <!-- Lottery Guidelines button (US lottery guidelines) -->
                 <Button
                     android:id="@+id/btn_lottery_guidelines"

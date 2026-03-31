@@ -1,76 +1,68 @@
 package com.example.abacus_app;
 
+import android.content.res.Resources;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * A simple {@link Fragment} subclass.
- * Use the {@link CommentsFragment#newInstance} factory method to
- * create an instance of this fragment.
+ * Fragment to display the comments on a specific event. Allows a user to add a comment.
  */
-public class CommentsFragment extends Fragment {
+public class CommentsFragment extends BottomSheetDialogFragment {
+
+    public static final String ARG_EVENT_ID = "eventId";
 
     private RecyclerView recyclerView;
     private EditText input;
-    private Button send;
+    private ImageButton send;
+    private TextView tvEmpty;
 
     private List<Comment> comments = new ArrayList<>();
     private CommentAdapter adapter;
 
     private CommentRepository repo = new CommentRepository();
 
-    private String eventId = "sampleeventid"; // pass this properly
-
-
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    public CommentsFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment CommentsFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static CommentsFragment newInstance(String param1, String param2) {
-        CommentsFragment fragment = new CommentsFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    private String eventId = null;
+    private User currentUser  = null;
+    private boolean canDelete = false;
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+    public void onStart() {
+        super.onStart();
+
+        View view = getView();
+        if (view != null) {
+            View parent = (View) view.getParent();
+
+            // 90% of screen height
+            int height = (int) (Resources.getSystem().getDisplayMetrics().heightPixels * 0.9);
+            parent.getLayoutParams().height = height;
+
+            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(parent);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
         }
     }
 
@@ -78,19 +70,49 @@ public class CommentsFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        View view = inflater.inflate(R.layout.fragment_comments, container, false);
+        return inflater.inflate(R.layout.fragment_comments, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+
+        Bundle args = getArguments();
+        if (args != null) {
+            eventId = args.getString(CommentsFragment.ARG_EVENT_ID);
+        }
+
+        recyclerView = view.findViewById(R.id.recycler_comments);
+        input = view.findViewById(R.id.et_comment);
+        send = view.findViewById(R.id.btn_send);
+        tvEmpty = view.findViewById(R.id.tv_empty);
 
 
-        recyclerView = view.findViewById(R.id.commentsRecycler);
-        input = view.findViewById(R.id.commentInput);
-        send = view.findViewById(R.id.sendButton);
+        tvEmpty.setVisibility(comments.isEmpty() ? View.VISIBLE : View.GONE);
+        recyclerView.setVisibility(comments.isEmpty() ? View.GONE : View.VISIBLE);
 
+        // start adapter
         adapter = new CommentAdapter(comments);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         recyclerView.setAdapter(adapter);
 
         loadComments();
 
+        // get current user info
+        UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+        userRepository.getProfile(new UserRepository.UserCallback() {
+            @Override
+            public void onResult(User user) {
+                currentUser = user;
+                if (user != null) {
+                    determineCanDelete();
+                }
+            }
+        });
+
+        // onClick listeners
         send.setOnClickListener(v -> {
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
@@ -99,24 +121,78 @@ public class CommentsFragment extends Fragment {
             }
         });
 
+        input.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
 
-        return view;
+                String text = input.getText().toString().trim();
+                if (!text.isEmpty()) {
+                    addComment(text);
+                    input.setText("");
+                }
+
+                return true;
+            }
+            return false;
+        });
     }
 
 
     private void loadComments() {
         repo.getComments(eventId, result -> {
             comments.clear();
-            comments.addAll(result);
+            if (result != null) {
+                comments.addAll(result);
+            }
+            tvEmpty.setVisibility(comments.isEmpty() ? View.VISIBLE : View.GONE);
+            recyclerView.setVisibility(comments.isEmpty() ? View.GONE : View.VISIBLE);
+            Collections.sort(comments, Collections.reverseOrder());
             adapter.notifyDataSetChanged();
         });
     }
 
     private void addComment(String content) {
-
-        repo.addComment(eventId, "fakeuserid1", content, error -> {
+        Log.d("mytag", "addComment: " + currentUser.getName());
+        repo.addComment(eventId, currentUser.getUid(), currentUser.getName(), content, error -> {
             if (error == null) {
                 loadComments(); // refresh
+            } else {
+                Toast.makeText(getContext(),"Error: Failed to post comment.", Toast.LENGTH_LONG);
+            }
+        });
+    }
+
+    /**
+     * Determines if the user is allowed to delete comments for this event based on their role and
+     * communicates with adapter to display delete button.
+     */
+    private void determineCanDelete() {
+        // event organizer data needed
+        EventRepository eventRepository = new EventRepository();
+        // in case user is an admin
+        String role = ((MainActivity) requireActivity()).getEffectiveRole();
+        eventRepository.getEventByIdAsync(eventId, new EventRepository.EventCallback() {
+            @Override
+            public void onResult(Event event) {
+                // get user role to determine delete capabilities
+                // these states should probably be replaced by constants at some point...
+                if (role.equals("admin")) {
+                    canDelete = true;
+                    adapter.setCanDelete(canDelete);
+                } else if (role.equals("organizer")) {
+                    // check if user is organizer of this event
+                    if (event.getOrganizerId().equals(currentUser.getUid())) {
+                        canDelete = true;
+                        adapter.setCanDelete(canDelete);
+                    }
+                }
+                /**else if (currentUser.getRole().equals("entrant")) {
+                    // entrants do not have delete capabilities except for in the special case that they are a co-organizer
+                    if (event.get...) {
+                        canDelete = true;
+                        adapter.setCanDelete(canDelete);
+                    }
+                }
+                 **/
             }
         });
     }

@@ -1096,6 +1096,11 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Need this for accessing user role in admin mode in other Fragments.
+     *
+     * @return current role of user
+     */
     public String getEffectiveRole() {
         return userRole;
     }

@@ -2,6 +2,7 @@ package com.example.abacus_app;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.concurrent.Executor;
@@ -16,6 +17,8 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link CommentRemoteDataSource}.
  *  </p>
+ *
+ * @author Kaylee
  */
 public class CommentRepository {
 
@@ -38,10 +41,13 @@ public class CommentRepository {
      * @param content the content of the comment
      * @param callback callback called when the operation completes
      */
-    public void addComment(String eventId, String userId, String content, VoidCallback callback) {
+    public void addComment(String eventId, String userId, String username, String content, VoidCallback callback) {
         executor.submit(() -> {
            try {
-               remoteDataSource.addCommentSync(eventId, userId, content);
+               Log.d("mytagcommentrepo", "addComment: got to comment repo");
+               Log.d("mytagcommentrepo", "repo: " + username);
+               remoteDataSource.addCommentSync(eventId, userId, username, content);
+               Log.d("mytagcommentrepo", "addComment: finished addcommentSync");
                mainHandler.post(() -> callback.onComplete(null));
            } catch (Exception e) {
                mainHandler.post(() -> callback.onComplete(e));
@@ -62,6 +68,24 @@ public class CommentRepository {
                 mainHandler.post(() -> callback.onResult(comments));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onResult(null));
+            }
+        });
+    }
+
+    /**
+     * Deletes a comment from the database.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param commentId the unique ID of the comment in the database
+     * @param callback callback called when the operation completes
+     */
+    public void deleteComment(String eventId, String commentId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                remoteDataSource.deleteCommentSync(eventId, commentId);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
             }
         });
     }

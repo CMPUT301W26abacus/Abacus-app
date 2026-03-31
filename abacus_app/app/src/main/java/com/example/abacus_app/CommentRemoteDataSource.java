@@ -1,6 +1,11 @@
 package com.example.abacus_app;
 
+import static androidx.core.content.ContentProviderCompat.requireContext;
+
+import android.util.Log;
+
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -8,6 +13,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -16,6 +24,8 @@ import java.util.concurrent.ExecutionException;
  *
  * NOTE: The methods in this class run SYNCHRONOUSLY and are only to be used in the architecture
  * layer (repositories). For methods related to UI, refer to {@link CommentRepository}.
+ *
+ * @author Kaylee
  */
 public class CommentRemoteDataSource {
 
@@ -27,14 +37,14 @@ public class CommentRemoteDataSource {
      *
      * NOTE: This class should only be utilized from repository classes.
      */
-    CommentRemoteDataSource() {
+    public CommentRemoteDataSource() {
         firestore = FirebaseFirestore.getInstance();
     }
 
-    private CollectionReference getCollectionRef(String eventID) {
+    private CollectionReference getCollectionRef(String eventId) {
         return firestore
                 .collection("events")
-                .document(eventID)
+                .document(eventId)
                 .collection("comments");
     }
 
@@ -43,11 +53,12 @@ public class CommentRemoteDataSource {
 
         String commentId = doc.getString("commentId");
         String userId = doc.getString("userId");
+        String username = doc.getString("username");
         String eventId = doc.getString("eventId");
         String content = doc.getString("content");
         Long timestamp = doc.getLong("timestamp");
 
-        return new Comment(commentId, userId, eventId, content, timestamp);
+        return new Comment(commentId, userId, username, eventId, content, timestamp);
     }
 
     /**
@@ -58,10 +69,15 @@ public class CommentRemoteDataSource {
      * @param content the content of the comment
      * @throws Exception something went wrong
      */
-    public void addCommentSync(String eventId, String userId, String content) throws Exception {
+    public void addCommentSync(String eventId, String userId, String username, String content) throws Exception {
+
         DocumentReference docRef = getCollectionRef(eventId).document();
-        Comment comment = new Comment(docRef.getId(), userId, eventId, content, System.currentTimeMillis());
+        Log.d("mytagCommentRDS", "addCommentSync: " + username);
+        Comment comment = new Comment(docRef.getId(), userId, username, eventId, content, System.currentTimeMillis());
+        Log.d("mytagCommentRDS", "addCommentSync: " + comment.getUsername());
+        Log.d("mytagCommentRDS", "addCommentSync: before");
         Tasks.await(docRef.set(comment));
+        Log.d("mytagCommentRDS", "addCommentSync: after");
     }
 
     /**
@@ -80,5 +96,17 @@ public class CommentRemoteDataSource {
             comments.add(comment);
         }
         return comments;
+    }
+
+    /**
+     * Deletes a specific comment from the db by removing the document.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param commentId the unique ID of the comment in the database
+     * @throws Exception something went wrong
+     */
+    public void deleteCommentSync(String eventId, String commentId) throws Exception {
+        DocumentReference docRef = getCollectionRef(eventId).document(commentId);
+        Tasks.await(docRef.delete());
     }
 }

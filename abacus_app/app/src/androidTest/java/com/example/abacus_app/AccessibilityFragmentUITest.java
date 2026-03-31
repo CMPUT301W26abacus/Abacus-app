@@ -52,7 +52,7 @@ public class AccessibilityFragmentUITest {
                 AccessibilityFragment.class,
                 null,
                 R.style.Theme_Abacusapp,
-                null);
+                (androidx.fragment.app.FragmentFactory) null);
     }
 
     @After
@@ -93,7 +93,7 @@ public class AccessibilityFragmentUITest {
                 AccessibilityFragment.class,
                 null,
                 R.style.Theme_Abacusapp,
-                null);
+                (androidx.fragment.app.FragmentFactory) null);
 
         onView(withId(R.id.switchColorBlind)).check(matches(isChecked()));
     }
@@ -107,7 +107,7 @@ public class AccessibilityFragmentUITest {
                 AccessibilityFragment.class,
                 null,
                 R.style.Theme_Abacusapp,
-                null);
+                (androidx.fragment.app.FragmentFactory) null);
 
         onView(withId(R.id.switchLargeText)).check(matches(isChecked()));
     }
@@ -121,7 +121,7 @@ public class AccessibilityFragmentUITest {
                 AccessibilityFragment.class,
                 null,
                 R.style.Theme_Abacusapp,
-                null);
+                (androidx.fragment.app.FragmentFactory) null);
 
         onView(withId(R.id.switchColorBlind)).check(matches(isNotChecked()));
     }

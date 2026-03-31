@@ -2,6 +2,9 @@ package com.example.abacus_app;
 
 public class Notification {
 
+    public static final String TYPE_SELECTED = "SELECTED";
+    public static final String TYPE_NOT_SELECTED = "NOT_SELECTED";
+
     private String userId;
     private String eventId;
     private String message;

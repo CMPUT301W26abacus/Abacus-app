@@ -27,6 +27,8 @@ import java.util.concurrent.Executors;
  *  classes. For synchronous methods for the architecture layer (repositories), refer to
  *  {@link RegistrationRemoteDataSource}.
  *  </p>
+ *
+ * @author Kaylee
  */
 public class RegistrationRepository {
 
@@ -258,8 +260,6 @@ public class RegistrationRepository {
     public void runLottery(String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // unnecessary to fetch directly, there is already a method that does exactly this
-                // should use EventRemoteDataSource method, do not re-write methods
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
                 Event event = eventRDS.getEventById(eventID);
 
@@ -311,6 +311,9 @@ public class RegistrationRepository {
                 Collections.sort(entries);
 
                 WaitlistEntry replacement = entries.isEmpty() ? null : entries.get(0);
+                if (replacement != null) {
+                    remoteDataSource.updateUserEntryStatusSync(eventID, replacement.getUserID(), WaitlistEntry.STATUS_INVITED);
+                }
                 mainHandler.post(() -> callback.onResult(replacement));
 
             } catch (Exception e) {

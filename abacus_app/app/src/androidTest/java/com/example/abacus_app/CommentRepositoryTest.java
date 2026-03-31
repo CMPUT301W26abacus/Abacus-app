@@ -17,7 +17,7 @@ public class CommentRepositoryTest {
         String userId = "fakeuser1";
         String content = "This is a great event!";
 
-        repo.addComment(EVENT_ID, userId, content, new CommentRepository.VoidCallback() {
+        repo.addComment(EVENT_ID, userId, content, "username", new CommentRepository.VoidCallback() {
             @Override
             public void onComplete(Exception error) {
                 // do nothing
