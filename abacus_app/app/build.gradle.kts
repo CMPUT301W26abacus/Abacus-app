@@ -68,6 +68,8 @@ dependencies {
 
     // Play Services
     implementation("com.google.android.gms:play-services-base:18.3.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // Navigation - use compatible version
     implementation("androidx.navigation:navigation-fragment:2.7.6")
@@ -106,6 +108,8 @@ dependencies {
     
     // SwipeRefreshLayout - compatible version
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
+    implementation("androidx.viewpager2:viewpager2:1.1.0-beta01")
 
     // Protobuf used by Firestore
     implementation("com.google.protobuf:protobuf-javalite:3.23.4")

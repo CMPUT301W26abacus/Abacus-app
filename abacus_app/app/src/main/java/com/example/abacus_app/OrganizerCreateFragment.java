@@ -1,7 +1,9 @@
 package com.example.abacus_app;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,8 +11,11 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -30,17 +35,29 @@ import java.util.TimeZone;
 
 /**
  * UI Controller for the event creation screen.
- * Owner: Himesh
+ * Handles event details, registration period, and poster selection.
+ * Fixed Activity.RESULT_OK compilation issue.
  */
 public class OrganizerCreateFragment extends Fragment {
 
     private CreateEventViewModel viewModel;
     private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity;
-    private Button btnSetStart, btnSetEnd, btnCreate;
+    private Button btnSetStart, btnSetEnd, btnCreate, btnSelectPoster;
     private MaterialSwitch switchGeo, switchPrivate;
     private CheckBox cbLimit;
+    private ImageView ivPosterPreview;
 
     private Timestamp startTimestamp, endTimestamp;
+    private Uri selectedImageUri;
+
+    private final ActivityResultLauncher<Intent> imagePickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    selectedImageUri = result.getData().getData();
+                    ivPosterPreview.setImageURI(selectedImageUri);
+                    etPosterUrl.setText(""); // Clear URL if image is selected from gallery
+                }
+            });
 
     @Nullable
     @Override
@@ -57,6 +74,8 @@ public class OrganizerCreateFragment extends Fragment {
         btnSetStart     = view.findViewById(R.id.btn_set_start);
         btnSetEnd       = view.findViewById(R.id.btn_set_end);
         btnCreate       = view.findViewById(R.id.btn_create_event);
+        btnSelectPoster = view.findViewById(R.id.btn_select_poster);
+        ivPosterPreview = view.findViewById(R.id.iv_poster_preview);
         switchGeo       = view.findViewById(R.id.switch_geo);
         switchPrivate   = view.findViewById(R.id.switch_private);
         cbLimit         = view.findViewById(R.id.cb_limit_waitlist);
@@ -64,14 +83,25 @@ public class OrganizerCreateFragment extends Fragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
+                // Reverted to Tools page
                 ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
             }
         });
 
-        cbLimit.setOnCheckedChangeListener((v, isChecked) -> etLimit.setEnabled(isChecked));
+        cbLimit.setOnCheckedChangeListener((v, isChecked) -> {
+            etLimit.setEnabled(isChecked);
+            if (!isChecked) etLimit.setText("");
+        });
+
         btnSetStart.setOnClickListener(v -> showDateTimePicker(true));
         btnSetEnd.setOnClickListener(v -> showDateTimePicker(false));
         btnCreate.setOnClickListener(v -> createEvent());
+
+        btnSelectPoster.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_PICK);
+            intent.setType("image/*");
+            imagePickerLauncher.launch(intent);
+        });
 
         observeViewModel();
         return view;
@@ -97,10 +127,6 @@ public class OrganizerCreateFragment extends Fragment {
         });
     }
 
-    /**
-     * Shows a date picker followed by a time picker to set event timestamps.
-     * Fixes the issue where UTC selection from MaterialDatePicker shifted the local date.
-     */
     private void showDateTimePicker(boolean isStart) {
         MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
                 .setTitleText("Select Date")
@@ -116,8 +142,6 @@ public class OrganizerCreateFragment extends Fragment {
 
             timePicker.addOnPositiveButtonClickListener(v -> {
                 Calendar calendar = Calendar.getInstance();
-
-                // selection is UTC midnight. Extract year/month/day in UTC to avoid timezone shifts.
                 Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                 utcCalendar.setTimeInMillis(selection);
 
@@ -131,14 +155,26 @@ public class OrganizerCreateFragment extends Fragment {
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
 
+                if (isStart) {
+                    if (endTimestamp != null && ts.compareTo(endTimestamp) >= 0) {
+                        Toast.makeText(getContext(), "Start must be before end", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    startTimestamp = ts;
+                } else {
+                    if (startTimestamp != null && ts.compareTo(startTimestamp) <= 0) {
+                        Toast.makeText(getContext(), "End must be after start", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    endTimestamp = ts;
+                }
+
                 SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
                 String formatted = sdf.format(calendar.getTime());
 
                 if (isStart) {
-                    startTimestamp = ts;
                     btnSetStart.setText("Start: " + formatted);
                 } else {
-                    endTimestamp = ts;
                     btnSetEnd.setText("End: " + formatted);
                 }
             });
@@ -150,14 +186,19 @@ public class OrganizerCreateFragment extends Fragment {
     private void createEvent() {
         String title = etTitle.getText().toString().trim();
         String desc  = etDescription.getText().toString().trim();
+        String capStr = etEventCapacity.getText().toString().trim();
 
-        if (title.isEmpty() || startTimestamp == null || endTimestamp == null) {
-            Toast.makeText(getContext(), "Please fill all required fields", Toast.LENGTH_SHORT).show();
+        if (title.isEmpty() || startTimestamp == null || endTimestamp == null || capStr.isEmpty()) {
+            Toast.makeText(getContext(), "Please fill all mandatory fields", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (endTimestamp.compareTo(startTimestamp) <= 0) {
-            Toast.makeText(getContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+        int eventCapacity;
+        try {
+            eventCapacity = Integer.parseInt(capStr);
+            if (eventCapacity <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            Toast.makeText(getContext(), "Invalid event capacity", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -165,19 +206,12 @@ public class OrganizerCreateFragment extends Fragment {
         if (cbLimit.isChecked()) {
             try {
                 waitlistLimit = Integer.parseInt(etLimit.getText().toString());
+                if (waitlistLimit > eventCapacity) {
+                    Toast.makeText(getContext(), "Waitlist capacity cannot exceed event capacity", Toast.LENGTH_SHORT).show();
+                    return;
+                }
             } catch (NumberFormatException e) {
                 Toast.makeText(getContext(), "Invalid waitlist limit", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        Integer eventCapacity = null;
-        String capacityStr = etEventCapacity.getText().toString().trim();
-        if (!capacityStr.isEmpty()) {
-            try {
-                eventCapacity = Integer.parseInt(capacityStr);
-            } catch (NumberFormatException e) {
-                Toast.makeText(getContext(), "Invalid event capacity", Toast.LENGTH_SHORT).show();
                 return;
             }
         }
@@ -190,7 +224,6 @@ public class OrganizerCreateFragment extends Fragment {
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
         event.setPrivate(switchPrivate.isChecked());
 
-        String posterUrl = etPosterUrl.getText().toString().trim();
-        viewModel.createEvent(event, posterUrl);
+        viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
     }
 }

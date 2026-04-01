@@ -1,5 +1,6 @@
 package com.example.abacus_app;
 
+import android.location.Location;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -45,7 +46,6 @@ public class RegistrationRepository {
         this.userRemoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
     }
 
-
     private void populateUserInfo(ArrayList<WaitlistEntry> waitlist) {
         for (WaitlistEntry entry : waitlist) {
             try {
@@ -87,7 +87,7 @@ public class RegistrationRepository {
      * @throws IllegalStateException the waitlist is full or closed
      * @throws IllegalArgumentException the user is already on the waitlist
      */
-    public void joinWaitlist(String userID, String eventID, VoidCallback callback) {
+    public void joinWaitlist(String userID, String eventID, Location location, VoidCallback callback) {
         executor.submit(() -> {
             try {
                 // logic checks
@@ -119,12 +119,37 @@ public class RegistrationRepository {
                 );
                 remoteDataSource.joinWaitlistSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
+
+                // This was outside the try block, needs to be inside
+                if (location != null) {
+                    entry.setLatitude(location.getLatitude());
+                    entry.setLongitude(location.getLongitude());
+                }
+
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
     }
 
+    public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                Random random = new Random();
+                WaitlistEntry entry = new WaitlistEntry(
+                        userID,
+                        eventID,
+                        WaitlistEntry.STATUS_INVITED,
+                        random.nextInt(100000),
+                        System.currentTimeMillis()
+                );
+                remoteDataSource.joinWaitlistSync(eventID, entry);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
     /**
      * Deletes the data related to the waitlist entry of the user.
      *
@@ -133,6 +158,8 @@ public class RegistrationRepository {
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the given user is not on the waitlist
      */
+
+
     public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -291,6 +318,7 @@ public class RegistrationRepository {
                 eventRDS.updateEvent(event);
 
                 mainHandler.post(() -> callback.onComplete(null));
+
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
             }

@@ -5,24 +5,14 @@
  * haven't signed in for. Collects a mandatory name and email, then writes a
  * guest registration document to Firestore so the organiser can see interest
  * without requiring a full account.
- *
- * After a successful join, the guest's email is persisted to SharedPreferences
- * under the key "guest_email" so that EventDetailsFragment can check duplicate
- * status across fragment re-creations without asking the user again.
- *
- * Navigation: Reached from EventDetailsFragment when isGuest == true.
- * "Create account?" navigates to RegisterActivity.
- *
- * Firestore writes:
- *   registrations/{guestKey}_{eventId}     — status: "guest_waitlisted"
- *   events/{eventId}/waitlist/{guestKey}   — mirrors registration for lottery
- *   events/{eventId}.waitlistCount         — incremented atomically
  */
 package com.example.abacus_app;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Patterns;
@@ -36,9 +26,14 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.CancellationTokenSource;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.Timestamp;
@@ -50,16 +45,9 @@ import java.util.Map;
 
 public class GuestSignUpFragment extends Fragment {
 
-    /** Bundle key for the Firestore event document ID. */
     public static final String ARG_EVENT_ID    = "eventId";
-
-    /** Bundle key for the event title (shown in header). */
     public static final String ARG_EVENT_TITLE = "eventTitle";
-
-    /** SharedPreferences file name shared with EventDetailsFragment. */
     public static final String PREFS_GUEST     = "guest_prefs";
-
-    /** SharedPreferences key for the guest's email address. */
     public static final String PREF_GUEST_EMAIL = "guest_email";
 
     private String eventId;
@@ -71,7 +59,8 @@ public class GuestSignUpFragment extends Fragment {
     private TextInputEditText etEmail;
     private Button btnJoin;
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    private FusedLocationProviderClient fusedLocationClient;
+    private boolean isGeoRequired = false;
 
     @Nullable
     @Override
@@ -85,11 +74,10 @@ public class GuestSignUpFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ── Args ───────────────────────────────────────────────────────────────
         eventId    = getArguments() != null ? getArguments().getString(ARG_EVENT_ID, "")    : "";
         eventTitle = getArguments() != null ? getArguments().getString(ARG_EVENT_TITLE, "") : "";
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
 
-        // ── Views ──────────────────────────────────────────────────────────────
         ImageButton btnBack      = view.findViewById(R.id.btn_back);
         TextView    tvEventTitle = view.findViewById(R.id.tv_event_title);
         tilName                  = view.findViewById(R.id.til_name);
@@ -99,12 +87,10 @@ public class GuestSignUpFragment extends Fragment {
         btnJoin                  = view.findViewById(R.id.btn_join);
         TextView tvCreateAccount = view.findViewById(R.id.tv_create_account);
 
-        // ── Header ─────────────────────────────────────────────────────────────
         if (tvEventTitle != null && !eventTitle.isEmpty()) {
             tvEventTitle.setText("Join: " + eventTitle);
         }
 
-        // ── Pre-fill email if guest has joined before ──────────────────────────
         String savedEmail = requireContext()
                 .getSharedPreferences(PREFS_GUEST, Context.MODE_PRIVATE)
                 .getString(PREF_GUEST_EMAIL, null);
@@ -112,18 +98,15 @@ public class GuestSignUpFragment extends Fragment {
             etEmail.setText(savedEmail);
         }
 
-        // ── Back ───────────────────────────────────────────────────────────────
         if (btnBack != null) {
             btnBack.setOnClickListener(v ->
                     Navigation.findNavController(view).popBackStack());
         }
 
-        // ── Join as guest ──────────────────────────────────────────────────────
         if (btnJoin != null) {
             btnJoin.setOnClickListener(v -> attemptGuestJoin(view));
         }
 
-        // ── Create account link ────────────────────────────────────────────────
         if (tvCreateAccount != null) {
             tvCreateAccount.setOnClickListener(v -> {
                 Intent intent = new Intent(requireActivity(), RegisterActivity.class);
@@ -136,15 +119,21 @@ public class GuestSignUpFragment extends Fragment {
                 startActivity(intent);
             });
         }
+
+        checkIfGeoRequired();
     }
 
-    // ── Validation & submission ───────────────────────────────────────────────
+    private void checkIfGeoRequired() {
+        if (TextUtils.isEmpty(eventId)) return;
+        FirebaseFirestore.getInstance().collection("events").document(eventId).get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists()) {
+                        Boolean req = snapshot.getBoolean("geoRequired");
+                        isGeoRequired = (req != null && req);
+                    }
+                });
+    }
 
-    /**
-     * Validates name and email, checks for duplicate registration and capacity,
-     * then writes the guest registration to Firestore. On success, persists the
-     * guest email to SharedPreferences and pops back to EventDetailsFragment.
-     */
     private void attemptGuestJoin(@NonNull View view) {
         boolean valid = true;
 
@@ -172,11 +161,47 @@ public class GuestSignUpFragment extends Fragment {
 
         if (!valid) return;
 
-        if (TextUtils.isEmpty(eventId)) {
-            Toast.makeText(requireContext(),
-                    "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
-            return;
+        if (isGeoRequired) {
+            if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+            } else {
+                fetchLocationAndJoin(name, email, view);
+            }
+        } else {
+            performJoin(name, email, null, view);
         }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            String name = etName.getText().toString().trim();
+            String email = etEmail.getText().toString().trim();
+            fetchLocationAndJoin(name, email, getView());
+        } else if (requestCode == 100) {
+            Toast.makeText(getContext(), "Location permission required to join this event.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void fetchLocationAndJoin(String name, String email, View view) {
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(getContext(), "Fetching location...", Toast.LENGTH_SHORT).show();
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, new CancellationTokenSource().getToken())
+                    .addOnSuccessListener(location -> {
+                        if (location != null) {
+                            performJoin(name, email, location, view);
+                        } else {
+                            fusedLocationClient.getLastLocation().addOnSuccessListener(lastLoc -> {
+                                performJoin(name, email, lastLoc, view);
+                            });
+                        }
+                    })
+                    .addOnFailureListener(e -> performJoin(name, email, null, view));
+        }
+    }
+
+    private void performJoin(String name, String email, Location location, @NonNull View view) {
+        if (TextUtils.isEmpty(eventId)) return;
 
         btnJoin.setEnabled(false);
         btnJoin.setText("Joining…");
@@ -184,38 +209,28 @@ public class GuestSignUpFragment extends Fragment {
         String guestKey = emailToKey(email);
         String docId    = guestKey + "_" + eventId;
 
-        FirebaseFirestore db       = FirebaseFirestore.getInstance();
-        com.google.firebase.firestore.DocumentReference regRef   =
-                db.collection("registrations").document(docId);
-        com.google.firebase.firestore.DocumentReference eventRef =
-                db.collection("events").document(eventId);
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        com.google.firebase.firestore.DocumentReference regRef = db.collection("registrations").document(docId);
+        com.google.firebase.firestore.DocumentReference eventRef = db.collection("events").document(eventId);
 
-        // ── Duplicate check ────────────────────────────────────────────────────
         regRef.get().addOnSuccessListener(snapshot -> {
             if (snapshot.exists()) {
-                // Already registered — save email locally anyway so the button
-                // shows correctly on EventDetailsFragment, then go back.
                 saveGuestEmail(email);
-                Toast.makeText(requireContext(),
-                        "This email is already on the waiting list.",
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "Already on the waiting list.", Toast.LENGTH_LONG).show();
                 Navigation.findNavController(view).popBackStack();
                 return;
             }
 
-            // ── Capacity check ─────────────────────────────────────────────────
             eventRef.get().addOnSuccessListener(eventSnap -> {
-                Long count    = eventSnap.getLong("waitlistCount");
+                Long count = eventSnap.getLong("waitlistCount");
                 Long capacity = eventSnap.getLong("waitlistCapacity");
                 if (count == null) count = 0L;
                 if (capacity != null && capacity != -1 && count >= capacity) {
-                    Toast.makeText(requireContext(),
-                            "This waiting list is full.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), "Waiting list is full.", Toast.LENGTH_LONG).show();
                     resetJoinButton();
                     return;
                 }
 
-                // ── Write registration ─────────────────────────────────────────
                 Map<String, Object> registration = new HashMap<>();
                 registration.put("guestName",  name);
                 registration.put("guestEmail", email);
@@ -223,9 +238,12 @@ public class GuestSignUpFragment extends Fragment {
                 registration.put("status",     "guest_waitlisted");
                 registration.put("isGuest",    true);
                 registration.put("timestamp",  System.currentTimeMillis());
+                if (location != null) {
+                    registration.put("latitude", location.getLatitude());
+                    registration.put("longitude", location.getLongitude());
+                }
 
                 regRef.set(registration).addOnSuccessListener(unused -> {
-                    // ── Mirror into waitlist subcollection ─────────────────────
                     Map<String, Object> waitlistEntry = new HashMap<>();
                     waitlistEntry.put("guestName",     name);
                     waitlistEntry.put("guestEmail",    email);
@@ -234,65 +252,31 @@ public class GuestSignUpFragment extends Fragment {
                     waitlistEntry.put("isGuest",       true);
                     waitlistEntry.put("joinTime",      Timestamp.now());
                     waitlistEntry.put("lotteryNumber", 0);
+                    if (location != null) {
+                        waitlistEntry.put("latitude", location.getLatitude());
+                        waitlistEntry.put("longitude", location.getLongitude());
+                    }
 
-                    db.collection("events")
-                            .document(eventId)
-                            .collection("waitlist")
-                            .document(guestKey)
+                    db.collection("events").document(eventId).collection("waitlist").document(guestKey)
                             .set(waitlistEntry)
                             .addOnSuccessListener(unused2 -> {
                                 eventRef.update("waitlistCount", FieldValue.increment(1));
-
-                                // ── Persist email so duplicate check works ─────
                                 saveGuestEmail(email);
-
-                                Toast.makeText(requireContext(),
-                                        "You've joined the waiting list!",
-                                        Toast.LENGTH_SHORT).show();
+                                Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_SHORT).show();
                                 Navigation.findNavController(view).popBackStack();
                             })
                             .addOnFailureListener(e -> {
-                                Toast.makeText(requireContext(),
-                                        "Something went wrong. Please try again.",
-                                        Toast.LENGTH_SHORT).show();
                                 resetJoinButton();
                             });
-                }).addOnFailureListener(e -> {
-                    Toast.makeText(requireContext(),
-                            "Something went wrong. Please try again.",
-                            Toast.LENGTH_SHORT).show();
-                    resetJoinButton();
-                });
-
-            }).addOnFailureListener(e -> {
-                Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
-                resetJoinButton();
-            });
-
-        }).addOnFailureListener(e -> {
-            Toast.makeText(requireContext(),
-                    "Something went wrong. Please try again.",
-                    Toast.LENGTH_SHORT).show();
-            resetJoinButton();
-        });
+                }).addOnFailureListener(e -> resetJoinButton());
+            }).addOnFailureListener(e -> resetJoinButton());
+        }).addOnFailureListener(e -> resetJoinButton());
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Converts an email address to a Firestore-safe document ID segment.
-     * Must match the conversion used in EventDetailsFragment.checkGuestWaitlistStatus().
-     *
-     * @param email raw email address
-     * @return sanitised key string
-     */
     public static String emailToKey(String email) {
         return email.replace(".", "_").replace("@", "_at_");
     }
 
-    /** Persists the guest email to SharedPreferences. */
     private void saveGuestEmail(String email) {
         requireContext()
                 .getSharedPreferences(PREFS_GUEST, Context.MODE_PRIVATE)
@@ -301,7 +285,6 @@ public class GuestSignUpFragment extends Fragment {
                 .apply();
     }
 
-    /** Re-enables the Join button after a failed Firestore operation. */
     private void resetJoinButton() {
         if (btnJoin != null) {
             btnJoin.setEnabled(true);

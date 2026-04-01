@@ -70,6 +70,7 @@ public class EventBrowseUnitTest {
 
     /**
      * US 01.01.03 — Adapter reports correct item count.
+     * Fixed: Uses List<Event> and provides the required click listener.
      */
     @Test
     public void testAdapterItemCount() {
@@ -77,7 +78,9 @@ public class EventBrowseUnitTest {
         events.add(new Event());
         events.add(new Event());
         events.add(new Event());
-        EventAdapter adapter = new EventAdapter(events, null);
+
+        // Pass a dummy lambda for the OnEventClickListener
+        EventAdapter adapter = new EventAdapter(events, title -> {});
         assertEquals(3, adapter.getItemCount());
     }
 

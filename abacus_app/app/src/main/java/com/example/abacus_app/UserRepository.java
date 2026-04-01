@@ -8,7 +8,6 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,7 +17,8 @@ import java.util.concurrent.Executors;
  * Coordinates user initialization and synchronization between
  * local SharedPreferences storage and Firebase Firestore.
  *
- * Used by: ProfileFragment, ProfileViewModel, MainActivity
+ * Uses a stable device ID (ANDROID_ID) as the primary identity,
+ * ensuring that user data (like notifications) survives app re-installs.
  */
 public class UserRepository {
 
@@ -34,10 +34,15 @@ public class UserRepository {
         this.remoteDataSource = remoteDataSource;
     }
 
+    /**
+     * Resolves the device's identity. 
+     * Uses the stable ANDROID_ID as the UUID if no identity exists in local storage.
+     */
     private String getOrCreateUUID() {
         String uuid = localDataSource.getUUIDSync();
         if (uuid == null) {
-            uuid = UUID.randomUUID().toString();
+            // Use stable device ID instead of random UUID to persist identity across reinstalls
+            uuid = localDataSource.getStableDeviceID();
             localDataSource.saveUUIDSync(uuid);
         }
         return uuid;
@@ -93,7 +98,7 @@ public class UserRepository {
 
     public void getCurrentUserIdAsync(StringCallback callback) {
         executor.submit(() -> {
-            String uuid = localDataSource.getUUIDSync();
+            String uuid = getOrCreateUUID();
             mainHandler.post(() -> callback.onResult(uuid));
         });
     }
@@ -105,11 +110,7 @@ public class UserRepository {
     public void getProfileAsync(UserCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = localDataSource.getUUIDSync();
-                if (uuid == null) {
-                    mainHandler.post(() -> callback.onResult(null));
-                    return;
-                }
+                String uuid = getOrCreateUUID();
                 User user = remoteDataSource.getUserSync(uuid);
                 mainHandler.post(() -> callback.onResult(user));
             } catch (Exception e) {
@@ -126,7 +127,6 @@ public class UserRepository {
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // getOrCreateUUID ensures a UUID always exists
                 String uuid = getOrCreateUUID();
                 remoteDataSource.updateUserSync(uuid, profileData);
                 mainHandler.post(() -> callback.onComplete(null));
@@ -165,14 +165,12 @@ public class UserRepository {
                     remoteDataSource.deleteWaitlistEntriesForUser(uuid);
                 }
 
-                // Delete Firebase Auth account so the email can be re-registered
                 com.google.firebase.auth.FirebaseUser authUser =
                         FirebaseAuth.getInstance().getCurrentUser();
                 if (authUser != null) {
                     Tasks.await(authUser.delete());
                 }
 
-                // Clear local session so the next launch starts as a fresh guest
                 localDataSource.clearDeviceId();
 
                 mainHandler.post(() -> callback.onComplete(null));
@@ -187,11 +185,6 @@ public class UserRepository {
         deleteProfileAsync(callback);
     }
 
-    /**
-     * Clears the locally stored UUID and signs out of Firebase Auth.
-     * After this call the device has no identity; the next call to
-     * initializeUser() will generate a fresh UUID and anonymous session.
-     */
     public void clearLocalSession() {
         localDataSource.clearDeviceId();
         FirebaseAuth.getInstance().signOut();

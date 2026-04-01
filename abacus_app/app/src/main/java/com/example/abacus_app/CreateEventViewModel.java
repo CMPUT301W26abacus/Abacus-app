@@ -1,5 +1,6 @@
 package com.example.abacus_app;
 
+import android.net.Uri;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -11,15 +12,19 @@ import java.util.Map;
 
 /**
  * Manages UI state and business logic for the event creation process.
- * Owner: Himesh
- *
- * Poster images are stored as external URLs provided by the organizer.
- * No Firebase Storage upload is required.
- * QR codes are generated on-device in EventQrFragment from the eventId.
+ * Handles event persistence and optional poster URL or Gallery image association.
+ * 
+ * US 02.01.04: Set a registration period.
+ * US 02.03.01: Optionally limit the number of entrants.
+ * US 02.04.01: Upload event poster (handled via URL patching or Firebase Storage).
+ * 
+ * @author Himesh
+ * @version 1.1
  */
 public class CreateEventViewModel extends ViewModel {
 
     private final EventRepository eventRepository;
+    private final StorageRepository storageRepository;
 
     private final MutableLiveData<Boolean> isSaving     = new MutableLiveData<>(false);
     private final MutableLiveData<String>  error        = new MutableLiveData<>();
@@ -30,6 +35,7 @@ public class CreateEventViewModel extends ViewModel {
      */
     public CreateEventViewModel() {
         this.eventRepository = new EventRepository();
+        this.storageRepository = new StorageRepository();
     }
 
     /**
@@ -48,14 +54,14 @@ public class CreateEventViewModel extends ViewModel {
     public LiveData<Boolean> getEventCreated() { return eventCreated; }
 
     /**
-     * Creates an event in Firestore. If a poster URL is provided it is
-     * patched into the document immediately after creation using a Map
-     * (avoids re-serializing the full POJO which can corrupt Timestamp fields).
+     * Creates an event in Firestore. If a poster URL or URI is provided, it is
+     * associated with the document after creation.
      *
-     * @param event     The event to create.
-     * @param posterUrl External image URL string, or empty/null for no poster.
+     * @param event      The {@link Event} object to create.
+     * @param posterUrl  External image URL string (optional).
+     * @param posterUri  Local Uri for gallery image (optional).
      */
-    public void createEvent(Event event, String posterUrl) {
+    public void createEvent(Event event, String posterUrl, Uri posterUri) {
         isSaving.setValue(true);
 
         eventRepository.createEvent(event)
@@ -66,7 +72,9 @@ public class CreateEventViewModel extends ViewModel {
                 .addOnSuccessListener(aVoid -> {
                     String eventId = event.getEventId();
 
-                    if (posterUrl != null && !posterUrl.isEmpty()) {
+                    if (posterUri != null) {
+                        uploadPosterAndPatch(eventId, posterUri);
+                    } else if (posterUrl != null && !posterUrl.isEmpty()) {
                         patchPosterUrl(eventId, posterUrl);
                     } else {
                         isSaving.setValue(false);
@@ -75,9 +83,27 @@ public class CreateEventViewModel extends ViewModel {
                 });
     }
 
+    private void uploadPosterAndPatch(String eventId, Uri posterUri) {
+        storageRepository.uploadPoster(eventId, posterUri)
+                .addOnSuccessListener(taskSnapshot -> 
+                    storageRepository.getPosterUrl(eventId)
+                        .addOnSuccessListener(uri -> patchPosterUrl(eventId, uri.toString()))
+                        .addOnFailureListener(e -> {
+                            isSaving.setValue(false);
+                            error.setValue("Failed to get download URL: " + e.getMessage());
+                        })
+                )
+                .addOnFailureListener(e -> {
+                    isSaving.setValue(false);
+                    error.setValue("Failed to upload poster: " + e.getMessage());
+                });
+    }
+
     /**
-     * Patches only posterImageUrl into Firestore using a Map.
-     * Avoids re-serializing the full Event POJO which can corrupt Timestamp fields.
+     * Patches only the posterImageUrl into Firestore using a Map to avoid overwriting other fields.
+     * 
+     * @param eventId   The ID of the event to update.
+     * @param posterUrl The URL of the poster image.
      */
     private void patchPosterUrl(String eventId, String posterUrl) {
         Map<String, Object> updates = new HashMap<>();

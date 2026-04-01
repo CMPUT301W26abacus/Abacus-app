@@ -63,8 +63,6 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
-import org.checkerframework.common.returnsreceiver.qual.This;
-
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -80,8 +78,8 @@ public class MainActivity extends AppCompatActivity {
     private AppBarLayout appBar;
     private BottomNavigationView bottomNav;
 
-    private String userRole        = "entrant";
-    private String bottomNavRole   = null;   // tracks which role the bottom nav was last built for
+    private String userRole      = "entrant";
+    private String bottomNavRole = null; // tracks which role the bottom nav was last built for
 
     private String activeKeyword = "";
     private String activeDate    = "";
@@ -141,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         userRepository = new UserRepository(localDataSource, remoteDataSource);
         userRepository.initializeUserAsync();
 
-        isGuest  = getIntent().getBooleanExtra("isGuest", false);
+        isGuest = getIntent().getBooleanExtra("isGuest", false);
         String intentRole = getIntent().getStringExtra("userRole");
         if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
 
@@ -189,8 +187,21 @@ public class MainActivity extends AppCompatActivity {
             navController.navigate(R.id.accessibilityFragment);
         }
 
-        SearchBar searchBar = findViewById(R.id.search_bar);
-        setSearchBarTextColor(searchBar);
+        // ── Search bar real-time filtering ────────────────────────────────────
+        TextInputEditText searchBar = findViewById(R.id.search_bar);
+        searchBar.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                activeKeyword = s.toString().trim().toLowerCase();
+                applyFilters();
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
 
         ImageButton btnProfile = findViewById(R.id.btn_profile);
         btnProfile.setOnClickListener(v -> showFragment(R.id.mainProfileFragment, false));
@@ -225,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
         });
         carouselRecyclerView.setAdapter(carouselAdapter);
 
-        setupBottomNav();   // build nav immediately using the role from the Intent
+        setupBottomNav(); // build nav immediately using the role from the Intent
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -233,10 +244,6 @@ public class MainActivity extends AppCompatActivity {
                 if (navHostFragment.getVisibility() == View.VISIBLE) {
                     if (!navController.popBackStack()) {
                         showHome();
-                    } else {
-                        // Landed on a fragment that may have been shown without a bottom nav
-                        // (e.g. event details hides it). Always restore it after popping back.
-                        bottomNav.setVisibility(View.VISIBLE);
                     }
                 } else {
                     finish();
@@ -415,12 +422,19 @@ public class MainActivity extends AppCompatActivity {
         Date now = new Date();
 
         for (Event event : allEvents) {
+            // EXCLUDE co-organized events from the browse screen
+            if (resolvedUserKey != null && event.getCoOrganizers() != null 
+                    && event.getCoOrganizers().contains(resolvedUserKey)) {
+                continue;
+            }
+
             String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
             boolean keywordMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || description.contains(activeKeyword);
+
             // Project pt3 bug fix: checks if the date you picked falls within the event's registration
             // window instead of only matching the exact start date.
             boolean dateMatch = true;
@@ -444,7 +458,10 @@ public class MainActivity extends AppCompatActivity {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
             }
 
-            if (keywordMatch && dateMatch && notExpired) filtered.add(event);
+            // US: Private events should not be visible in public browse list
+            boolean isPublic = !event.isPrivate();
+
+            if (keywordMatch && dateMatch && notExpired && isPublic) filtered.add(event);
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────
@@ -460,7 +477,7 @@ public class MainActivity extends AppCompatActivity {
         carouselRecyclerView.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
         tvFeaturedLabel.setVisibility(showCarousel ? View.VISIBLE : View.GONE);
 
-        // ── Preference-based filter + sort ("For You") ───────────────────────
+        // ── Preference-based filter + sort ("For You") ────────────────────────
         boolean hasPreferences = hasActivePreferences(userPreferences);
         if (hasPreferences) {
             filtered = applyPreferenceFilter(filtered, userPreferences);
@@ -492,6 +509,13 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.eventDetailsFragment, false, args);
                 },
                 isAdminUser ? this::confirmDeleteEvent : null,
+                event -> {
+                    // Handle co-organizer Manage click
+                    Bundle args = new Bundle();
+                    args.putString("EVENT_ID", event.getEventId());
+                    args.putString("EVENT_TITLE", event.getTitle());
+                    showFragment(R.id.organizerManageFragment, false, args);
+                },
                 isAdminUser,
                 resolvedUserKey,   // null until resolved — adapter handles gracefully
                 isGuest
@@ -541,7 +565,7 @@ public class MainActivity extends AppCompatActivity {
      * (checked against title + description). Non-matching events are removed.
      */
     private List<Event> applyPreferenceFilter(List<Event> events,
-                                               java.util.Map<String, Object> prefs) {
+                                              java.util.Map<String, Object> prefs) {
         Object categoriesRaw = prefs.get("categories");
         if (!(categoriesRaw instanceof java.util.List)) return events;
         @SuppressWarnings("unchecked")
@@ -565,7 +589,7 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // ── onResume: refresh join states when returning from EventDetailsFragment ─
+    // ── onResume ──────────────────────────────────────────────────────────────
 
     /**
      * Called when the user navigates back to the home screen (e.g. after

@@ -7,7 +7,10 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.google.firebase.firestore.FieldPath;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
@@ -27,9 +30,12 @@ public class ManageEventViewModel extends ViewModel {
 
     private final MutableLiveData<List<WaitlistEntry>> entrants  = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<List<Event>>         events    = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<List<User>>          searchResults = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<List<User>>          coOrganizers = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String>              error     = new MutableLiveData<>();
     private final MutableLiveData<Boolean>             isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean>             lotteryCompleted = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean>             eventDeleted = new MutableLiveData<>(false);
 
     public ManageEventViewModel() {
         this.registrationRepository = new RegistrationRepository();
@@ -39,9 +45,12 @@ public class ManageEventViewModel extends ViewModel {
 
     public LiveData<List<WaitlistEntry>> getEntrants()  { return entrants; }
     public LiveData<List<Event>>         getEvents()    { return events; }
+    public LiveData<List<User>>          getSearchResults() { return searchResults; }
+    public LiveData<List<User>>          getCoOrganizers() { return coOrganizers; }
     public LiveData<String>              getError()     { return error; }
     public LiveData<Boolean>             getIsLoading() { return isLoading; }
     public LiveData<Boolean>             getLotteryCompleted() { return lotteryCompleted; }
+    public LiveData<Boolean>             getEventDeleted() { return eventDeleted; }
 
     public void loadWaitlist(String eventId) {
         isLoading.setValue(true);
@@ -75,6 +84,17 @@ public class ManageEventViewModel extends ViewModel {
             isLoading.setValue(false);
         }).addOnFailureListener(e -> {
             error.setValue("Failed to load events: " + e.getMessage());
+            isLoading.setValue(false);
+        });
+    }
+
+    public void deleteEvent(String eventId, String organizerId) {
+        isLoading.setValue(true);
+        eventRepository.deleteEvent(eventId).addOnSuccessListener(aVoid -> {
+            eventDeleted.setValue(true);
+            loadOrganizerEvents(organizerId); // Refresh list
+        }).addOnFailureListener(e -> {
+            error.setValue("Failed to delete event: " + e.getMessage());
             isLoading.setValue(false);
         });
     }
@@ -140,5 +160,102 @@ public class ManageEventViewModel extends ViewModel {
                 });
             }
         });
+    }
+
+    public void searchUsersByEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            searchResults.setValue(new ArrayList<>());
+            return;
+        }
+
+        db.collection("users")
+                .whereEqualTo("email", email.trim())
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<User> users = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        User user = doc.toObject(User.class);
+                        user.setUid(doc.getId());
+                        users.add(user);
+                    }
+                    searchResults.setValue(users);
+                })
+                .addOnFailureListener(e -> {
+                    error.setValue("Search failed: " + e.getMessage());
+                });
+    }
+
+    public void sendCoOrganizerInvite(String eventId, String eventTitle, User user) {
+        if (eventId == null || user == null) return;
+
+        Notification notification = new Notification(
+                user.getUid(),
+                user.getEmail(),
+                eventId,
+                "You have been invited to be a co-organizer for the event: " + eventTitle,
+                "CO_ORGANIZER_INVITE"
+        );
+        
+        db.collection("notifications")
+                .add(notification)
+                .addOnSuccessListener(documentReference -> {
+                    searchResults.setValue(new ArrayList<>());
+                })
+                .addOnFailureListener(e -> {
+                    error.setValue("Failed to send invite: " + e.getMessage());
+                });
+    }
+
+    public void addCoOrganizer(String eventId, String userId) {
+        if (eventId == null || userId == null) return;
+
+        db.collection("events").document(eventId)
+                .update("coOrganizers", FieldValue.arrayUnion(userId))
+                .addOnSuccessListener(aVoid -> {
+                    // Remove from waitlist if exists
+                    registrationRepository.leaveWaitlist(userId, eventId, e -> {
+                        if (e != null) {
+                            Log.d(TAG, "User was not on waitlist or error removing: " + e.getMessage());
+                        }
+                        // Refresh co-organizers and waitlist
+                        loadCoOrganizers(eventId);
+                        loadWaitlist(eventId);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    error.setValue("Failed to add co-organizer: " + e.getMessage());
+                });
+    }
+
+    public void loadCoOrganizers(String eventId) {
+        db.collection("events").document(eventId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    Event event = documentSnapshot.toObject(Event.class);
+                    if (event != null && event.getCoOrganizers() != null && !event.getCoOrganizers().isEmpty()) {
+                        db.collection("users")
+                                .whereIn(FieldPath.documentId(), event.getCoOrganizers())
+                                .get()
+                                .addOnSuccessListener(queryDocumentSnapshots -> {
+                                    List<User> users = new ArrayList<>();
+                                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                                        User user = doc.toObject(User.class);
+                                        user.setUid(doc.getId());
+                                        users.add(user);
+                                    }
+                                    coOrganizers.setValue(users);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "Error loading co-organizer users", e);
+                                    coOrganizers.setValue(new ArrayList<>());
+                                });
+                    } else {
+                        coOrganizers.setValue(new ArrayList<>());
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading event for co-organizers", e);
+                    coOrganizers.setValue(new ArrayList<>());
+                });
     }
 }

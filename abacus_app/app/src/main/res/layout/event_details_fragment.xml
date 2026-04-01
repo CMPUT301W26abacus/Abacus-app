@@ -59,6 +59,17 @@
                     android:textStyle="bold"
                     android:lineSpacingExtra="2dp" />
 
+                <!-- Editable Title -->
+                <EditText
+                    android:id="@+id/et_edit_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Event Title"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:textColor="@color/black" />
+
                 <TextView
                     android:id="@+id/tv_organizer"
                     android:layout_width="match_parent"
@@ -111,7 +122,17 @@
                     android:text="Venue Name, City"
                     android:textColor="@color/black"
                     android:textSize="15sp"
-                    android:layout_marginBottom="16dp" />
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btn_view_map"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="View Map"
+                    android:textColor="@color/orange"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"/>
 
                 <TextView
                     android:layout_width="match_parent"
@@ -156,6 +177,30 @@
                     android:textColor="@color/black"
                     android:textSize="15sp"
                     android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Editable Description -->
+                <EditText
+                    android:id="@+id/et_edit_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Event Description"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    android:textColor="@color/black"
+                    android:minLines="3"
+                    android:gravity="top"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Editable Poster URL -->
+                <EditText
+                    android:id="@+id/et_edit_poster_url"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Poster Image URL"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:textColor="@color/black"
                     android:layout_marginBottom="20dp" />
 
                 <!-- Divider -->
