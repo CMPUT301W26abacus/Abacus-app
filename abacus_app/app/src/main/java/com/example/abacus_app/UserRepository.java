@@ -8,6 +8,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,14 +36,16 @@ public class UserRepository {
     }
 
     /**
-     * Resolves the device's identity. 
+     * Resolves the device's identity.
      * Uses the stable ANDROID_ID as the UUID if no identity exists in local storage.
      */
     private String getOrCreateUUID() {
         String uuid = localDataSource.getUUIDSync();
         if (uuid == null) {
-            // Use stable device ID instead of random UUID to persist identity across reinstalls
+            // Prefer stable ANDROID_ID so identity survives reinstalls;
+            // fall back to random UUID if ANDROID_ID is unavailable (some emulators).
             uuid = localDataSource.getStableDeviceID();
+            if (uuid == null) uuid = UUID.randomUUID().toString();
             localDataSource.saveUUIDSync(uuid);
         }
         return uuid;
@@ -185,6 +188,19 @@ public class UserRepository {
         deleteProfileAsync(callback);
     }
 
+    /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
+    /**
+     * Clears the locally stored UUID and signs out of Firebase Auth.
+     * After this call the device has no identity; the next call to
+     * initializeUser() will generate a fresh UUID and anonymous session.
+     */
     public void clearLocalSession() {
         localDataSource.clearDeviceId();
         FirebaseAuth.getInstance().signOut();

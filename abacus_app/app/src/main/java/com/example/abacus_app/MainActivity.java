@@ -1082,6 +1082,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (eventsListener != null) eventsListener.remove();
+        if (userRepository  != null) userRepository.shutdown();
+        if (eventRepository != null) eventRepository.shutdown();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
