@@ -126,6 +126,14 @@ public class NotificationRepository {
     }
 
     /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
+    /**
      * Callback interface for void methods.
      */
     public interface VoidCallback {

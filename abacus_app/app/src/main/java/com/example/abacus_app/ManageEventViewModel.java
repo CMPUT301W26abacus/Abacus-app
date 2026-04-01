@@ -94,7 +94,7 @@ public class ManageEventViewModel extends ViewModel {
 
     /**
      * Performs the lottery draw using eventCapacity and waitlistCount from the event.
-     * Updates users collection with "winner" or "loser" status.
+     * Winners are marked STATUS_INVITED and non-winners stay STATUS_WAITLISTED on WaitlistEntry.
      */
     public void drawLottery(String eventId) {
         if (eventId == null || eventId.isEmpty()) {

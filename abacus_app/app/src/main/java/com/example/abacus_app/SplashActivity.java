@@ -120,44 +120,6 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     /**
-     * Decides what to show based on whether a UUID was found in DataStore.
-     *
-     * @param isReturningUser true if a UUID already exists on this device.
-     * @param btnGetStarted   the "Get Started" button.
-     * @param tvBrowseGuest   the "Browse as guest" text view.
-     */
-    private void handleUserState(boolean isReturningUser, Button btnGetStarted, TextView tvBrowseGuest) {
-        if (isReturningUser) {
-            // UUID recognised → go straight to MainActivity after animation
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                goToMain(currentUser == null, "entrant"); // guest only if Firebase lost the session
-            }, ANIMATION_DELAY_MS);
-
-        } else {
-            // No UUID → new user, show onboarding buttons after animation
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                btnGetStarted.setVisibility(View.VISIBLE);
-                tvBrowseGuest.setVisibility(View.VISIBLE);
-
-                btnGetStarted.setAlpha(0f);
-                tvBrowseGuest.setAlpha(0f);
-                btnGetStarted.animate().alpha(1f).setDuration(400).start();
-                tvBrowseGuest.animate().alpha(1f).setDuration(400).start();
-            }, BUTTONS_REVEAL_DELAY_MS);
-
-            // "Get Started" → Login screen
-            btnGetStarted.setOnClickListener(v -> {
-                startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                finish();
-            });
-
-            // "Browse as guest" → MainActivity without authentication
-            tvBrowseGuest.setOnClickListener(v -> goToMain(true, "entrant"));
-        }
-    }
-
-    /**
      * Navigates to MainActivity, passing whether the user is a guest and their role.
      * Clears the back stack so the user cannot navigate back to splash.
      *

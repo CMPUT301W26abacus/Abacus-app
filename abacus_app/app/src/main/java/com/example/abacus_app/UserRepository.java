@@ -188,6 +188,14 @@ public class UserRepository {
     }
 
     /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
+    /**
      * Clears the locally stored UUID and signs out of Firebase Auth.
      * After this call the device has no identity; the next call to
      * initializeUser() will generate a fresh UUID and anonymous session.

@@ -63,6 +63,14 @@ public class EventRepository {
         return remoteDataSource.deleteEvent(eventId);
     }
 
+    /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
     public interface EventCallback {
         void onResult(Event event);
     }
