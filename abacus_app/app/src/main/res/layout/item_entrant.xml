@@ -67,7 +67,7 @@
             android:src="@drawable/ic_cancel"
             android:contentDescription="Delete"
             android:visibility="visible"
-            app:tint="@color/color_danger"/>
+            app:tint="@color/error_red"/>
 
         <ImageView
             android:id="@+id/iv_icon_entrant"
@@ -79,7 +79,7 @@
             android:src="@drawable/ic_delete"
             android:scaleType="center"
             android:visibility="gone"
-            app:tint="@color/color_danger"/>
+            app:tint="@color/error_red"/>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

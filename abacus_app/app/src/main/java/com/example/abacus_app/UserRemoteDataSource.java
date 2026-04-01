@@ -48,21 +48,6 @@ public class UserRemoteDataSource {
         Tasks.await(db.collection(COLLECTION).document(uuid).set(data));
     }
 
-    public void getUser(String uuid, UserCallback callback) {
-        db.collection(COLLECTION).document(uuid).get()
-                .addOnSuccessListener(snap -> {
-                    if (!snap.exists()) {
-                        callback.onCallback(null);
-                        return;
-                    }
-                    callback.onCallback(parseUser(snap));
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error getting user: " + uuid, e);
-                    callback.onCallback(null);
-                });
-    }
-
     public User getUserSync(String uuid) throws Exception {
         DocumentSnapshot snap = Tasks.await(
                 db.collection(COLLECTION).document(uuid).get());

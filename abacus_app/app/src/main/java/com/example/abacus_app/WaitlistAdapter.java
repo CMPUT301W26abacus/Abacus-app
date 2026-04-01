@@ -89,7 +89,7 @@ public class WaitlistAdapter extends RecyclerView.Adapter<WaitlistAdapter.Waitli
                 holder.tvStatus.getBackground().setTint(ContextCompat.getColor(context, R.color.color_status_canceled_black));
                 holder.btnCancel.setEnabled(false);
                 holder.btnCancel.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.grey)));
-                holder.cardView.setCardBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.color_hint));
+                holder.cardView.setCardBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.light_grey));
                 break;
         }
 
