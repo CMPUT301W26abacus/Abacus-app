@@ -12,11 +12,6 @@
 
     <!-- Keep same brand colors unless you WANT dark variants -->
     <color name="orange">#C96A3A</color>
-    <color name="claude_ink">#1A1714</color>
-    <color name="claude_cream">#F5F0E8</color>
-    <color name="claude_clay">#E67E4D</color> <!-- slightly brighter for dark -->
-    <color name="claude_warm_white">#FAF7F2</color>
-    <color name="claude_muted">#7A7168</color>
     <color name="error_red">#CF6679</color> <!-- optional: better for dark -->
 
     <!-- From Farhan -->

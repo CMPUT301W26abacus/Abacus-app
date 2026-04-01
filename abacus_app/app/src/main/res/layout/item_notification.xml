@@ -33,7 +33,7 @@
                 android:padding="8dp"
                 android:background="@drawable/bg_notification_card"
                 android:backgroundTint="@color/surface_tint"
-                app:tint="@color/claude_clay"
+                app:tint="@color/orange"
                 android:contentDescription="Notification Icon" />
 
             <LinearLayout
