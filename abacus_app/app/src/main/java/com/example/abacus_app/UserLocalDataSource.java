@@ -2,6 +2,7 @@ package com.example.abacus_app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.provider.Settings;
 
 /**
  * The only class that directly reads and writes to {@link SharedPreferences}
@@ -23,8 +24,10 @@ public class UserLocalDataSource {
     static final String KEY_UUID   = "device_uuid";
 
     private final SharedPreferences prefs;
+    private final Context context;
 
     public UserLocalDataSource(Context context) {
+        this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
@@ -70,5 +73,13 @@ public class UserLocalDataSource {
      */
     public void clearDeviceId() {
         prefs.edit().remove(KEY_UUID).apply();
+    }
+
+    /**
+     * Returns a stable device ID (ANDROID_ID) that persists across app reinstalls.
+     * May return null on some emulators — callers should fall back to a random UUID.
+     */
+    public String getStableDeviceID() {
+        return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
     }
 }

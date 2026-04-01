@@ -37,7 +37,10 @@ public class UserRepository {
     private String getOrCreateUUID() {
         String uuid = localDataSource.getUUIDSync();
         if (uuid == null) {
-            uuid = UUID.randomUUID().toString();
+            // Prefer stable ANDROID_ID so identity survives reinstalls;
+            // fall back to random UUID if ANDROID_ID is unavailable (some emulators).
+            uuid = localDataSource.getStableDeviceID();
+            if (uuid == null) uuid = UUID.randomUUID().toString();
             localDataSource.saveUUIDSync(uuid);
         }
         return uuid;
