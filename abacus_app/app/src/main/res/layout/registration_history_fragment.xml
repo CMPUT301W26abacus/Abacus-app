@@ -34,8 +34,23 @@
                 android:textColor="@color/black"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/btnDateFilter"
+                app:layout_constraintEnd_toStartOf="@id/btnStatusFilter"
                 app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <!-- Status multi-select filter button -->
+            <ImageButton
+                android:id="@+id/btnStatusFilter"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Filter by status"
+                android:src="@drawable/ic_filter"
+                android:scaleType="fitCenter"
+                app:tint="@color/grey"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/btnDateFilter"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <!-- Calendar / date range button -->
@@ -54,65 +69,6 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Status filter tabs: All | Active | Closed -->
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tab_layout_history"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/white"
-            app:tabGravity="fill"
-            app:tabMode="fixed"
-            app:tabSelectedTextColor="@color/black"
-            app:tabTextColor="@color/grey"
-            app:tabIndicatorColor="@color/black" />
-
-        <!-- Status filter chips (used by Espresso tests + optional UI filter row) -->
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/cgStatusFilter"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/white"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="6dp"
-            app:singleSelection="true"
-            app:selectionRequired="false">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipWaitlist"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="On Waitlist" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipSelected"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Selected!" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipEnrolled"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Enrolled" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipDeclined"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Declined" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipCancelled"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Cancelled" />
-
-        </com.google.android.material.chip.ChipGroup>
 
     </com.google.android.material.appbar.AppBarLayout>
 
