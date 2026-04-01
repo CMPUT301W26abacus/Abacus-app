@@ -48,7 +48,7 @@
             android:src="@drawable/ic_delete"
             android:contentDescription="Delete"
             android:visibility="gone"
-            app:tint="@color/color_danger"/>
+            app:tint="@color/error_red"/>
 
     </LinearLayout>
 

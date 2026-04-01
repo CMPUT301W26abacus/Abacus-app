@@ -1,36 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ── Base palette (night) ───────────────────────────────────────── -->
+
+    <!-- ── Base palette (night) ───────────────────────────────────── -->
     <color name="black">#C6C6CA</color>
     <color name="white">#000000</color>
     <color name="grey">#636365</color>
     <color name="light_grey">#161617</color>
+
+    <!-- ── Your existing colors (DARK-ADJUSTED where needed) ──────── -->
     <color name="surface_tint">#1C1C1E</color>
 
-    <!-- ── Semantic tokens (night) ────────────────────────────────────── -->
-    <!-- Surfaces -->
-    <color name="color_surface">#111111</color>
-    <color name="color_surface_variant">#1F2937</color>
+    <!-- Keep same brand colors unless you WANT dark variants -->
+    <color name="orange">#C96A3A</color>
+    <color name="error_red">#CF6679</color> <!-- optional: better for dark -->
 
-    <!-- Text -->
-    <color name="color_on_surface">#F9FAFB</color>
-    <color name="color_on_surface_muted">#9CA3AF</color>
-    <color name="color_on_surface_subtle">#6B7280</color>
-    <color name="color_label">#D1D5DB</color>
-    <color name="color_hint">#4B5563</color>
+    <!-- From Farhan -->
+    <color name="card_stroke">#333333</color>
 
-    <!-- Primary button -->
-    <color name="color_btn_primary_bg">#F9FAFB</color>
-    <color name="color_btn_primary_text">#111827</color>
-
-    <!-- Secondary button -->
-    <color name="color_btn_secondary_bg">#1F2937</color>
-    <color name="color_btn_secondary_text">#F9FAFB</color>
-
-    <!-- Danger / error -->
-    <color name="color_danger">#FF6B6B</color>
-    <color name="color_danger_bg">#2D0F0F</color>
-
-    <!-- Guest banner -->
-    <color name="color_guest_banner_bg">#2D1F0D</color>
 </resources>

@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    activity_register.xml
-    Design: Same editorial minimalism as activity_login.xml and fragment_profile.xml
--->
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/color_surface"
+    android:background="@color/white"
     android:fillViewport="true"
     android:overScrollMode="never">
 
@@ -17,12 +13,13 @@
         android:layout_height="wrap_content"
         android:paddingBottom="48dp">
 
+        <!-- Top bar -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/topBar"
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:paddingHorizontal="8dp"
-            android:background="@color/color_surface"
+            android:background="@color/white"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
@@ -35,24 +32,23 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Go back"
                 android:padding="6dp"
-                android:tint="@color/color_on_surface"
+                app:tint="@color/black"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"/>
-
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Hairline rule -->
+        <!-- Hairline divider -->
         <View
             android:id="@+id/topDivider"
             android:layout_width="0dp"
             android:layout_height="1dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/light_grey"
             app:layout_constraintTop_toBottomOf="@id/topBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-
+        <!-- Headline -->
         <TextView
             android:id="@+id/tvHeadline"
             android:layout_width="0dp"
@@ -60,7 +56,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="40dp"
             android:text="Create account"
-            android:textColor="@color/color_on_surface"
+            android:textColor="@color/black"
             android:textSize="30sp"
             android:textStyle="bold"
             android:fontFamily="serif"
@@ -76,13 +72,13 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:text="Join Abacus to start discovering events"
-            android:textColor="@color/color_on_surface_muted"
+            android:textColor="@color/grey"
             android:textSize="15sp"
             app:layout_constraintTop_toBottomOf="@id/tvHeadline"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-
+        <!-- Section label and divider -->
         <TextView
             android:id="@+id/labelSection"
             android:layout_width="0dp"
@@ -90,7 +86,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="36dp"
             android:text="YOUR DETAILS"
-            android:textColor="@color/color_on_surface_subtle"
+            android:textColor="@color/grey"
             android:textSize="11sp"
             android:letterSpacing="0.12"
             android:textStyle="bold"
@@ -104,12 +100,12 @@
             android:layout_height="1dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="8dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/light_grey"
             app:layout_constraintTop_toBottomOf="@id/labelSection"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-
+        <!-- Name input -->
         <TextView
             android:id="@+id/labelName"
             android:layout_width="0dp"
@@ -117,7 +113,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="20dp"
             android:text="Display name"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/sectionDivider"
@@ -131,8 +127,8 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="Your name"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
             android:background="@drawable/input_background"
             android:paddingHorizontal="14dp"
@@ -142,7 +138,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-
+        <!-- Email input -->
         <TextView
             android:id="@+id/labelEmail"
             android:layout_width="0dp"
@@ -150,7 +146,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="16dp"
             android:text="Email address"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/etName"
@@ -164,8 +160,8 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="you@example.com"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
             android:background="@drawable/input_background"
             android:paddingHorizontal="14dp"
@@ -175,7 +171,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-
+        <!-- Password input -->
         <TextView
             android:id="@+id/labelPassword"
             android:layout_width="0dp"
@@ -183,7 +179,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="16dp"
             android:text="Password"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/etEmail"
@@ -197,8 +193,8 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="••••••••"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
             android:background="@drawable/input_background"
             android:paddingHorizontal="14dp"
@@ -208,7 +204,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Password hint -->
         <TextView
             android:id="@+id/tvPasswordHint"
             android:layout_width="0dp"
@@ -216,7 +211,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="5dp"
             android:text="Must be at least 6 characters"
-            android:textColor="@color/color_on_surface_subtle"
+            android:textColor="@color/grey"
             android:textSize="12sp"
             app:layout_constraintTop_toBottomOf="@id/etPassword"
             app:layout_constraintStart_toStartOf="parent"
@@ -230,7 +225,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="20dp"
             android:text="I want to…"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/tvPasswordHint"
@@ -255,7 +250,7 @@
                 android:layout_weight="1"
                 android:text="Join events"
                 android:checked="true"
-                android:textColor="@color/color_label"
+                android:textColor="@color/black"
                 android:textSize="14sp"/>
 
             <RadioButton
@@ -264,12 +259,11 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Organise events"
-                android:textColor="@color/color_label"
+                android:textColor="@color/black"
                 android:textSize="14sp"/>
-
         </RadioGroup>
 
-        <!-- Organization name (shown only for organizers) -->
+        <!-- Organization fields (hidden by default) -->
         <TextView
             android:id="@+id/labelOrgName"
             android:layout_width="0dp"
@@ -277,7 +271,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="14dp"
             android:text="Organization name"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             android:visibility="gone"
@@ -292,8 +286,8 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="Your organization or event brand"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
             android:background="@drawable/input_background"
             android:paddingHorizontal="14dp"
@@ -303,6 +297,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <!-- Register button -->
         <Button
             android:id="@+id/btnRegister"
             android:layout_width="0dp"
@@ -310,16 +305,16 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="28dp"
             android:text="Create account"
-            android:textColor="@color/color_btn_primary_text"
+            android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold"
             android:letterSpacing="0.02"
-            android:backgroundTint="@color/color_btn_primary_bg"
+            android:backgroundTint="@color/orange"
             app:layout_constraintTop_toBottomOf="@id/etOrganizationName"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Terms note -->
+        <!-- Terms -->
         <TextView
             android:id="@+id/tvTerms"
             android:layout_width="0dp"
@@ -327,7 +322,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="12dp"
             android:text="By creating an account you agree to our Terms of Service and Privacy Policy."
-            android:textColor="@color/color_on_surface_subtle"
+            android:textColor="@color/grey"
             android:textSize="12sp"
             android:lineSpacingExtra="2dp"
             android:gravity="center"
@@ -335,17 +330,19 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <!-- Footer divider -->
         <View
             android:id="@+id/footerDivider"
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="32dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/light_grey"
             app:layout_constraintTop_toBottomOf="@id/tvTerms"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <!-- Sign-in row -->
         <LinearLayout
             android:id="@+id/signInRow"
             android:layout_width="wrap_content"
@@ -361,7 +358,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Already have an account? "
-                android:textColor="@color/color_on_surface_muted"
+                android:textColor="@color/grey"
                 android:textSize="14sp"/>
 
             <TextView
@@ -369,12 +366,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Sign in"
-                android:textColor="@color/color_on_surface"
+                android:textColor="@color/black"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:background="?attr/selectableItemBackground"
                 android:padding="2dp"/>
-
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

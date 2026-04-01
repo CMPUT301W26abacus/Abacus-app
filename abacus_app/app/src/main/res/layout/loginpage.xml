@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    activity_login.xml
-    Design: Editorial minimalism matching fragment_profile.xml and activity_main.xml
-    White canvas · ink-black type · hairline dividers · generous whitespace
--->
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/color_surface"
+    android:background="@color/white"
     android:fillViewport="true"
     android:overScrollMode="never">
 
@@ -23,7 +18,7 @@
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:paddingHorizontal="8dp"
-            android:background="@color/color_surface"
+            android:background="@color/white"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
@@ -36,7 +31,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Go back"
                 android:padding="6dp"
-                android:tint="@color/color_on_surface"
+                app:tint="@color/black"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"/>
@@ -48,7 +43,7 @@
             android:id="@+id/topDivider"
             android:layout_width="0dp"
             android:layout_height="1dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/card_stroke"
             app:layout_constraintTop_toBottomOf="@id/topBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
@@ -59,15 +54,15 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="40dp"
+            android:fontFamily="sans-serif"
+            android:lineSpacingExtra="2dp"
             android:text="Welcome back"
-            android:textColor="@color/color_on_surface"
+            android:textColor="@color/black"
             android:textSize="30sp"
             android:textStyle="bold"
-            android:fontFamily="serif"
-            android:lineSpacingExtra="2dp"
-            app:layout_constraintTop_toBottomOf="@id/topDivider"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintTop_toBottomOf="@id/topDivider" />
 
         <TextView
             android:id="@+id/tvSubheadline"
@@ -76,7 +71,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:text="Sign in to your account"
-            android:textColor="@color/color_on_surface_muted"
+            android:textColor="@color/grey"
             android:textSize="15sp"
             app:layout_constraintTop_toBottomOf="@id/tvHeadline"
             app:layout_constraintStart_toStartOf="parent"
@@ -89,7 +84,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="36dp"
             android:text="CREDENTIALS"
-            android:textColor="@color/color_on_surface_subtle"
+            android:textColor="@color/grey"
             android:textSize="11sp"
             android:letterSpacing="0.12"
             android:textStyle="bold"
@@ -103,7 +98,7 @@
             android:layout_height="1dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="8dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/card_stroke"
             app:layout_constraintTop_toBottomOf="@id/labelSection"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
@@ -115,7 +110,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="20dp"
             android:text="Email address"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/sectionDivider"
@@ -129,10 +124,10 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="you@example.com"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
-            android:background="@drawable/input_background"
+            android:background="@color/light_grey"
             android:paddingHorizontal="14dp"
             android:inputType="textEmailAddress"
             android:autofillHints="emailAddress"
@@ -147,7 +142,7 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="16dp"
             android:text="Password"
-            android:textColor="@color/color_label"
+            android:textColor="@color/black"
             android:textSize="13sp"
             android:textStyle="bold"
             app:layout_constraintTop_toBottomOf="@id/etEmail"
@@ -161,10 +156,10 @@
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="6dp"
             android:hint="••••••••"
-            android:textColorHint="@color/color_hint"
-            android:textColor="@color/color_on_surface"
+            android:textColorHint="@color/grey"
+            android:textColor="@color/black"
             android:textSize="15sp"
-            android:background="@drawable/input_background"
+            android:background="@color/light_grey"
             android:paddingHorizontal="14dp"
             android:inputType="textPassword"
             android:autofillHints="password"
@@ -172,20 +167,19 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Forgot password link — right-aligned under password field -->
         <TextView
             android:id="@+id/tvForgot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="24dp"
             android:layout_marginTop="8dp"
-            android:text="Forgot password?"
-            android:textColor="@color/color_on_surface_muted"
-            android:textSize="13sp"
+            android:layout_marginEnd="24dp"
             android:background="?attr/selectableItemBackground"
             android:padding="2dp"
-            app:layout_constraintTop_toBottomOf="@id/etPassword"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            android:text="Forgot password?"
+            android:textColor="@color/orange"
+            android:textSize="13sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/etPassword" />
 
         <Button
             android:id="@+id/btnSignIn"
@@ -193,15 +187,15 @@
             android:layout_height="48dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="28dp"
+            android:backgroundTint="@color/btn_tint_selector"
+            android:letterSpacing="0.02"
             android:text="Sign in"
-            android:textColor="@color/color_btn_primary_text"
+            android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:letterSpacing="0.02"
-            android:backgroundTint="@color/color_btn_primary_bg"
-            app:layout_constraintTop_toBottomOf="@id/tvForgot"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintTop_toBottomOf="@id/tvForgot" />
 
         <View
             android:id="@+id/footerDivider"
@@ -209,7 +203,7 @@
             android:layout_height="1dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="32dp"
-            android:background="@color/color_surface_variant"
+            android:background="@color/card_stroke"
             app:layout_constraintTop_toBottomOf="@id/btnSignIn"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
@@ -229,19 +223,19 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Don't have an account? "
-                android:textColor="@color/color_on_surface_muted"
+                android:textColor="@color/grey"
                 android:textSize="14sp"/>
 
             <TextView
                 android:id="@+id/tvSignUp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sign up"
-                android:textColor="@color/color_on_surface"
-                android:textSize="14sp"
-                android:textStyle="bold"
                 android:background="?attr/selectableItemBackground"
-                android:padding="2dp"/>
+                android:padding="2dp"
+                android:text="Sign up"
+                android:textColor="@color/orange"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
         </LinearLayout>
 
