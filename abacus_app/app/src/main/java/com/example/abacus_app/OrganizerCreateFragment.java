@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import android.app.Activity;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -128,29 +130,12 @@ public class OrganizerCreateFragment extends Fragment {
     }
 
     private void showDateTimePicker(boolean isStart) {
-        MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select Date")
-                .build();
+        Calendar cal = Calendar.getInstance();
 
-        datePicker.addOnPositiveButtonClickListener(selection -> {
-            MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
-                    .setTimeFormat(TimeFormat.CLOCK_12H)
-                    .setHour(12)
-                    .setMinute(0)
-                    .setTitleText("Select Time")
-                    .build();
-
-            timePicker.addOnPositiveButtonClickListener(v -> {
+        new DatePickerDialog(requireContext(), (view, year, month, day) -> {
+            new TimePickerDialog(requireContext(), (timeView, hourOfDay, minute) -> {
                 Calendar calendar = Calendar.getInstance();
-                Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                utcCalendar.setTimeInMillis(selection);
-
-                calendar.set(utcCalendar.get(Calendar.YEAR),
-                        utcCalendar.get(Calendar.MONTH),
-                        utcCalendar.get(Calendar.DAY_OF_MONTH),
-                        timePicker.getHour(),
-                        timePicker.getMinute(),
-                        0);
+                calendar.set(year, month, day, hourOfDay, minute, 0);
                 calendar.set(Calendar.MILLISECOND, 0);
 
                 Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
@@ -177,10 +162,10 @@ public class OrganizerCreateFragment extends Fragment {
                 } else {
                     btnSetEnd.setText("End: " + formatted);
                 }
-            });
-            timePicker.show(getParentFragmentManager(), "TIME_PICKER");
-        });
-        datePicker.show(getParentFragmentManager(), "DATE_PICKER");
+
+            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show();
+
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
     }
 
     private void createEvent() {

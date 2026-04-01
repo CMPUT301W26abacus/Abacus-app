@@ -74,9 +74,11 @@
                 android:paddingHorizontal="12dp"
                 android:paddingBottom="8dp">
 
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toStartOf="@id/btn_scan"
                     app:layout_constraintStart_toStartOf="parent"
@@ -88,7 +90,14 @@
                         android:layout_height="wrap_content"
                         android:hint="Search events..."
                         android:textColor="@color/black"
-                        android:textColorHint="@color/grey"/>
+                        android:textColorHint="@color/grey"
+                        android:textSize="14sp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:gravity="center_vertical"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:imeOptions="actionSearch"/>
                 </com.google.android.material.textfield.TextInputLayout>
                 <ImageButton
                     android:id="@+id/btn_scan"

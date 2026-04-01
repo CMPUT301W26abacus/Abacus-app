@@ -6,7 +6,6 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -16,6 +15,8 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ public class OrganizerLogsFragment extends Fragment {
     private ManageEventViewModel manageEventViewModel;
     private RecyclerView recyclerView;
     private OrganizerEntrantAdapter adapter;
-    private EditText etSearch;
+    private TextInputEditText etSearch; // updated from EditText
     private View layoutEmpty;
 
     private List<User> allUsers = new ArrayList<>();
@@ -65,6 +66,19 @@ public class OrganizerLogsFragment extends Fragment {
             @Override public void afterTextChanged(Editable s) {
                 applyFilter(s.toString());
             }
+        });
+
+        // Dismiss keyboard and clear focus when search action is pressed
+        etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager)
+                                requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(etSearch.getWindowToken(), 0);
+                etSearch.clearFocus();
+                return true;
+            }
+            return false;
         });
 
         observeViewModel();

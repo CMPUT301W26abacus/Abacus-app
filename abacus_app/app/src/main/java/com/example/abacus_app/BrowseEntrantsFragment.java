@@ -67,7 +67,25 @@ public class BrowseEntrantsFragment extends Fragment {
             }
         });
         recyclerView.setAdapter(adapter);
+        com.google.android.material.textfield.TextInputEditText searchBar = view.findViewById(R.id.search_bar);
+        searchBar.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // filter logic here when you implement loadEvents()
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
 
+        searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                        requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(searchBar.getWindowToken(), 0);
+                searchBar.clearFocus();
+                return true;
+            }
+            return false;
+        });
         // Load events
         loadEvents();
 
