@@ -27,18 +27,20 @@ import java.util.List;
  * Binds a list of Event objects to item_event cards in the home RecyclerView.
  *
  * Join button behaviour:
- * - On bind, queries Firestore to set the button visual state (Join/Joined).
+ * - On bind, queries Firestore to set the button visual state (Join/Joined/Manage).
  * - Tapping the card opens EventDetailsFragment normally.
  * - Tapping the Join button opens EventDetailsFragment with ARG_AUTO_JOIN=true,
  *   which tells EventDetailsFragment to immediately trigger the join flow as
  *   soon as the user ID is resolved — no extra tap needed.
  * - Tapping the Joined button opens EventDetailsFragment normally (user can
  *   leave from there if they want).
+ * - Tapping the Manage button (for co-organizers) opens the event management screen.
  *
  * Visual states:
  * - "Join"   — orange background, white text
  * - "Joined" — white background, grey stroke, grey text
  * - "Edit"   — white background, blue stroke, blue text (for organizers)
+ * - "Manage" — blue background, white text
  */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
@@ -50,9 +52,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         void onEventDelete(Event event);
     }
 
+    public interface OnManageClickListener {
+        void onManageClick(Event event);
+    }
+
     private final List<Event> events;
     private final OnEventClickListener clickListener;
     private final OnEventDeleteListener deleteListener;
+    private OnManageClickListener manageClickListener;
     private final boolean isAdmin;
 
     @Nullable
@@ -73,6 +80,17 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         this.isAdmin        = isAdmin;
         this.userKey        = userKey;
         this.isGuest        = isGuest;
+    }
+
+    public EventAdapter(List<Event> events,
+                        OnEventClickListener clickListener,
+                        OnEventDeleteListener deleteListener,
+                        OnManageClickListener manageClickListener,
+                        boolean isAdmin,
+                        @Nullable String userKey,
+                        boolean isGuest) {
+        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest);
+        this.manageClickListener = manageClickListener;
     }
 
     public EventAdapter(List<Event> events, OnEventClickListener clickListener) {
@@ -145,7 +163,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         String eventId = event.getEventId();
 
         if (userKey == null || eventId == null || eventId.isEmpty()) {
-            applyButtonState(holder, false, holder.itemView.getContext());
+            applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
             // Join button tap with no user key — open details without auto-join
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
@@ -153,8 +171,17 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             return;
         }
 
+        // Check if user is a co-organizer
+        if (event.getCoOrganizers() != null && event.getCoOrganizers().contains(userKey)) {
+            applyButtonState(holder, ButtonState.MANAGE, holder.itemView.getContext());
+            holder.btnJoinStatus.setOnClickListener(v -> {
+                if (manageClickListener != null) manageClickListener.onManageClick(event);
+            });
+            return;
+        }
+
         // Reset to Join while async check runs to avoid stale recycled state
-        applyButtonState(holder, false, holder.itemView.getContext());
+        applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
 
         String docId = userKey + "_" + eventId;
@@ -169,7 +196,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                     if (!eventId.equals(events.get(pos).getEventId())) return;
 
                     boolean joined = snapshot.exists();
-                    applyButtonState(holder, joined, holder.itemView.getContext());
+                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN, holder.itemView.getContext());
 
                     if (joined) {
                         // Already joined — tap opens details so they can leave from there
@@ -189,23 +216,38 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     // ── Button appearance ─────────────────────────────────────────────────────
 
+    private enum ButtonState { JOIN, JOINED, MANAGE }
+
     private void applyButtonState(@NonNull EventViewHolder holder,
-                                  boolean joined,
+                                  ButtonState state,
                                   @NonNull Context context) {
         MaterialButton btn = holder.btnJoinStatus;
-        if (joined) {
-            btn.setText("Joined");
-            btn.setTextColor(ContextCompat.getColor(context, R.color.grey));
-            btn.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
-            btn.setStrokeColor(ColorStateList.valueOf(
-                    ContextCompat.getColor(context, R.color.grey)));
-            btn.setStrokeWidth(2);
-        } else {
-            btn.setText("Join");
-            btn.setTextColor(Color.WHITE);
-            btn.setBackgroundTintList(ColorStateList.valueOf(
-                    ContextCompat.getColor(context, R.color.orange)));
-            btn.setStrokeWidth(0);
+        switch (state) {
+            case JOINED:
+                btn.setText("Joined");
+                btn.setTextColor(ContextCompat.getColor(context, R.color.grey));
+                btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)
+                ));
+                btn.setStrokeColor(ColorStateList.valueOf(
+                        ContextCompat.getColor(context, R.color.grey)));
+                btn.setStrokeWidth(2);
+                break;
+            case MANAGE:
+                btn.setText("Manage");
+                btn.setTextColor(ContextCompat.getColor(context, R.color.white)
+                );
+                btn.setBackgroundTintList(ColorStateList.valueOf(
+                        ContextCompat.getColor(context, R.color.orange)));
+                btn.setStrokeWidth(0);
+                break;
+            case JOIN:
+            default:
+                btn.setText("Join");
+                btn.setTextColor(ContextCompat.getColor(context, R.color.white));
+                btn.setBackgroundTintList(ColorStateList.valueOf(
+                        ContextCompat.getColor(context, R.color.orange)));
+                btn.setStrokeWidth(0);
+                break;
         }
     }
 
@@ -213,10 +255,10 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                                       @NonNull Context context) {
         MaterialButton btn = holder.btnJoinStatus;
         btn.setText("Edit");
-        btn.setTextColor(ContextCompat.getColor(context, android.R.color.holo_blue_dark));
-        btn.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
+        btn.setTextColor(ContextCompat.getColor(context, R.color.orange));
+        btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)));
         btn.setStrokeColor(ColorStateList.valueOf(
-                ContextCompat.getColor(context, android.R.color.holo_blue_dark)));
+                ContextCompat.getColor(context, R.color.orange)));
         btn.setStrokeWidth(2);
     }
 

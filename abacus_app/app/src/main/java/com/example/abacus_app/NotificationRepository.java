@@ -8,116 +8,127 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * NotificationRepository.java
+ *
+ * Handles creating and sending notifications for events.
+ * Supports:
+ *  - Selected / Not Selected notifications for users
+ *  - Lottery results notifications
+ *  - Replacement notifications
+ *  - Listening for notifications by email
+ *
+ * Uses both asynchronous user lookup via UserRemoteDataSource and
+ * executor-based synchronous notification processing for batch operations.
+ */
 public class NotificationRepository {
 
     private final NotificationRemoteDataSource remote;
+    private final UserRemoteDataSource userRemote;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final android.os.Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public NotificationRepository() {
-        remote = new NotificationRemoteDataSource();
+        this.remote = new NotificationRemoteDataSource();
+        this.userRemote = new UserRemoteDataSource(com.google.firebase.firestore.FirebaseFirestore.getInstance());
     }
 
+    // ── Selected / Not Selected Notifications ────────────────────────────────
+
     /**
-     * US 01.04.01 - Receive notification when chosen (win)
-     * Sends notifications to all selected users.
+     * Notify users they have been selected for an event.
      */
     public void notifySelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
 
-        List<Notification> notifications = new ArrayList<>();
         for (String userId : userIds) {
-            notifications.add(new Notification(
-                    userId,
-                    eventId,
-                    "Congratulations! You have been selected for the event.",
-                    "SELECTED"
-            ));
+            userRemote.getUser(userId, user -> {
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(), // <-- now included
+                            eventId,
+                            "Congratulations! You have been selected for the event.",
+                            Notification.TYPE_SELECTED
+                    );
+                    remote.saveNotification(notification);
+                }
+            });
         }
-        remote.saveNotificationsBatch(notifications);
     }
 
     /**
-     * US 01.04.02 - Receive notification when not chosen (lose)
-     * Sends notifications to all users who were not selected.
+     * Notify users they were not selected for an event.
      */
     public void notifyNotSelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
 
-        List<Notification> notifications = new ArrayList<>();
         for (String userId : userIds) {
-            notifications.add(new Notification(
-                    userId,
-                    eventId,
-                    "We regret to inform you that you were not selected for the event this time.",
-                    "NOT_SELECTED"
-            ));
+            userRemote.getUser(userId, user -> {
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(), // <-- included
+                            eventId,
+                            "We regret to inform you that you were not selected for the event this time.",
+                            Notification.TYPE_NOT_SELECTED
+                    );
+                    remote.saveNotification(notification);
+                }
+            });
         }
-        remote.saveNotificationsBatch(notifications);
     }
 
+    // ── Listening ───────────────────────────────────────────────────────────
+
     /**
-     * Starts listening for notifications for a specific user.
+     * Listen for notifications filtered by user email.
      */
-    public void listenForNotifications(String userId, NotificationRemoteDataSource.OnNotificationsUpdatedListener listener) {
-        remote.listenForNotifications(userId, listener);
+    public void listenForNotificationsByEmail(String email, NotificationRemoteDataSource.OnNotificationsUpdatedListener listener) {
+        remote.listenForNotificationsByEmail(email, listener);
     }
 
+    // ── Lottery & Replacement Notifications ──────────────────────────────────
+
     /**
-     * Sends notifications to winners and losers when the lottery of an event is drawn.
-     *
-     * @param eventId the unique ID of the event in the database
+     * Notify all users when lottery results are drawn for an event.
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
-           try {
-               RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
-               EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-
-               ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
-               Event event = eventRDS.getEventById(eventId);
-
-               ArrayList<Notification> notifications = new ArrayList<>();
-               for (WaitlistEntry entry : entries) {
-                   if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-                       notifications.add(new Notification(
-                               entry.getUserId(),
-                               eventId,
-                               "Congratulations! You have been invited to " + event.getTitle(),
-                               Notification.TYPE_SELECTED
-                       ));
-                   } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
-                       notifications.add(new Notification(
-                               entry.getUserId(),
-                               eventId,
-                               "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
-                               Notification.TYPE_NOT_SELECTED
-                       ));
-                   }
-               }
-
-               remote.saveNotificationsBatch(notifications);
-               mainHandler.post(() -> callback.onComplete(null));
-           } catch (Exception e) {
-               mainHandler.post(() -> callback.onComplete(e));
-           }
-        });
-    }
-
-    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        executor.submit(() -> {
             try {
+                RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+
+                ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
                 Event event = eventRDS.getEventById(eventId);
 
-                Notification notification = (new Notification(
-                        userId,
-                        eventId,
-                        "Congratulations! You have been invited to " + event.getTitle(),
-                        Notification.TYPE_SELECTED
-                ));
+                for (WaitlistEntry entry : entries) {
+                    String userId = entry.getUserId();
+                    userRemote.getUser(userId, user -> {
+                        if (user != null) {
+                            Notification notification;
+                            if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                                notification = new Notification(
+                                        userId,
+                                        user.getEmail(),
+                                        eventId,
+                                        "Congratulations! You have been invited to " + event.getTitle(),
+                                        Notification.TYPE_SELECTED
+                                );
+                            } else { // waitlisted
+                                notification = new Notification(
+                                        userId,
+                                        user.getEmail(),
+                                        eventId,
+                                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
+                                        Notification.TYPE_NOT_SELECTED
+                                );
+                            }
+                            remote.saveNotification(notification);
+                        }
+                    });
+                }
 
-                remote.saveNotification(notification);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
@@ -126,7 +137,30 @@ public class NotificationRepository {
     }
 
     /**
-     * Callback interface for void methods.
+     * Notify a user as a replacement for an event.
+     */
+    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
+        userRemote.getUser(userId, user -> {
+            if (user != null) {
+                Notification notification = new Notification(
+                        userId,
+                        user.getEmail(), // <-- included
+                        eventId,
+                        "Congratulations! You have been invited to " + "event",
+                        Notification.TYPE_SELECTED
+                );
+                remote.saveNotification(notification);
+            }
+            if (callback != null) {
+                mainHandler.post(() -> callback.onComplete(null));
+            }
+        });
+    }
+
+    // ── Callback Interface ───────────────────────────────────────────────────
+
+    /**
+     * Generic callback for void methods.
      */
     public interface VoidCallback {
         void onComplete(Exception error);
