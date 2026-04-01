@@ -67,6 +67,7 @@ public class NotificationRepository {
      * Sends notifications to winners and losers when the lottery of an event is drawn.
      *
      * @param eventId the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
@@ -104,6 +105,13 @@ public class NotificationRepository {
         });
     }
 
+    /**
+     * Notifies a single user that they have been draw for the lottery of an event.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId the unique ID of the user who was drawn
+     * @param callback called when the operation completes
+     */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -115,6 +123,34 @@ public class NotificationRepository {
                         eventId,
                         "Congratulations! You have been invited to " + event.getTitle(),
                         Notification.TYPE_SELECTED
+                ));
+
+                remote.saveNotification(notification);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    /**
+     * Notifies a single user that they have been cancelled from an event.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId the unique ID of the user who was drawn
+     * @param callback called when the operation completes
+     */
+    public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+                Event event = eventRDS.getEventById(eventId);
+
+                Notification notification = (new Notification(
+                        userId,
+                        eventId,
+                        "Your invitation to " + event.getTitle() + " has expired.",
+                        Notification.TYPE_CANCELED
                 ));
 
                 remote.saveNotification(notification);
