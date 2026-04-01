@@ -6,16 +6,22 @@
     android:layout_height="match_parent"
     android:background="@color/light_grey">
 
-    <!-- Scrollable body -->
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scroll_content"
+    <!-- Pull-to-refresh wrapper -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/profileSwipeRefresh"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:overScrollMode="never"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+    <!-- Scrollable body -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -42,14 +48,24 @@
                     android:orientation="horizontal"
                     android:padding="16dp">
 
-                    <ImageView
-                        android:id="@+id/imgAvatar"
+                    <FrameLayout
+                        android:id="@+id/avatarContainer"
                         android:layout_width="56dp"
                         android:layout_height="56dp"
-                        android:background="@drawable/ic_avatar_placeholder"
-                        android:contentDescription="User Avatar"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_avatar_placeholder" />
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                        <ImageView
+                            android:id="@+id/imgAvatar"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:background="@drawable/ic_avatar_placeholder"
+                            android:contentDescription="User Avatar"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_avatar_placeholder" />
+
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -58,14 +74,38 @@
                         android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/tvDisplayedName"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Your Name"
-                            android:textAppearance="?attr/textAppearanceTitleMedium"
-                            android:textColor="@color/black"
-                            android:textStyle="bold" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/tvDisplayedName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Your Name"
+                                android:textAppearance="?attr/textAppearanceTitleMedium"
+                                android:textColor="@color/black"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:id="@+id/viewModeDot"
+                                android:layout_width="8dp"
+                                android:layout_height="8dp"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tvModeLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textSize="11sp"
+                                android:textColor="@color/grey"
+                                android:visibility="gone" />
+
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/tvDisplayedEmail"
@@ -77,6 +117,68 @@
                             android:textColor="@color/grey" />
 
                     </LinearLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Admin view-mode toggle — only visible to admin accounts -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardAdminViewMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:letterSpacing="0.1"
+                        android:text="VIEW MODE"
+                        android:textAppearance="?attr/textAppearanceLabelSmall"
+                        android:textColor="@color/grey" />
+
+                    <RadioGroup
+                        android:id="@+id/rgViewMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rbViewEntrant"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="Entrant" />
+
+                        <RadioButton
+                            android:id="@+id/rbViewOrganizer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="Organizer" />
+
+                        <RadioButton
+                            android:id="@+id/rbViewAdmin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="Admin" />
+
+                    </RadioGroup>
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -87,7 +189,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:visibility="gone"
-                app:cardBackgroundColor="#FFF8F0"
+                app:cardBackgroundColor="@color/color_guest_banner_bg"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp">
 
@@ -156,7 +258,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="#EF4444"
+                        android:textColor="@color/color_danger"
                         android:visibility="gone" />
 
                     <View
@@ -192,7 +294,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="#EF4444"
+                        android:textColor="@color/color_danger"
                         android:visibility="gone" />
 
                     <View
@@ -225,6 +327,168 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Bio card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardBio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Bio"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etBio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/input_background"
+                        android:hint="Tell people about yourself"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="3"
+                        android:maxLines="5"
+                        android:paddingHorizontal="14dp"
+                        android:paddingVertical="10dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey"
+                        android:gravity="top" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Organization name card (organizers only) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardOrgName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Organization name"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="@color/black" />
+
+                    <EditText
+                        android:id="@+id/etOrgName"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/input_background"
+                        android:hint="Your organization or event brand"
+                        android:inputType="textCapWords"
+                        android:paddingHorizontal="14dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/grey" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Role-specific stats card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/tvStatCount1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black" />
+
+                        <TextView
+                            android:id="@+id/tvStatLabel1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Events"
+                            android:textSize="12sp"
+                            android:textColor="@color/grey" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:background="@color/grey"
+                        android:layout_marginHorizontal="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/tvStatCount2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black" />
+
+                        <TextView
+                            android:id="@+id/tvStatLabel2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Registrations"
+                            android:textSize="12sp"
+                            android:textColor="@color/grey" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <Button
                 android:id="@+id/btnLinkAccount"
                 android:layout_width="match_parent"
@@ -241,10 +505,32 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="@color/black"
+                android:backgroundTint="@color/orange"
                 android:text="Save changes"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="@color/white"
+                android:textColor="@android:color/white"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnPreferences"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/color_btn_secondary_bg"
+                android:text="Event Preferences"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/black"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnAccessibility"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/color_btn_secondary_bg"
+                android:text="Accessibility"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="@color/black"
                 android:visibility="gone" />
 
             <Button
@@ -252,10 +538,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginBottom="12dp"
-                android:backgroundTint="#F3F4F6"
+                android:backgroundTint="@color/color_btn_secondary_bg"
                 android:text="Log out"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="@color/black"
+                android:textColor="@color/orange"
                 android:visibility="gone" />
 
             <View
@@ -275,21 +561,23 @@
                 android:letterSpacing="0.1"
                 android:text="DANGER ZONE"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="#EF4444"
+                android:textColor="@color/color_danger"
                 android:visibility="gone" />
 
             <Button
                 android:id="@+id/btnDeleteProfile"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:backgroundTint="#FEF2F2"
+                android:backgroundTint="@color/color_danger_bg"
                 android:text="Delete profile"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="#EF4444"
+                android:textColor="@color/color_danger"
                 android:visibility="gone" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Back button overlaid top-left, matching event_qr_fragment pattern -->
     <ImageButton

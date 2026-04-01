@@ -73,7 +73,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="50dp"
         android:gravity="center"
-        android:text="Event Management"
+        android:text="Manage Events"
         android:textAppearance="?attr/textAppearanceHeadlineSmall"
         android:textColor="@color/black"
         android:textStyle="bold"
@@ -87,7 +87,22 @@
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:text="Draw Lottery"
+        android:backgroundTint="@color/btn_tint_selector"
         android:padding="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_draw_replacement"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Draw Replacement"
+        android:backgroundTint="@color/btn_tint_selector"
+        android:padding="12dp"
+        android:visibility="gone"
+        android:enabled="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

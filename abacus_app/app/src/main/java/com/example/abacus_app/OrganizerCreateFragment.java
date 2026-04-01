@@ -1,6 +1,7 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,7 +37,7 @@ public class OrganizerCreateFragment extends Fragment {
     private CreateEventViewModel viewModel;
     private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity;
     private Button btnSetStart, btnSetEnd, btnCreate;
-    private MaterialSwitch switchGeo;
+    private MaterialSwitch switchGeo, switchPrivate;
     private CheckBox cbLimit;
 
     private Timestamp startTimestamp, endTimestamp;
@@ -57,6 +58,7 @@ public class OrganizerCreateFragment extends Fragment {
         btnSetEnd       = view.findViewById(R.id.btn_set_end);
         btnCreate       = view.findViewById(R.id.btn_create_event);
         switchGeo       = view.findViewById(R.id.switch_geo);
+        switchPrivate   = view.findViewById(R.id.switch_private);
         cbLimit         = view.findViewById(R.id.cb_limit_waitlist);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
@@ -185,7 +187,8 @@ public class OrganizerCreateFragment extends Fragment {
         if (organizerId == null) organizerId = "ORGANIZER_ID";
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                waitlistLimit, eventCapacity, switchGeo.isChecked());
+                waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
+        event.setPrivate(switchPrivate.isChecked());
 
         String posterUrl = etPosterUrl.getText().toString().trim();
         viewModel.createEvent(event, posterUrl);

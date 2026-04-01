@@ -38,12 +38,15 @@ public class SplashActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.splash_activity);
 
-        //Start animation
+        //Start animation (skip if Reduce Motion is enabled)
         ImageView img = findViewById(R.id.splashAbacus);
-        AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
-        if (avd != null) {
-            img.setImageDrawable(avd);
-            avd.start();
+        AccessibilityHelper a11y = new AccessibilityHelper(this);
+        if (!a11y.isReduceMotion()) {
+            AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
+            if (avd != null) {
+                img.setImageDrawable(avd);
+                avd.start();
+            }
         }
 
         Button btnGetStarted = findViewById(R.id.btnGetStarted);
@@ -58,7 +61,7 @@ public class SplashActivity extends AppCompatActivity {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
         });
-        tvBrowseGuest.setOnClickListener(v -> goToMain(true));
+        tvBrowseGuest.setOnClickListener(v -> goToMain(true, "entrant"));
 
         // Build UserLocalDataSource using Kotlin extension
         UserLocalDataSource  localDataSource  = new UserLocalDataSource(getApplicationContext());
@@ -72,20 +75,28 @@ public class SplashActivity extends AppCompatActivity {
                 return;
             }
             userRepository.getProfileAsync(user -> {
+                // Only navigate as a signed-in user if Firebase Auth still holds
+                // a valid session. If Auth has expired the user must log in again.
+                FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+                boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
 
-                if (user != null && user.getLastLoginAt() > 0) {
+                if (firebaseSignedIn && user != null
+                        && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
                     // Returning logged-in user — go straight to main
+                    String role = (user.getRole() != null && !user.getRole().isEmpty())
+                            ? user.getRole() : "entrant";
+                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                     new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(false),
-                            ANIMATION_DELAY_MS
+                            () -> goToMain(false, role),
+                            delay
                     );
                 } else {
-                    // UUID exists but never logged in (previous guest session).
-                    // Auto-navigate as guest — they can link an account from
-                    // the profile screen whenever they're ready.
+                    // UUID exists but no active Firebase session (guest or expired).
+                    // Auto-navigate as guest — they can log in from the profile screen.
+                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                     new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(true),
-                            ANIMATION_DELAY_MS
+                            () -> goToMain(true, "entrant"),
+                            delay
                     );
                 }
             });
@@ -120,7 +131,7 @@ public class SplashActivity extends AppCompatActivity {
             // UUID recognised → go straight to MainActivity after animation
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                goToMain(currentUser == null); // guest only if Firebase lost the session
+                goToMain(currentUser == null, "entrant"); // guest only if Firebase lost the session
             }, ANIMATION_DELAY_MS);
 
         } else {
@@ -142,19 +153,21 @@ public class SplashActivity extends AppCompatActivity {
             });
 
             // "Browse as guest" → MainActivity without authentication
-            tvBrowseGuest.setOnClickListener(v -> goToMain(true));
+            tvBrowseGuest.setOnClickListener(v -> goToMain(true, "entrant"));
         }
     }
 
     /**
-     * Navigates to MainActivity, passing whether the user is a guest.
+     * Navigates to MainActivity, passing whether the user is a guest and their role.
      * Clears the back stack so the user cannot navigate back to splash.
      *
-     * @param isGuest true if browsing without signing in.
+     * @param isGuest  true if browsing without signing in.
+     * @param userRole the user's role ("entrant", "organizer", or "admin").
      */
-    private void goToMain(boolean isGuest) {
+    private void goToMain(boolean isGuest, String userRole) {
         Intent intent = new Intent(SplashActivity.this, MainActivity.class);
         intent.putExtra("isGuest", isGuest);
+        intent.putExtra("userRole", userRole);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();

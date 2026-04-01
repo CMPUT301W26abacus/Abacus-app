@@ -183,4 +183,59 @@ public class UserTest {
         user.setIsGuest(false);
         assertFalse(user.isGuest());
     }
+
+    // ── New fields (Phase 1.1) ────────────────────────────────────────────────
+
+    /** Default constructor leaves bio, organizationName, profilePhotoUrl, preferences null. */
+    @Test
+    public void defaultConstructor_newFieldsDefaultToNull() {
+        User user = new User();
+        assertNull(user.getBio());
+        assertNull(user.getOrganizationName());
+        assertNull(user.getProfilePhotoUrl());
+        assertNull(user.getPreferences());
+    }
+
+    /** setBio / getBio round-trips correctly. */
+    @Test
+    public void setGetBio_roundTrips() {
+        User user = new User();
+        user.setBio("Hello world");
+        assertEquals("Hello world", user.getBio());
+    }
+
+    /** setOrganizationName / getOrganizationName round-trips correctly. */
+    @Test
+    public void setGetOrganizationName_roundTrips() {
+        User user = new User();
+        user.setOrganizationName("Acme Corp");
+        assertEquals("Acme Corp", user.getOrganizationName());
+    }
+
+    /** setProfilePhotoUrl / getProfilePhotoUrl round-trips correctly. */
+    @Test
+    public void setGetProfilePhotoUrl_roundTrips() {
+        User user = new User();
+        user.setProfilePhotoUrl("https://example.com/photo.jpg");
+        assertEquals("https://example.com/photo.jpg", user.getProfilePhotoUrl());
+    }
+
+    /** setPreferences / getPreferences round-trips correctly. */
+    @Test
+    public void setGetPreferences_roundTrips() {
+        User user = new User();
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>();
+        prefs.put("categories", java.util.Arrays.asList("Music", "Sports"));
+        prefs.put("locationRangeKm", 50);
+        user.setPreferences(prefs);
+        assertEquals(prefs, user.getPreferences());
+    }
+
+    /** setVerificationStatus / getVerificationStatus round-trips correctly. */
+    @Test
+    public void setGetVerificationStatus_roundTrips() {
+        User user = new User();
+        user.setVerificationStatus("email_verified");
+        assertEquals("email_verified", user.getVerificationStatus());
+    }
 }

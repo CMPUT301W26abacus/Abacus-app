@@ -27,10 +27,10 @@ import org.junit.runner.RunWith;
 
 /**
  * EventBrowseUITest.java
- *
+ * <p>
  * Intent/UI tests for event browsing and waitlist user stories.
  * These are instrumented tests that run on a device or emulator.
- *
+ * <p>
  * Covers:
  * - US 01.01.03 — Browse list of events
  * - US 01.01.04 — Filter events by keyword
@@ -38,7 +38,7 @@ import org.junit.runner.RunWith;
  * - US 01.01.02 — Leave waiting list (confirmation dialog)
  * - US 01.05.04 — Waitlist count display on event details screen
  * - Lottery Guidelines — guidelines fragment content and navigation
- *
+ * <p>
  * NOTE: Requires animations to be disabled on the emulator:
  * Settings → Developer Options → Window/Transition/Animator scale → Off
  */
@@ -356,6 +356,70 @@ public class EventBrowseUITest {
         waitUntilVisible(R.id.btn_join_waitlist, 8000);
         waitUntilVisible(R.id.tv_waitlist_count, 5000);
         onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
+    }
+
+    // ── Carousel (Phase 2) ────────────────────────────────────────────────────
+
+    /**
+     * Phase 2 — The carousel RecyclerView is visible on the main screen
+     * when at least one event is available.
+     */
+    @Test
+    public void carousel_isVisibleWhenEventsExist() {
+        // Wait for main event list to load (setUp already does this)
+        waitUntilVisible(R.id.rv_carousel, 10000);
+        onView(withId(R.id.rv_carousel)).check(matches(
+                ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+    }
+
+    /**
+     * Phase 2 — The "Featured Events" label is visible together with the carousel.
+     */
+    @Test
+    public void carousel_featuredLabelIsVisible() {
+        waitUntilVisible(R.id.tv_featured_label, 10000);
+        onView(withId(R.id.tv_featured_label)).check(matches(
+                ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+    }
+
+    /**
+     * Phase 2 — Carousel shows at most 5 items even when more events are loaded.
+     * We assert the item count is at least 1 and at most 5.
+     */
+    @Test
+    public void carousel_showsAtMostFiveItems() {
+        waitUntilVisible(R.id.rv_carousel, 10000);
+        // Item count must be between 1 and 5 inclusive
+        onView(withId(R.id.rv_carousel)).check(matches(hasMinimumChildCount(1)));
+        // Check that it never exceeds 5 via RecyclerView adapter count
+        scenario.onActivity(activity -> {
+            androidx.recyclerview.widget.RecyclerView rv =
+                    activity.findViewById(R.id.rv_carousel);
+            if (rv != null && rv.getAdapter() != null) {
+                int count = rv.getAdapter().getItemCount();
+                org.junit.Assert.assertTrue(
+                        "Carousel should show ≤5 items, got " + count,
+                        count <= 5);
+            }
+        });
+    }
+
+    /**
+     * Phase 2 — Tapping the first carousel card navigates to EventDetailsFragment.
+     */
+    @Test
+    public void carousel_tapFirstCardOpensEventDetails() {
+        waitUntilVisible(R.id.rv_carousel, 10000);
+        onView(withId(R.id.rv_carousel))
+                .perform(actionOnItemAtPosition(0, click()));
+        waitUntilWaitlistButtonReady(15000);
+        try {
+            onView(withId(R.id.btn_join_waitlist)).check(matches(
+                    ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+        } catch (Throwable e) {
+            onView(withId(R.id.btn_leave_waitlist)).check(matches(
+                    ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
+        }
     }
 
     // ── Lottery Guidelines ────────────────────────────────────────────────────

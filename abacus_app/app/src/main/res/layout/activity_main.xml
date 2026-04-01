@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<!-- Root FrameLayout is fixed; only the CoordinatorLayout (@id/main) slides
+     for one-handed mode so the handle overlay stays anchored to the screen. -->
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -52,7 +59,7 @@
                 android:background="#00FFFFFF"
                 android:contentDescription="Profile"
                 android:src="@drawable/ic_account_circle"
-                app:tint="#785A715A"
+                app:tint="@color/black"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -126,58 +133,148 @@
         app:menu="@menu/menu_bottom_nav" />
 
     <!-- ===== CONTENT AREA ===== -->
-    <!-- layout_marginBottom pushes content above the nav bar -->
-    <androidx.core.widget.NestedScrollView
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/home_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginBottom="100dp"
-        android:background="@color/light_grey"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/home_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/light_grey">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_events"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Featured events carousel -->
+            <TextView
+                android:id="@+id/tv_featured_label"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="4dp"
+                android:text="Featured Events"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="@color/black"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_carousel"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:paddingHorizontal="16dp"
+                android:paddingBottom="8dp"
                 android:clipToPadding="false"
                 android:overScrollMode="never"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                android:visibility="gone" />
 
-            <LinearLayout
-                android:id="@+id/layout_empty_state"
+            <!-- "For You" label (shown when preferences are set) -->
+            <TextView
+                android:id="@+id/tv_for_you_label"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="4dp"
+                android:text="All Events"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="@color/black"
+                android:visibility="gone" />
+
+            <!-- Main events list + empty state in a FrameLayout -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_events"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                <LinearLayout
+                    android:id="@+id/layout_empty_state"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:paddingTop="80dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_empty_message"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="No events available"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/tv_empty_sub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="Check back later for upcoming events."
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                </LinearLayout>
+
+            </FrameLayout>
+
+            <!-- Preferences footer — visible when a category preference is active -->
+            <LinearLayout
+                android:id="@+id/layoutPreferencesFooter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="24dp"
+                android:gravity="center"
                 android:visibility="gone">
 
                 <TextView
-                    android:id="@+id/tv_empty_message"
+                    android:id="@+id/tvPreferencesFooter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="No events available"
-                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+                    android:text="No more events matching your preferences."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/grey"
+                    android:gravity="center" />
 
                 <TextView
+                    android:id="@+id/tvChangePreferences"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center"
-                    android:text="Check back later for upcoming events."
-                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+                    android:layout_marginTop="4dp"
+                    android:text="Change preferences to see more"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/black"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
 
             </LinearLayout>
 
-        </FrameLayout>
+        </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host_fragment"
@@ -189,3 +286,71 @@
         app:navGraph="@navigation/nav_graph" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- One-handed mode handle — 4 stacked chevrons that animate like the image.
+         Positioned just above the shifted-content edge in code (activateOneHanded).
+         Top chevron is brightest; animation waves brightness bottom → top in a loop. -->
+    <LinearLayout
+        android:id="@+id/oneHandedHandle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingHorizontal="56dp"
+        android:paddingBottom="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="Exit one-handed mode"
+        android:visibility="gone">
+
+        <!-- index 0 — top / brightest -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⌃"
+            android:textSize="44sp"
+            android:textColor="@color/black"
+            android:includeFontPadding="false"
+            android:gravity="center"
+            android:alpha="1.0" />
+
+        <!-- index 1 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⌃"
+            android:textSize="44sp"
+            android:textColor="@color/black"
+            android:includeFontPadding="false"
+            android:gravity="center"
+            android:layout_marginTop="-10dp"
+            android:alpha="0.6" />
+
+        <!-- index 2 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⌃"
+            android:textSize="44sp"
+            android:textColor="@color/black"
+            android:includeFontPadding="false"
+            android:gravity="center"
+            android:layout_marginTop="-10dp"
+            android:alpha="0.3" />
+
+        <!-- index 3 — bottom / dimmest -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⌃"
+            android:textSize="44sp"
+            android:textColor="@color/black"
+            android:includeFontPadding="false"
+            android:gravity="center"
+            android:layout_marginTop="-10dp"
+            android:alpha="0.1" />
+
+    </LinearLayout>
+
+</FrameLayout>

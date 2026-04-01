@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.List;
 
@@ -24,6 +25,8 @@ public class MainInboxFragment extends Fragment {
 
     private NotificationRepository notificationRepository;
     private NotificationAdapter adapter;
+    private SwipeRefreshLayout swipeRefresh;
+    private String currentUserId;
 
     @Nullable
     @Override
@@ -31,7 +34,8 @@ public class MainInboxFragment extends Fragment {
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
-        view.setBackgroundResource(android.R.color.white);
+
+        swipeRefresh = view.findViewById(R.id.inbox_swipe_refresh);
 
         RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -41,10 +45,20 @@ public class MainInboxFragment extends Fragment {
         notificationRepository = new NotificationRepository();
 
         UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
-        String currentUserId = localDataSource.getUUIDSync();
+        currentUserId = localDataSource.getUUIDSync();
 
         Log.d(TAG, "Loading notifications for UID: " + currentUserId);
+        loadNotifications();
 
+        swipeRefresh.setOnRefreshListener(() -> {
+            loadNotifications();
+            swipeRefresh.setRefreshing(false);
+        });
+
+        return view;
+    }
+
+    private void loadNotifications() {
         if (currentUserId != null) {
             notificationRepository.listenForNotifications(currentUserId,
                     notifications -> {
@@ -56,7 +70,5 @@ public class MainInboxFragment extends Fragment {
         } else {
             Log.e(TAG, "currentUserId is null — cannot load notifications");
         }
-
-        return view;
     }
 }

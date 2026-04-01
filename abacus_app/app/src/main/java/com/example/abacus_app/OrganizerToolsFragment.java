@@ -4,18 +4,18 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.card.MaterialCardView;
+
 /**
  * OrganizerToolsFragment
  *
- * Landing page for organizer/admin tools.
- * Organizers see: Create Event, My Events.
- * Admins see additional: Browse Users, Browse Images.
+ * Landing page for organizer/admin tools, presented as tabs.
+ * Features a "Create Event" button in the header and tabs for "Manage Events" and "Browse Entrants".
  */
 public class OrganizerToolsFragment extends Fragment {
 
@@ -31,13 +31,26 @@ public class OrganizerToolsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        Button btnCreateEvent = view.findViewById(R.id.btn_create_event);
-        Button btnMyEvents    = view.findViewById(R.id.btn_my_events);
+        // Create Event card button
+        MaterialCardView btnCreateEvent = view.findViewById(R.id.btn_create_event);
+        btnCreateEvent.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).showFragment(R.id.organizerCreateFragment, false);
+            }
+        });
 
-        btnCreateEvent.setOnClickListener(v ->
-                ((MainActivity) requireActivity()).showFragment(R.id.organizerCreateFragment, false));
+        // Manage Events card
+        MaterialCardView cardManageEvents = view.findViewById(R.id.card_manage_events);
+        cardManageEvents.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity)
+                ((MainActivity) getActivity()).showFragment(R.id.organizerManageFragment, false);
+        });
 
-        btnMyEvents.setOnClickListener(v ->
-                ((MainActivity) requireActivity()).showFragment(R.id.organizerManageFragment, false));
+        // Browse Entrants card
+        MaterialCardView cardBrowseEntrants = view.findViewById(R.id.card_browse_entrants);
+        cardBrowseEntrants.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity)
+                ((MainActivity) getActivity()).showFragment(R.id.browseEntrantsFragment, false);
+        });
     }
 }

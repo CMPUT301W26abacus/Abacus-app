@@ -12,32 +12,25 @@
         android:layout_height="wrap_content"
         android:background="@android:color/transparent">
 
-        <!-- App name row -->
+        <!-- Top padding (matches home/profile) -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="@color/white"
-            android:paddingHorizontal="16dp"/>
+            android:paddingHorizontal="16dp" />
 
-        <!-- Title row: 50dp tall, text 8dp from left -->
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tv_tools_title"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:background="@color/white"
-            android:paddingHorizontal="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Tools"
-                android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:textColor="@color/black"
-                android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
+            android:layout_height="wrap_content"
+            android:text="Tools"
+            android:textAppearance="?attr/textAppearanceHeadlineLarge"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="16dp"
+            android:background="@color/white" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -51,52 +44,119 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="8dp"
-            android:paddingBottom="80dp">
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="24dp">
 
-            <!-- Events card -->
+            <!-- Create Event Card Button -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btn_create_event"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="@color/light_grey"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+"
+                        android:textSize="40sp"
+                        android:textColor="@color/black"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Create Event"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Manage Events Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_manage_events"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginVertical="6dp"
-                app:cardBackgroundColor="@color/white"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="0dp">
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="@color/light_grey"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="4dp">
+                    android:padding="16dp">
 
-                    <Button
-                        android:id="@+id/btn_create_event"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:gravity="start|center_vertical"
-                        android:paddingHorizontal="16dp"
-                        android:text="Create New Event"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Manage Events"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginHorizontal="16dp"
-                        android:background="@color/grey" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Edit and manage your events"
+                        android:textSize="14sp"
+                        android:textColor="@color/grey" />
 
-                    <Button
-                        android:id="@+id/btn_my_events"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:gravity="start|center_vertical"
-                        android:paddingHorizontal="16dp"
-                        android:text="Manage My Events"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black" />
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Browse Entrants Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_browse_entrants"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="@color/light_grey"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Browse Entrants"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="View and manage event participants"
+                        android:textSize="14sp"
+                        android:textColor="@color/grey" />
 
                 </LinearLayout>
 

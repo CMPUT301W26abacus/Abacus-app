@@ -11,6 +11,24 @@ import com.google.firebase.firestore.WriteBatch;
 
 import java.util.Map;
 
+/**
+ * The only class that directly touches the Firestore {@code users/} collection.
+ *
+ * <p>All Firestore reads and writes for user documents are routed through this
+ * class. It exposes synchronous, blocking methods (suffixed {@code Sync}) that
+ * must be called on a background thread, plus spec-named aliases that delegate
+ * to those implementations.
+ *
+ * <p>Helper methods ({@link #getString}, {@link #getBoolean}, {@link #getLong})
+ * provide null-safe field extraction so the caller never needs to cast raw
+ * {@code Object} values returned by Firestore document snapshots.
+ *
+ * <p>Architecture layer: Remote Data Source<br>
+ * Used by: {@link UserRepository}
+ *
+ * @see UserRepository
+ * Ref: US 01.02.01–04
+ */
 public class UserRemoteDataSource {
 
     private static final String TAG        = "UserRemoteDataSource";
@@ -40,12 +58,25 @@ public class UserRemoteDataSource {
         user.setPhone(getString(snap, "phone"));
         user.setCreatedAt(getString(snap, "createdAt"));
         user.setDeleted(getBoolean(snap, "isDeleted"));
-        user.setLastLoginAt(getLong(snap, "lastLoginAt"));
+        user.setLastLoginAt(getString(snap, "lastLoginAt"));
 
         String role = getString(snap, "role");
         user.setRole((role == null || role.isEmpty()) ? "entrant" : role);
 
         user.setNotificationsEnabled(getBoolean(snap, "notificationsEnabled"));
+
+        user.setProfilePhotoUrl(getString(snap, "profilePhotoUrl"));
+        user.setVerificationStatus(getString(snap, "verificationStatus"));
+        user.setPreferredLanguage(getString(snap, "preferredLanguage"));
+        user.setTimezone(getString(snap, "timezone"));
+        user.setBio(getString(snap, "bio"));
+        user.setOrganizationName(getString(snap, "organizationName"));
+
+        Object prefsRaw = snap.get("preferences");
+        if (prefsRaw instanceof Map) {
+            //noinspection unchecked
+            user.setPreferences((Map<String, Object>) prefsRaw);
+        }
 
         try {
             Object raw = snap.get("deletedAt");
@@ -64,7 +95,8 @@ public class UserRemoteDataSource {
         if (guestRaw instanceof Boolean) {
             user.setIsGuest((Boolean) guestRaw);
         } else {
-            user.setIsGuest(user.getLastLoginAt() == 0);
+            String lastLogin = user.getLastLoginAt();
+            user.setIsGuest(lastLogin == null || lastLogin.isEmpty());
         }
 
         return user;

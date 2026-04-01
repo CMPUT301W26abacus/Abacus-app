@@ -14,7 +14,10 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -54,6 +57,10 @@ public class LoginActivity extends AppCompatActivity {
         Button btnSignIn    = findViewById(R.id.btnSignIn);
         TextView tvForgot   = findViewById(R.id.tvForgot);
         TextView tvSignUp   = findViewById(R.id.tvSignUp);
+        android.widget.ImageButton btnBack = findViewById(R.id.btnBack);
+
+        // Back button goes to previous page
+        btnBack.setOnClickListener(v -> finish());
 
         btnSignIn.setOnClickListener(v -> {
             String email    = etEmail.getText().toString().trim();
@@ -86,20 +93,22 @@ public class LoginActivity extends AppCompatActivity {
                         btnSignIn.setEnabled(true);
                         btnSignIn.setText("Sign In");
 
-                        String errorMessage = "Login failed";
-                        if (e.getMessage() != null) {
+                        String errorMessage = "Login failed. Please try again.";
+                        if (e instanceof com.google.firebase.FirebaseNetworkException
+                                || (e.getMessage() != null && e.getMessage().toLowerCase().contains("network"))) {
+                            errorMessage = "No internet connection. Please check your network and try again.";
+                        } else if (e.getMessage() != null) {
                             if (e.getMessage().contains("invalid-email")) {
                                 errorMessage = "Invalid email format";
-                            } else if (e.getMessage().contains("wrong-password")) {
-                                errorMessage = "Incorrect password";
+                            } else if (e.getMessage().contains("wrong-password")
+                                    || e.getMessage().contains("invalid-credential")) {
+                                errorMessage = "Incorrect email or password";
                             } else if (e.getMessage().contains("user-not-found")) {
                                 errorMessage = "No account found with this email";
                             } else if (e.getMessage().contains("user-disabled")) {
                                 errorMessage = "This account has been disabled";
                             } else if (e.getMessage().contains("too-many-requests")) {
                                 errorMessage = "Too many failed attempts. Please try again later";
-                            } else {
-                                errorMessage = e.getMessage();
                             }
                         }
                         Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
@@ -121,6 +130,7 @@ public class LoginActivity extends AppCompatActivity {
 
         tvSignUp.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
+                // Note: Do NOT call finish() here to preserve back stack
     }
 
     /**
@@ -142,7 +152,7 @@ public class LoginActivity extends AppCompatActivity {
                 .addOnSuccessListener(doc -> {
                     String role = doc.getString("role");
                     if (role == null) role = "entrant";
-                    android.util.Log.d("LoginActivity", "Role from Firestore: " + role + " for UUID: " + uuid);
+                    android.util.Log.d("LoginActivity", "Role from Firestore: " + role);
                     navigateToMain(role);
                 })
                 .addOnFailureListener(e -> {
@@ -174,7 +184,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void restoreIdentityThenNavigate(FirebaseUser authUser) {
         if (authUser == null || authUser.getEmail() == null) {
-            fetchRoleAndNavigate();
+            updateProfileFields(authUser);
             return;
         }
 
@@ -188,8 +198,7 @@ public class LoginActivity extends AppCompatActivity {
                         // Restore the UUID that owns this account's history
                         String existingUuid = querySnapshot.getDocuments().get(0).getId();
                         localDataSource.saveDeviceId(existingUuid);
-                        android.util.Log.d("LoginActivity",
-                                "Restored UUID: " + existingUuid + " for " + authUser.getEmail());
+                        android.util.Log.d("LoginActivity", "Identity restored from existing account");
                     }
                     updateProfileFields(authUser);
                 })
@@ -200,19 +209,28 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void updateProfileFields(FirebaseUser authUser) {
+        String lastLoginAt = new SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+        ).format(new Date());
+
         Map<String, Object> updates = new HashMap<>();
         if (authUser.getEmail() != null) updates.put("email", authUser.getEmail());
         if (authUser.getDisplayName() != null && !authUser.getDisplayName().isEmpty()) {
             updates.put("name", authUser.getDisplayName());
         }
         updates.put("isGuest", false);
-        updates.put("lastLoginAt", System.currentTimeMillis());
+        updates.put("lastLoginAt", lastLoginAt);
+
+        android.util.Log.d("LoginActivity", "Saving profile updates");
 
         userRepository.saveProfileAsync(updates, error -> {
             if (error != null) {
                 android.util.Log.e("LoginActivity", "Failed to update profile: " + error.getMessage());
-            } else if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
-                syncNameFromFirestoreToAuth(authUser);
+            } else {
+                android.util.Log.d("LoginActivity", "Profile updated successfully");
+                if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
+                    syncNameFromFirestoreToAuth(authUser);
+                }
             }
             fetchRoleAndNavigate();
         });

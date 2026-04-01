@@ -289,4 +289,46 @@ public class UserRepositoryTest {
         Thread.sleep(500);
         verify(mockRemote, never()).deleteUserSync(anyString());
     }
+
+    // ── clearLocalSession ────────────────────────────────────────────────────
+
+    /**
+     * clearLocalSession clears the device UUID from local storage so the next
+     * app launch starts with a fresh anonymous identity.
+     */
+    @Test
+    public void clearLocalSession_clearsDeviceIdFromLocalStorage() {
+        repo.clearLocalSession();
+        verify(mockLocal).clearDeviceId();
+    }
+
+    // ── saveProfile — creates a UUID when none exists (registration flow) ─────
+
+    /**
+     * US 01.02.01 — saveProfile generates a UUID via getOrCreateUUID() when
+     * none is stored, so profile save works even before initializeUser() runs.
+     */
+    @Test
+    public void saveProfile_noLocalUUID_generatesUUIDAndSaves() throws Exception {
+        // getUUIDSync returns null first (no UUID stored), then saveUUIDSync is called,
+        // then getUUIDSync returns the new UUID — simulate this with thenReturn chaining.
+        when(mockLocal.getUUIDSync())
+                .thenReturn(null)          // first call: no UUID stored
+                .thenReturn(ALICE_UUID);   // after saveUUIDSync is called
+        doNothing().when(mockLocal).saveUUIDSync(anyString());
+        doNothing().when(mockRemote).updateUserSync(anyString(), anyMap());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", "Alice Smith");
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Exception[] error = {new Exception("sentinel")};
+
+        repo.saveProfile(data, e -> { error[0] = e; latch.countDown(); });
+
+        assertTrue("callback timed out", latch.await(3, TimeUnit.SECONDS));
+        assertNull("Expected no error", error[0]);
+        // A UUID was written to local storage
+        verify(mockLocal).saveUUIDSync(anyString());
+    }
 }

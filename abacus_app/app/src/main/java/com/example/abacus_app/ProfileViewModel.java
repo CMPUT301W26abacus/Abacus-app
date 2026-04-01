@@ -24,25 +24,47 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<String>  _email        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _phone        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _role         = new MutableLiveData<>("entrant");
+    /**
+     * The role the admin is currently *viewing the app as*.
+     * For non-admins this always equals _role.
+     * For admins it can be "entrant", "organizer", or "admin".
+     * Initialised lazily from the loaded role so it survives fragment re-creation
+     * within the same ViewModel scope.
+     */
+    private final MutableLiveData<String>  _viewMode     = new MutableLiveData<>("");
     private final MutableLiveData<Boolean> _notificationsEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _nameError    = new MutableLiveData<>(null);
     private final MutableLiveData<String>  _emailError   = new MutableLiveData<>(null);
     private final MutableLiveData<Boolean> _isSaving     = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> _isGuest      = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _toastMessage = new MutableLiveData<>(null);
-    private final MutableLiveData<Boolean> _profileDeleted = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> _profileDeleted   = new MutableLiveData<>(false);
+    private final MutableLiveData<String>  _bio              = new MutableLiveData<>("");
+    private final MutableLiveData<String>  _profilePhotoUrl  = new MutableLiveData<>("");
+    private final MutableLiveData<String>  _organizationName = new MutableLiveData<>("");
+    private final MutableLiveData<Integer> _eventsCreated    = new MutableLiveData<>(0);
+    private final MutableLiveData<Integer> _totalRegistrations = new MutableLiveData<>(0);
+
     public LiveData<String>  getName()                 { return _name; }
     public LiveData<String>  getEmail()                { return _email; }
     public LiveData<String>  getPhone()                { return _phone; }
     public LiveData<String>  getRole()                 { return _role; }
+    public LiveData<String>  getViewMode()             { return _viewMode; }
     public LiveData<Boolean> getNotificationsEnabled() { return _notificationsEnabled; }
-    public LiveData<String>  getNameError()     { return _nameError; }
-    public LiveData<String>  getEmailError()    { return _emailError; }
-    public LiveData<Boolean> getIsSaving()      { return _isSaving; }
-    public LiveData<Boolean> getIsGuest()       { return _isGuest; }
-    public LiveData<String>  getToastMessage()  { return _toastMessage; }
-    public LiveData<Boolean> getProfileDeleted(){ return _profileDeleted; }
+    public LiveData<String>  getNameError()            { return _nameError; }
+    public LiveData<String>  getEmailError()           { return _emailError; }
+    public LiveData<Boolean> getIsSaving()             { return _isSaving; }
+    public LiveData<Boolean> getIsGuest()              { return _isGuest; }
+    public LiveData<String>  getToastMessage()         { return _toastMessage; }
+    public LiveData<Boolean> getProfileDeleted()       { return _profileDeleted; }
+    public LiveData<String>  getBio()                  { return _bio; }
+    public LiveData<String>  getProfilePhotoUrl()      { return _profilePhotoUrl; }
+    public LiveData<String>  getOrganizationName()     { return _organizationName; }
+    public LiveData<Integer> getEventsCreated()        { return _eventsCreated; }
+    public LiveData<Integer> getTotalRegistrations()   { return _totalRegistrations; }
+
     private UserRepository userRepository;
+    private boolean profileLoaded = false;
 
     /**
      * Initializes the ViewModel with a UserRepository and guest status.
@@ -78,13 +100,25 @@ public class ProfileViewModel extends ViewModel {
     public void setPhone(String phone) {
         _phone.setValue(phone);
     }
-    
+
+    public void setBio(String bio)                         { _bio.setValue(bio); }
+    public void setProfilePhotoUrl(String url)             { _profilePhotoUrl.setValue(url); }
+    public void setOrganizationName(String organizationName) { _organizationName.setValue(organizationName); }
+
     /**
      * Sets the user role.
      * @param role String containing the user's role
      */
     public void setRole(String role) {
         _role.setValue(role);
+    }
+
+    /**
+     * Sets the active view mode (admin only).
+     * "entrant" | "organizer" | "admin"
+     */
+    public void setViewMode(String mode) {
+        _viewMode.setValue(mode);
     }
 
     /**
@@ -99,18 +133,33 @@ public class ProfileViewModel extends ViewModel {
      * Loads the user profile from Firestore and pushes values into LiveData.
      * Called by the fragment in onViewCreated().
      */
+    /** Forces a fresh fetch on the next loadProfile() call (e.g. after saving). */
+    public void invalidateProfile() {
+        profileLoaded = false;
+    }
+
     public void loadProfile() {
         if (userRepository == null) return;
+        if (profileLoaded) return;   // already loaded in this ViewModel lifetime — skip Firestore round-trip
+        profileLoaded = true;
 
         userRepository.getProfileAsync(user -> {
             if (user != null) {
                 _name.postValue(user.getName() != null  ? user.getName()  : "");
                 _email.postValue(user.getEmail() != null ? user.getEmail() : "");
                 _phone.postValue(user.getPhone() != null ? user.getPhone() : "");
-                _role.postValue(user.getRole() != null ? user.getRole() : "entrant");
+                String role = user.getRole() != null ? user.getRole() : "entrant";
+                _role.postValue(role);
+                // Initialise viewMode from role only on first load
+                if (_viewMode.getValue() == null || _viewMode.getValue().isEmpty()) {
+                    _viewMode.postValue(role);
+                }
                 _notificationsEnabled.postValue(user.getNotificationsEnabled());
+                _bio.postValue(user.getBio() != null ? user.getBio() : "");
+                _profilePhotoUrl.postValue(user.getProfilePhotoUrl() != null ? user.getProfilePhotoUrl() : "");
+                _organizationName.postValue(user.getOrganizationName() != null ? user.getOrganizationName() : "");
 
-                boolean guest = user.isGuest() || user.getLastLoginAt() == 0;
+                boolean guest = user.isGuest() || (user.getLastLoginAt() == null || user.getLastLoginAt().isEmpty());
                 _isGuest.postValue(guest);
             } else {
                 // No UUID in storage — device is a guest regardless of the activity intent
@@ -148,16 +197,24 @@ public class ProfileViewModel extends ViewModel {
 
         _isSaving.setValue(true);
 
+        String bio = _bio.getValue() != null ? _bio.getValue().trim() : "";
+        String orgName = _organizationName.getValue() != null ? _organizationName.getValue().trim() : "";
+
         Map<String, Object> data = new HashMap<>();
         data.put("name",  name);
         data.put("email", email);
         data.put("phone", phone);
         data.put("notificationsEnabled", notificationsEnabled);
+        data.put("bio",   bio);
+        if (!orgName.isEmpty()) {
+            data.put("organizationName", orgName);
+        }
         // role is NOT included here — saving profile never overwrites role
 
         userRepository.saveProfileAsync(data, error -> {
             _isSaving.postValue(false);
             if (error == null) {
+                profileLoaded = false;  // allow refresh on next open
                 _toastMessage.postValue("Profile saved!");
             } else {
                 _toastMessage.postValue("Error saving profile: " + error.getMessage());
@@ -206,5 +263,48 @@ public class ProfileViewModel extends ViewModel {
 
     public void clearToast() {
         _toastMessage.setValue(null);
+    }
+
+    /**
+     * Loads organizer-specific stats: events created count.
+     */
+    public void loadOrganizerStats(String userId, EventRepository eventRepository) {
+        eventRepository.getEventsByOrganizer(userId)
+                .addOnSuccessListener(querySnapshot -> {
+                    _eventsCreated.postValue(querySnapshot.size());
+                    // total registrations would require an additional query per event,
+                    // so we post the count of events for now
+                })
+                .addOnFailureListener(e -> _eventsCreated.postValue(0));
+    }
+
+    /**
+     * Uploads a profile photo to Firebase Storage and updates the profilePhotoUrl in Firestore.
+     */
+    public void uploadProfilePhoto(android.net.Uri photoUri, StorageRepository storageRepo) {
+        if (userRepository == null || photoUri == null) return;
+
+        userRepository.getCurrentUserIdAsync(uuid -> {
+            if (uuid == null) return;
+
+            storageRepo.uploadProfilePhoto(uuid, photoUri)
+                    .addOnSuccessListener(taskSnapshot ->
+                        storageRepo.getProfilePhotoUrl(uuid)
+                                .addOnSuccessListener(downloadUri -> {
+                                    String url = downloadUri.toString();
+                                    _profilePhotoUrl.postValue(url);
+                                    Map<String, Object> data = new HashMap<>();
+                                    data.put("profilePhotoUrl", url);
+                                    userRepository.saveProfileAsync(data, error -> {
+                                        if (error == null) {
+                                            _toastMessage.postValue("Photo updated!");
+                                        } else {
+                                            _toastMessage.postValue("Failed to save photo URL");
+                                        }
+                                    });
+                                })
+                    )
+                    .addOnFailureListener(e -> _toastMessage.postValue("Photo upload failed: " + e.getMessage()));
+        });
     }
 }

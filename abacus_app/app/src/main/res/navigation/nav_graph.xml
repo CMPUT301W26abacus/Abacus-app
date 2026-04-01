@@ -55,6 +55,11 @@
         android:label="Manage Event" />
 
     <fragment
+        android:id="@+id/browseEntrantsFragment"
+        android:name="com.example.abacus_app.BrowseEntrantsFragment"
+        android:label="Browse Entrants" />
+
+    <fragment
         android:id="@+id/organizerToolsFragment"
         android:name="com.example.abacus_app.OrganizerToolsFragment"
         android:label="Tools" />
@@ -82,6 +87,16 @@
         android:name="com.example.abacus_app.GuestSignUpFragment"
         android:label="Join as Guest"
         tools:layout="@layout/fragment_guest_sign_up"/>
+
+    <fragment
+        android:id="@+id/preferencesFragment"
+        android:name="com.example.abacus_app.PreferencesFragment"
+        android:label="Event Preferences" />
+
+    <fragment
+        android:id="@+id/accessibilityFragment"
+        android:name="com.example.abacus_app.AccessibilityFragment"
+        android:label="Accessibility" />
 
 
 </navigation>
