@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
  * UI Controller for the active event management screen.
  * Shows the organizer's events, then the waitlist for a selected event.
  * Owner: Himesh
+ *
+ * @author Himesh, Kaylee
  */
 public class OrganizerManageFragment extends Fragment {
 

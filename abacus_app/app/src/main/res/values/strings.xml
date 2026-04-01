@@ -2,4 +2,5 @@
     <string name="app_name">abacus-app</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="confirm_cancel_entrant">Are you sure you want to remove  %1$s from the event? They will not be allowed to rejoin the waiting list. Only do this if they have failed to respond to their invitation or sign up for the event. After canceling this user, you will may draw a replacement from the lottery.</string>
 </resources>

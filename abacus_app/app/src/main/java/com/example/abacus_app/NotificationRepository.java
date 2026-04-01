@@ -91,9 +91,55 @@ public class NotificationRepository {
     // ── Lottery & Replacement Notifications ──────────────────────────────────
 
     /**
-     * Notify all users when lottery results are drawn for an event.
+     * Sends notifications to winners and losers when the lottery of an event is drawn.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
+        executor.submit(() -> {
+           try {
+               RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
+               EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+
+               ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
+               Event event = eventRDS.getEventById(eventId);
+
+               ArrayList<Notification> notifications = new ArrayList<>();
+               for (WaitlistEntry entry : entries) {
+                   if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                       notifications.add(new Notification(
+                               entry.getUserId(),
+                               eventId,
+                               "Congratulations! You have been invited to " + event.getTitle(),
+                               Notification.TYPE_SELECTED
+                       ));
+                   } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
+                       notifications.add(new Notification(
+                               entry.getUserId(),
+                               eventId,
+                               "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
+                               Notification.TYPE_NOT_SELECTED
+                       ));
+                   }
+               }
+
+               remote.saveNotificationsBatch(notifications);
+               mainHandler.post(() -> callback.onComplete(null));
+           } catch (Exception e) {
+               mainHandler.post(() -> callback.onComplete(e));
+           }
+        });
+    }
+
+    /**
+     * Notifies a single user that they have been draw for the lottery of an event.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId the unique ID of the user who was drawn
+     * @param callback called when the operation completes
+     */
+    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
         executor.submit(() -> {
             try {
                 RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
@@ -160,7 +206,35 @@ public class NotificationRepository {
     // ── Callback Interface ───────────────────────────────────────────────────
 
     /**
-     * Generic callback for void methods.
+     * Notifies a single user that they have been cancelled from an event.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId the unique ID of the user who was drawn
+     * @param callback called when the operation completes
+     */
+    public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+                Event event = eventRDS.getEventById(eventId);
+
+                Notification notification = (new Notification(
+                        userId,
+                        eventId,
+                        "Your invitation to " + event.getTitle() + " has expired.",
+                        Notification.TYPE_CANCELED
+                ));
+
+                remote.saveNotification(notification);
+                mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    /**
+     * Callback interface for void methods.
      */
     public interface VoidCallback {
         void onComplete(Exception error);
