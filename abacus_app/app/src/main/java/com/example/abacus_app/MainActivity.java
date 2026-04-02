@@ -45,6 +45,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GestureDetectorCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
 import androidx.navigation.NavOptions;
@@ -153,11 +155,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            getWindow().setNavigationBarColor(android.graphics.Color.argb(80, 255, 255, 255));
-        } else {
-            getWindow().setNavigationBarColor(android.graphics.Color.argb(180, 255, 255, 255));
-        }
+        WindowInsetsControllerCompat windowInsetsController =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        boolean isNightMode = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        windowInsetsController.setAppearanceLightNavigationBars(!isNightMode);
+        windowInsetsController.setAppearanceLightStatusBars(!isNightMode);
 
         homeContent     = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
@@ -201,6 +205,18 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        // Clear focus when search action is pressed
+        searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                        getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(searchBar.getWindowToken(), 0);
+                searchBar.clearFocus();
+                return true;
+            }
+            return false;
         });
 
         ImageButton btnProfile = findViewById(R.id.btn_profile);
@@ -318,6 +334,7 @@ public class MainActivity extends AppCompatActivity {
                 ? "organizer" : "entrant";
         if (roleGroup.equals(bottomNavRole)) return;
         bottomNavRole = roleGroup;
+        bottomNav.setOnItemSelectedListener(null);
         bottomNav.getMenu().clear();
 
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
@@ -352,7 +369,7 @@ public class MainActivity extends AppCompatActivity {
                     showHome();
                     return true;
                 } else if (id == R.id.nav_saved) {
-                    showFragment(R.id.nav_saved, true);
+                    if ("entrant".equals(userRole)) showFragment(R.id.nav_saved, true);
                     return true;
                 } else if (id == R.id.nav_history) {
                     showFragment(R.id.nav_history, true);
@@ -388,15 +405,19 @@ public class MainActivity extends AppCompatActivity {
 
                     android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
+
                     for (com.google.firebase.firestore.DocumentSnapshot doc
                             : querySnapshot.getDocuments()) {
                         try {
                             Event event = doc.toObject(Event.class);
                             if (event != null) {
-                                if (event.getEventId() == null || event.getEventId().isEmpty()) {
-                                    event.setEventId(doc.getId());
+                                // Only add if isDeleted is NOT true (handles false and null)
+                                if (!Boolean.TRUE.equals(event.getIsDeleted())) {
+                                    if (event.getEventId() == null || event.getEventId().isEmpty()) {
+                                        event.setEventId(doc.getId());
+                                    }
+                                    allEvents.add(event);
                                 }
-                                allEvents.add(event);
                             }
                         } catch (Exception ex) {
                             android.util.Log.w("MainActivity",
@@ -602,6 +623,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        // Quick security check: reuse the repository logic
+        if (!isGuest) {
+            userRepository.getProfile(user -> {
+                if (user == null) {
+                    // Repository found isDeleted = true and already signed us out.
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                }
+            });
+        }
+
         // If the user disabled one-handed mode in Accessibility settings while it was active, restore position
         if (isOneHandedActive && !new AccessibilityHelper(this).isOneHandedMode()) {
             deactivateOneHanded();
@@ -664,7 +699,7 @@ public class MainActivity extends AppCompatActivity {
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
-                new DatePickerDialog(this, (view, year, month, day) -> {
+                new DatePickerDialog(this,(view, year, month, day) -> {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);

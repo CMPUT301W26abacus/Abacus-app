@@ -215,8 +215,25 @@ public class LoginActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (!querySnapshot.isEmpty()) {
+                        com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+
+                        // Check if the account is inactivated/deleted
+                        Boolean isDeleted = doc.getBoolean("isDeleted");
+                        if (Boolean.TRUE.equals(isDeleted)) {
+                            // Sign out of Firebase Auth immediately
+                            mAuth.signOut();
+
+                            // Reset the Sign In button so they can try again with a different account
+                            Button btnSignIn = findViewById(R.id.btnSignIn);
+                            btnSignIn.setEnabled(true);
+                            btnSignIn.setText("Sign In");
+
+                            // Explicitly inform the user
+                            Toast.makeText(this, "Your account has been inactivated.", Toast.LENGTH_LONG).show();
+                            return; // Stop the navigation chain here
+                        }
                         // Restore the UUID that owns this account's history
-                        String existingUuid = querySnapshot.getDocuments().get(0).getId();
+                        String existingUuid = doc.getId();
                         localDataSource.saveDeviceId(existingUuid);
                         android.util.Log.d("LoginActivity", "Identity restored from existing account");
                     }

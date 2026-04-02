@@ -30,6 +30,13 @@ public class AdminViewModel extends ViewModel {
     public LiveData<List<User>>  getProfiles() { return profiles; }
     public LiveData<String>      getError()    { return error; }
 
+    // In AdminViewModel.java — add these alongside your existing LiveData fields
+
+    private final MutableLiveData<String> searchQuery = new MutableLiveData<>("");
+
+    public LiveData<String> getSearchQuery() { return searchQuery; }
+
+    public void setSearchQuery(String query) { searchQuery.setValue(query); }
     // ── Images ────────────────────────────────────────────────────────────────
 
     /** Loads all events that have a non-null posterImageUrl. */

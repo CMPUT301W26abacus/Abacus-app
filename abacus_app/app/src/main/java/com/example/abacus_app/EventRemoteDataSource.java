@@ -50,7 +50,8 @@ public class EventRemoteDataSource {
         Tasks.await(docRef.set(event));
     }
 
+
     public Task<Void> deleteEvent(String eventId) {
-        return eventsRef.document(eventId).delete();
+        return eventsRef.document(eventId).update("isDeleted", true);
     }
 }

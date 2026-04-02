@@ -1,21 +1,47 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Night theme: parent must be DayNight so Material3 components (buttons, cards,
-         dialogs, text fields) automatically switch to their dark-mode colour roles.
-         Using Light.NoActionBar here was the root cause of all dark-mode rendering bugs. -->
+
+    <!-- Base theme -->
     <style name="Base.Theme.Abacusapp" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:textColor">@color/black</item>
-        <!-- Hint text should be visually muted; use grey (#636365) instead of the
-             near-white black alias (#C6C6CA) that was making hints too prominent. -->
-        <item name="android:textColorHint">@color/grey</item>
-        <item name="colorSecondaryContainer">@color/grey</item>
-        <item name="colorSurface">@color/light_grey</item>
+        <!-- Text colors -->
+        <item name="android:textColor">@color/black</item>           <!-- typed text -->
+        <item name="android:textColorHint">@color/black</item>       <!-- hint text -->
+        <item name="colorOnSurface">@color/black</item>             <!-- Material text color inside surfaces -->
+
+        <!-- Primary / accent colors -->
+        <item name="colorPrimary">@color/orange</item>              <!-- used for focused outlines, buttons, etc -->
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/orange</item>
+
+        <item name="colorSecondary">@color/orange</item>            <!-- secondary accents -->
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/surface_tint</item>
+
+        <item name="colorTertiary">@color/orange</item>             <!-- tertiary accents -->
+        <item name="colorOnTertiary">@color/white</item>
+        <item name="colorTertiaryContainer">@color/orange</item>
+
+        <!-- Surface colors -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorSurfaceVariant">@color/light_grey</item>
+        <item name="colorOnSurfaceVariant">@color/black</item>
+
+        <!-- Material3-specific control colors -->
+        <item name="colorControlActivated">@color/orange</item>    <!-- affects cursor and focused outlines -->
+        <item name="colorControlHighlight">@color/orange</item>
+
+        <!-- Other system UI -->
         <item name="elevationOverlayEnabled">false</item>
-        <!-- Status bar: pure black matches the dark surface correctly. -->
-        <item name="android:statusBarColor">@color/white</item>
-        <!-- Navigation bar: match the dark surface (#161617) instead of mid-grey. -->
-        <item name="android:navigationBarColor">@color/light_grey</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="colorAccent">@color/orange</item>
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="colorSurfaceContainerHigh">@color/white</item>
+        <item name="strokeColor">@color/orange</item>
+        <item name="clockNumberTextColor">@color/orange</item>
+        <item name="android:textColorPrimaryInverse">@color/black</item>
+
     </style>
 
+    <!-- App theme -->
     <style name="Theme.Abacusapp" parent="Base.Theme.Abacusapp" />
-
 </resources>

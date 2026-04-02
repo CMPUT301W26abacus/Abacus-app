@@ -165,6 +165,17 @@ public class UserRepository {
             try {
                 String uuid = getOrCreateUUID();
                 User user = remoteDataSource.getUserSync(uuid);
+
+
+                if (user != null && user.isDeleted()) {
+                    // The user is soft-deleted. Sign them out and clear session.
+                    clearLocalSession();
+
+                    // Return null to the UI so it behaves as if no user exists/is logged in
+                    mainHandler.post(() -> callback.onResult(null));
+                    return;
+                }
+
                 mainHandler.post(() -> callback.onResult(user));
             } catch (Exception e) {
                 e.printStackTrace();

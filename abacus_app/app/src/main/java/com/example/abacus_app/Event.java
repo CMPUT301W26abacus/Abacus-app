@@ -31,6 +31,7 @@ public class Event implements Serializable {
     private String posterImageUrl;
     private String qrCodeUrl;
     private List<String> coOrganizers = new ArrayList<>();
+    private Boolean isDeleted;
 
     public Event() {}
 
@@ -179,4 +180,12 @@ public class Event implements Serializable {
 
     public List<String> getCoOrganizers() { return coOrganizers; }
     public void setCoOrganizers(List<String> coOrganizers) { this.coOrganizers = coOrganizers; }
+
+    public Boolean getIsDeleted() {
+        return isDeleted;
+    }
+
+    public void setIsDeleted(Boolean isDeleted) {
+        this.isDeleted = isDeleted;
+    }
 }

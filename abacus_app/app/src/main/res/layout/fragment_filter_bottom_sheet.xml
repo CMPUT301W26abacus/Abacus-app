@@ -45,29 +45,22 @@
             android:letterSpacing="0.1"
             android:layout_marginBottom="8dp" />
 
-        <!-- Keyword input -->
+        <!-- Keyword input with enforced colors -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_keyword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:boxStrokeColor="@color/grey"
-            app:hintTextColor="@color/black">
+            app:boxBackgroundColor="@color/white"
+            app:boxStrokeColor="@color/orange_textinput">   <!-- focused outline -->
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_keyword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="e.g. music, fitness, tech"
-                android:imeOptions="actionDone"
-                android:inputType="text"
-                android:textColor="@color/black"
-                android:textColorHint="@color/black"
-                android:textColorLink="@color/orange" />
-
+                android:textColor="@color/black"/>
         </com.google.android.material.textfield.TextInputLayout>
-
         <!-- Date label -->
         <TextView
             android:layout_width="match_parent"
@@ -107,16 +100,19 @@
                 android:textColor="@color/black"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="@color/grey" />
+                app:strokeColor="@color/black" />
 
             <Button
                 android:id="@+id/btn_apply_filters"
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_weight="1"
+                android:layout_marginEnd="8dp"
                 android:text="Apply"
+                android:textColor="@color/orange"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:backgroundTint="#FF6600" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="@color/orange" />
 
         </LinearLayout>
 

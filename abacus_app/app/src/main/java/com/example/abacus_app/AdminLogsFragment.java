@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,6 +24,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +77,28 @@ public class AdminLogsFragment extends Fragment {
             v.setPadding(0, 0, 0, navBarHeight);
             ((ViewGroup) v).setClipToPadding(false);
             return insets;
+        });
+
+        // ── Search bar — filters whichever tab is active via shared ViewModel ──
+        TextInputEditText searchBar = view.findViewById(R.id.search_bar);
+        searchBar.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                viewModel.setSearchQuery(s.toString().trim().toLowerCase());
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager)
+                                requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(searchBar.getWindowToken(), 0);
+                searchBar.clearFocus();
+                return true;
+            }
+            return false;
         });
 
         viewModel.loadImages();
@@ -157,12 +182,12 @@ public class AdminLogsFragment extends Fragment {
                                 () -> vm.deleteImage(event.getEventId())));
                 rv.setAdapter(adapter);
 
+                // Observe both images and search query so the list re-filters on either change
                 vm.getImages().observe(getViewLifecycleOwner(), events -> {
-                    imageList.clear();
-                    if (events != null) imageList.addAll(events);
-                    adapter.notifyDataSetChanged();
-                    layoutEmpty.setVisibility(imageList.isEmpty() ? View.VISIBLE : View.GONE);
-                    rv.setVisibility(imageList.isEmpty() ? View.GONE : View.VISIBLE);
+                    applyImageFilter(vm, imageList, adapter, layoutEmpty, rv);
+                });
+                vm.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
+                    applyImageFilter(vm, imageList, adapter, layoutEmpty, rv);
                 });
 
             } else {
@@ -174,14 +199,68 @@ public class AdminLogsFragment extends Fragment {
                                 () -> vm.deleteProfile(user.getUid())));
                 rv.setAdapter(adapter);
 
+                // Observe both profiles and search query so the list re-filters on either change
                 vm.getProfiles().observe(getViewLifecycleOwner(), users -> {
-                    profileList.clear();
-                    if (users != null) profileList.addAll(users);
-                    adapter.notifyDataSetChanged();
-                    layoutEmpty.setVisibility(profileList.isEmpty() ? View.VISIBLE : View.GONE);
-                    rv.setVisibility(profileList.isEmpty() ? View.GONE : View.VISIBLE);
+                    applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv);
+                });
+                vm.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
+                    applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv);
                 });
             }
+        }
+
+        /** Filters the images list by the current search query (organizer name or email). */
+        private void applyImageFilter(AdminViewModel vm, List<Event> imageList,
+                                      AdminImageAdapter adapter, View layoutEmpty, RecyclerView rv) {
+            List<Event> source = vm.getImages().getValue();
+            String query = vm.getSearchQuery().getValue() != null
+                    ? vm.getSearchQuery().getValue() : "";
+            imageList.clear();
+            if (source != null) {
+                for (Event e : source) {
+                    if (query.isEmpty()) {
+                        imageList.add(e);
+                    } else {
+                        // Match against organizer ID, title, or description
+                        boolean match =
+                                (e.getTitle() != null && e.getTitle().toLowerCase().contains(query))
+                                        || (e.getOrganizerId() != null && e.getOrganizerId().toLowerCase().contains(query));
+                        if (match) imageList.add(e);
+                    }
+                }
+            }
+            adapter.notifyDataSetChanged();
+            layoutEmpty.setVisibility(imageList.isEmpty() ? View.VISIBLE : View.GONE);
+            rv.setVisibility(imageList.isEmpty() ? View.GONE : View.VISIBLE);
+        }
+
+        /** Filters the profiles list by name, email, or role. */
+        private void applyProfileFilter(AdminViewModel vm, List<User> profileList,
+                                        AdminProfileAdapter adapter, View layoutEmpty, RecyclerView rv) {
+            List<User> source = vm.getProfiles().getValue();
+            String query = vm.getSearchQuery().getValue() != null
+                    ? vm.getSearchQuery().getValue() : "";
+            profileList.clear();
+            if (source != null) {
+                for (User u : source) {
+                    // If the profile is already deactivated, don't show it in the logs list
+                    if (u.isDeleted()) {
+                        continue;
+                    }
+                    if (query.isEmpty()) {
+                        profileList.add(u);
+                    } else {
+                        boolean match =
+                                (u.getName()  != null && u.getName().toLowerCase().contains(query))
+                                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(query))
+                                        || (u.getRole()  != null && u.getRole().toLowerCase().contains(query));
+                        if (match) profileList.add(u);
+                    }
+                }
+            }
+            adapter.notifyDataSetChanged();
+            layoutEmpty.setVisibility(profileList.isEmpty() ? View.VISIBLE : View.GONE);
+            rv.setVisibility(profileList.isEmpty() ? View.GONE : View.VISIBLE);
         }
 
         private void confirmDelete(String title, String message, Runnable onConfirm) {
