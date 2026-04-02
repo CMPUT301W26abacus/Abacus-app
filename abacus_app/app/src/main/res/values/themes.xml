@@ -2,7 +2,7 @@
     <style name="Base.Theme.Abacusapp" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:textColor">@color/black</item>
         <item name="android:textColorHint">@color/black</item>
-        <item name="colorSecondaryContainer">@color/surface_tint</item>
+        <item name="colorSecondaryContainer">@color/white</item>
         <item name="colorSurface">@color/light_grey</item>
         <item name="elevationOverlayEnabled">false</item>
         <item name="android:statusBarColor">@color/white</item>
