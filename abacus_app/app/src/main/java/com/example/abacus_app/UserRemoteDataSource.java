@@ -55,7 +55,12 @@ public class UserRemoteDataSource {
                         callback.onCallback(null);
                         return;
                     }
-                    callback.onCallback(parseUser(snap));
+                    User user = parseUser(snap);
+                    if (user != null && user.isDeleted()) {
+                        callback.onCallback(null); // Treat deleted as non-existent
+                    } else {
+                        callback.onCallback(user);
+                    }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user: " + uuid, e);
@@ -69,7 +74,12 @@ public class UserRemoteDataSource {
 
         if (!snap.exists()) return null;
 
-        return parseUser(snap);
+        User user = parseUser(snap);
+
+        if (user != null && user.isDeleted()) {
+            return null;
+        }
+        return user;
     }
 
     private User parseUser(DocumentSnapshot snap) {
