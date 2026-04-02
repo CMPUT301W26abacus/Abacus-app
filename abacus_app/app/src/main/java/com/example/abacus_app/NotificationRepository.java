@@ -110,6 +110,7 @@ public class NotificationRepository {
                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
+                               "",
                                eventId,
                                "Congratulations! You have been invited to " + event.getTitle(),
                                Notification.TYPE_SELECTED
@@ -117,6 +118,7 @@ public class NotificationRepository {
                    } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
+                               "",
                                eventId,
                                "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                                Notification.TYPE_NOT_SELECTED
@@ -129,56 +131,6 @@ public class NotificationRepository {
            } catch (Exception e) {
                mainHandler.post(() -> callback.onComplete(e));
            }
-        });
-    }
-
-    /**
-     * Notifies a single user that they have been draw for the lottery of an event.
-     *
-     * @param eventId the unique ID of the event in the database
-     * @param userId the unique ID of the user who was drawn
-     * @param callback called when the operation completes
-     */
-    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        executor.submit(() -> {
-            try {
-                RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
-                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-
-                ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
-                Event event = eventRDS.getEventById(eventId);
-
-                for (WaitlistEntry entry : entries) {
-                    String userId = entry.getUserId();
-                    userRemote.getUser(userId, user -> {
-                        if (user != null) {
-                            Notification notification;
-                            if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-                                notification = new Notification(
-                                        userId,
-                                        user.getEmail(),
-                                        eventId,
-                                        "Congratulations! You have been invited to " + event.getTitle(),
-                                        Notification.TYPE_SELECTED
-                                );
-                            } else { // waitlisted
-                                notification = new Notification(
-                                        userId,
-                                        user.getEmail(),
-                                        eventId,
-                                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
-                                        Notification.TYPE_NOT_SELECTED
-                                );
-                            }
-                            remote.saveNotification(notification);
-                        }
-                    });
-                }
-
-                mainHandler.post(() -> callback.onComplete(null));
-            } catch (Exception e) {
-                mainHandler.post(() -> callback.onComplete(e));
-            }
         });
     }
 
@@ -218,12 +170,13 @@ public class NotificationRepository {
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
                 Event event = eventRDS.getEventById(eventId);
 
-                Notification notification = (new Notification(
+                Notification notification = new Notification(
                         userId,
+                        "",
                         eventId,
                         "Your invitation to " + event.getTitle() + " has expired.",
                         Notification.TYPE_CANCELED
-                ));
+                );
 
                 remote.saveNotification(notification);
                 mainHandler.post(() -> callback.onComplete(null));

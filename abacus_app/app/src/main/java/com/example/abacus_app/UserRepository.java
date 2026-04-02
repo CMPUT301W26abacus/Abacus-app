@@ -51,6 +51,17 @@ public class UserRepository {
         return uuid;
     }
 
+    /**
+     * Resolves or creates the device identity, signs in anonymously via Firebase Auth,
+     * and ensures a Firestore user document exists for this device.
+     *
+     * <p>On first launch the stable {@code ANDROID_ID} is used as the UUID; a random
+     * UUID is generated as a fallback if {@code ANDROID_ID} is unavailable.
+     * On subsequent launches the previously stored UUID is reused.
+     *
+     * <p>Runs entirely on the background executor — safe to call from any thread.
+     * Ref: US 01.07.01
+     */
     public void initializeUserAsync() {
         executor.submit(() -> {
             try {
@@ -73,6 +84,17 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Creates a default {@code users/{uuid}} document in Firestore if one does not
+     * already exist. Silently no-ops if the document is present, preventing data loss
+     * on re-install when the same UUID is recovered from {@code ANDROID_ID}.
+     *
+     * <p>Default fields written on first creation: {@code deviceId}, {@code email},
+     * {@code name} ("New User"), {@code createdAt}, {@code role} ("entrant"),
+     * {@code notificationsEnabled} (true), {@code isGuest} (true), {@code isDeleted} (false).
+     *
+     * @param uuid the stable device UUID that acts as the document key
+     */
     private void ensureFirestoreDocumentExists(String uuid) {
         executor.submit(() -> {
             try {
@@ -95,10 +117,24 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Convenience alias for {@link #initializeUserAsync()}.
+     * Provided for call-sites that prefer the spec-named method.
+     * Ref: US 01.07.01
+     */
     public void initializeUser() {
         initializeUserAsync();
     }
 
+    /**
+     * Returns the current device UUID via {@code callback}, generating and persisting
+     * a new one if none exists yet.
+     *
+     * <p>The callback is always delivered on the main thread.
+     *
+     * @param callback receives the UUID string; never null after this call
+     * Ref: US 01.07.01
+     */
     public void getCurrentUserIdAsync(StringCallback callback) {
         executor.submit(() -> {
             String uuid = getOrCreateUUID();
@@ -106,10 +142,24 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Convenience alias for {@link #getCurrentUserIdAsync(StringCallback)}.
+     * Ref: US 01.07.01
+     */
     public void getCurrentUserId(StringCallback callback) {
         getCurrentUserIdAsync(callback);
     }
 
+    /**
+     * Fetches the Firestore user document for the current device UUID and delivers
+     * it via {@code callback}.
+     *
+     * <p>Returns {@code null} to the callback if no document exists or if an error
+     * occurs. The callback is always delivered on the main thread.
+     *
+     * @param callback receives the {@link User} object, or {@code null} on failure
+     * Ref: US 01.02.02
+     */
     public void getProfileAsync(UserCallback callback) {
         executor.submit(() -> {
             try {
@@ -123,10 +173,26 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Convenience alias for {@link #getProfileAsync(UserCallback)}.
+     * Ref: US 01.02.02
+     */
     public void getProfile(UserCallback callback) {
         getProfileAsync(callback);
     }
 
+    /**
+     * Merges {@code profileData} into the Firestore user document for the current
+     * device UUID using {@code SetOptions.merge()}, preserving any fields not present
+     * in the map.
+     *
+     * <p>The callback receives {@code null} on success or the exception on failure.
+     * Always delivered on the main thread.
+     *
+     * @param profileData map of field names to values to write (e.g. "name", "email")
+     * @param callback    receives {@code null} on success or the thrown exception
+     * Ref: US 01.02.01, US 01.02.02
+     */
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -140,10 +206,21 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Convenience alias for {@link #saveProfileAsync(Map, VoidCallback)}.
+     * Ref: US 01.02.01
+     */
     public void saveProfile(Map<String, Object> profileData, VoidCallback callback) {
         saveProfileAsync(profileData, callback);
     }
 
+    /**
+     * Wraps {@code preferences} under the {@code "preferences"} key and merges
+     * it into the Firestore user document. Other top-level fields are not affected.
+     *
+     * @param preferences map of preference keys to values (e.g. "categories", "locationRangeKm")
+     * @param callback    receives {@code null} on success or the thrown exception
+     */
     public void savePreferencesAsync(Map<String, Object> preferences, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -159,6 +236,18 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Soft-deletes the Firestore user document, hard-deletes the Firebase Auth account,
+     * removes all waitlist entries in the flat {@code registrations/} collection, and
+     * clears the locally stored UUID so the next launch creates a fresh identity.
+     *
+     * <p>The callback receives {@code null} on success. On partial failure (e.g.
+     * Auth delete fails) the exception is delivered via the callback and the local
+     * UUID is NOT cleared, preventing the user from being locked out.
+     *
+     * @param callback receives {@code null} on success or the thrown exception
+     * Ref: US 01.02.04
+     */
     public void deleteProfileAsync(VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -184,6 +273,10 @@ public class UserRepository {
         });
     }
 
+    /**
+     * Convenience alias for {@link #deleteProfileAsync(VoidCallback)}.
+     * Ref: US 01.02.04
+     */
     public void deleteProfile(VoidCallback callback) {
         deleteProfileAsync(callback);
     }
@@ -206,14 +299,20 @@ public class UserRepository {
         FirebaseAuth.getInstance().signOut();
     }
 
+    /** Callback for operations that return a {@link User} object. */
     public interface UserCallback {
         void onResult(User user);
     }
 
+    /** Callback for operations that return a {@link String} value (e.g. a UUID). */
     public interface StringCallback {
         void onResult(String value);
     }
 
+    /**
+     * Callback for void operations.
+     * {@code error} is {@code null} on success; non-null if the operation failed.
+     */
     public interface VoidCallback {
         void onComplete(Exception error);
     }

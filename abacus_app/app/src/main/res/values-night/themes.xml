@@ -1,12 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Base.Theme.Abacusapp" parent="Theme.Material3.Light.NoActionBar">
+    <!-- Night theme: parent must be DayNight so Material3 components (buttons, cards,
+         dialogs, text fields) automatically switch to their dark-mode colour roles.
+         Using Light.NoActionBar here was the root cause of all dark-mode rendering bugs. -->
+    <style name="Base.Theme.Abacusapp" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:textColor">@color/black</item>
-        <item name="android:textColorHint">@color/black</item>
+        <!-- Hint text should be visually muted; use grey (#636365) instead of the
+             near-white black alias (#C6C6CA) that was making hints too prominent. -->
+        <item name="android:textColorHint">@color/grey</item>
         <item name="colorSecondaryContainer">@color/grey</item>
         <item name="colorSurface">@color/light_grey</item>
         <item name="elevationOverlayEnabled">false</item>
+        <!-- Status bar: pure black matches the dark surface correctly. -->
         <item name="android:statusBarColor">@color/white</item>
-        <item name="android:navigationBarColor">@color/grey</item>
+        <!-- Navigation bar: match the dark surface (#161617) instead of mid-grey. -->
+        <item name="android:navigationBarColor">@color/light_grey</item>
     </style>
 
     <style name="Theme.Abacusapp" parent="Base.Theme.Abacusapp" />

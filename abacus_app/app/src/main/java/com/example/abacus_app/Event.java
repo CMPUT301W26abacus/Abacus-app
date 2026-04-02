@@ -22,7 +22,9 @@ public class Event implements Serializable {
     private Timestamp registrationEnd;
     private Integer waitlistCapacity;
     private Integer eventCapacity;
-    private Integer waitlistCount;    // Current number of people on waitlist
+    /** Current number of entrants on the waitlist. Updated atomically by
+     *  {@link RegistrationRemoteDataSource#joinWaitlistAtomicSync}. */
+    private Integer waitlistCount;
     private boolean geoRequired;
     private boolean lotteryDrawn;
     private boolean isPrivate;

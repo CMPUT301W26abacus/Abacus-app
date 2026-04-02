@@ -941,13 +941,14 @@ public class MainActivity extends AppCompatActivity {
      * Left-edge → swipe RIGHT  : go back (pop NavController stack, or return home).
      * Right-edge → swipe LEFT  : go forward (shift to next bottom-nav tab).
      *
-     * Edge zone is 64 dp from each side so horizontal RecyclerViews in the
-     * centre of the screen are never accidentally triggered.
+     * Edge zone is 96 dp from each side so the gesture is easy to trigger
+     * on phones without visible edge indicators, while still being far enough
+     * from centre that horizontal RecyclerViews are not accidentally triggered.
      * Swipes starting inside the bottom-nav bar are ignored (handled by the
      * one-handed detector instead).
      */
     private void setupNavSwipeGesture() {
-        float edgePx = 64 * getResources().getDisplayMetrics().density;
+        float edgePx = 96 * getResources().getDisplayMetrics().density;
 
         navSwipeDetector = new GestureDetectorCompat(this,
                 new GestureDetector.SimpleOnGestureListener() {

@@ -185,13 +185,16 @@ public class ProfileViewModel extends ViewModel {
         boolean notificationsEnabled = _notificationsEnabled.getValue() != null
                 ? _notificationsEnabled.getValue() : true;
 
-        if (name.isEmpty()) {
-            _nameError.setValue("Name cannot be empty");
+        InputValidator.ValidationResult nameResult  = InputValidator.validateName(name);
+        InputValidator.ValidationResult emailResult = InputValidator.validateEmail(email);
+
+        if (!nameResult.isValid) {
+            _nameError.setValue(nameResult.errorMessage);
             return;
         }
 
-        if (!email.isEmpty() && (!email.contains("@") || !email.contains("."))) {
-            _emailError.setValue("Please enter a valid email address");
+        if (!emailResult.isValid) {
+            _emailError.setValue(emailResult.errorMessage);
             return;
         }
 
