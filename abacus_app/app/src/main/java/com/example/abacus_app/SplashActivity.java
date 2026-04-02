@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
@@ -79,6 +80,15 @@ public class SplashActivity extends AppCompatActivity {
                 // a valid session. If Auth has expired the user must log in again.
                 FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
                 boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
+
+                // If getProfileAsync returned null, it means either the user doesn't exist
+                // OR UserRepository already detected isDeleted=true and signed them out.
+                if (user == null && firebaseSignedIn) {
+                    // This covers the "Deleted" case. User exists in Auth but Repository returned null.
+                    showButtons(btnGetStarted, tvBrowseGuest);
+                    Toast.makeText(this, "Account is no longer active.", Toast.LENGTH_LONG).show();
+                    return;
+                }
 
                 if (firebaseSignedIn && user != null
                         && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {

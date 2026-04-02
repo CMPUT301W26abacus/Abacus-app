@@ -8,12 +8,19 @@
  * EventAdapter when the user taps the Join button on the home screen card),
  * the fragment fires joinWaitlist() or openGuestSignUp() automatically as
  * soon as the user ID is resolved — no extra tap needed.
+ *
+ * Admin delete: When the effective role is "admin", a red Delete Event button
+ * is shown above the join/leave buttons. Tapping it shows a confirmation
+ * dialog and performs a soft delete (sets isDeleted=true in Firestore).
+ * The waitlist join/leave buttons are hidden for admins since they manage
+ * rather than participate.
  */
 package com.example.abacus_app;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.location.Location;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -30,6 +37,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -180,11 +188,33 @@ public class EventDetailsFragment extends Fragment {
             });
         }
 
+        // ── Admin delete button ────────────────────────────────────────────────
+        // Shown only when the effective role is "admin". Mirrors the organizer
+        boolean isAdmin = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
+
+        if (isAdmin) {
+            btnLeaveWaitlist.setVisibility(View.GONE);
+            btnJoinWaitlist.setEnabled(true);
+            btnJoinWaitlist.setText("Delete");
+            btnJoinWaitlist.setBackgroundTintList(
+                    ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_red)));
+            btnJoinWaitlist.setOnClickListener(v ->
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Delete Event")
+                            .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
+                            .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
+                            .setNegativeButton("Cancel", null)
+                            .show());
+            return; // skip all waitlist setup below
+        }
+
         if (isGuest) {
             setupGuestWaitlist(view);
         } else {
             setupAuthenticatedWaitlist();
         }
+
+
 
         loadWaitlistCount();
     }
@@ -397,14 +427,16 @@ public class EventDetailsFragment extends Fragment {
             if (tvWaitlistCount == null || event == null) return;
             int count        = event.getWaitlistCount() != null ? event.getWaitlistCount() : 0;
             Integer capacity = event.getWaitlistCapacity();
-            //BUG FIX from part3: Disables button and changes text to EVENT FULL when spotsLeft is 0, only when the join button is currently showing (so the user isnt on the waitlist)
+            // BUG FIX from part3: Disables button and changes text to EVENT FULL when spotsLeft
+            // is 0, only when the join button is currently showing (so the user isn't on the waitlist)
             if (capacity == null) {
                 tvWaitlistCount.setText(count + " on waiting list");
             } else {
                 long spotsLeft = Math.max(0, capacity - count);
                 tvWaitlistCount.setText(count + " on waiting list · " + spotsLeft + " spots left");
                 if (spotsLeft == 0 && btnJoinWaitlist != null
-                        && btnJoinWaitlist.getVisibility() == View.VISIBLE) {
+                        && btnJoinWaitlist.getVisibility() == View.VISIBLE
+                        && !"admin".equals(((MainActivity) requireActivity()).getEffectiveRole())) {
                     btnJoinWaitlist.setEnabled(false);
                     btnJoinWaitlist.setText("Event Full");
                 }
@@ -598,6 +630,41 @@ public class EventDetailsFragment extends Fragment {
                     exitEditMode();
                     loadEventDetails();
                 });
+    }
+
+    // ── Admin soft delete ─────────────────────────────────────────────────────
+
+    /**
+     * Performs a soft delete of the current event by setting isDeleted=true in
+     * Firestore. The real-time snapshot listener in MainActivity will automatically
+     * remove the event from the browse list on next update.
+     *
+     * Note: Firestore queries that don't filter on isDeleted will still return
+     * this document. MainActivity's loadEventsFromFirestore() should either use
+     * .whereEqualTo("isDeleted", false) or skip documents where isDeleted is true
+     * during the snapshot loop.
+     *
+     * On success, navigates back (popping the back stack or returning home),
+     * mirroring the pattern used after saving organizer edits.
+     */
+    private void softDeleteFromDetails() {
+        if (currentEventId == null) return;
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(currentEventId)
+                .update("isDeleted", true)
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(requireContext(),
+                            "Event deleted.", Toast.LENGTH_SHORT).show();
+                    // Return to previous screen — same pattern as organizer save
+                    if (!Navigation.findNavController(requireView()).popBackStack()) {
+                        ((MainActivity) requireActivity()).showHome();
+                    }
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(requireContext(),
+                                "Failed to delete event.", Toast.LENGTH_SHORT).show()
+                );
     }
 
     private void exitEditMode() {
