@@ -45,6 +45,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GestureDetectorCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
 import androidx.navigation.NavOptions;
@@ -153,11 +155,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            getWindow().setNavigationBarColor(android.graphics.Color.argb(80, 255, 255, 255));
-        } else {
-            getWindow().setNavigationBarColor(android.graphics.Color.argb(180, 255, 255, 255));
-        }
+        WindowInsetsControllerCompat windowInsetsController =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        boolean isNightMode = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        windowInsetsController.setAppearanceLightNavigationBars(!isNightMode);
+        windowInsetsController.setAppearanceLightStatusBars(!isNightMode);
 
         homeContent     = findViewById(R.id.home_content);
         navHostFragment = findViewById(R.id.nav_host_fragment);
@@ -201,6 +205,18 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        // Clear focus when search action is pressed
+        searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                        getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(searchBar.getWindowToken(), 0);
+                searchBar.clearFocus();
+                return true;
+            }
+            return false;
         });
 
         ImageButton btnProfile = findViewById(R.id.btn_profile);
@@ -664,7 +680,7 @@ public class MainActivity extends AppCompatActivity {
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
-                new DatePickerDialog(this, (view, year, month, day) -> {
+                new DatePickerDialog(this,(view, year, month, day) -> {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
