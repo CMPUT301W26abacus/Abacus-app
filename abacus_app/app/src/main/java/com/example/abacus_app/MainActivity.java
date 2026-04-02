@@ -334,6 +334,7 @@ public class MainActivity extends AppCompatActivity {
                 ? "organizer" : "entrant";
         if (roleGroup.equals(bottomNavRole)) return;
         bottomNavRole = roleGroup;
+        bottomNav.setOnItemSelectedListener(null);
         bottomNav.getMenu().clear();
 
         if ("organizer".equals(userRole) || "admin".equals(userRole)) {
@@ -368,7 +369,7 @@ public class MainActivity extends AppCompatActivity {
                     showHome();
                     return true;
                 } else if (id == R.id.nav_saved) {
-                    showFragment(R.id.nav_saved, true);
+                    if ("entrant".equals(userRole)) showFragment(R.id.nav_saved, true);
                     return true;
                 } else if (id == R.id.nav_history) {
                     showFragment(R.id.nav_history, true);
@@ -404,15 +405,19 @@ public class MainActivity extends AppCompatActivity {
 
                     android.util.Log.d("MainActivity", "Snapshot: " + querySnapshot.size() + " events");
                     allEvents.clear();
+
                     for (com.google.firebase.firestore.DocumentSnapshot doc
                             : querySnapshot.getDocuments()) {
                         try {
                             Event event = doc.toObject(Event.class);
                             if (event != null) {
-                                if (event.getEventId() == null || event.getEventId().isEmpty()) {
-                                    event.setEventId(doc.getId());
+                                // Only add if isDeleted is NOT true (handles false and null)
+                                if (!Boolean.TRUE.equals(event.getIsDeleted())) {
+                                    if (event.getEventId() == null || event.getEventId().isEmpty()) {
+                                        event.setEventId(doc.getId());
+                                    }
+                                    allEvents.add(event);
                                 }
-                                allEvents.add(event);
                             }
                         } catch (Exception ex) {
                             android.util.Log.w("MainActivity",
@@ -618,6 +623,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        // Quick security check: reuse the repository logic
+        if (!isGuest) {
+            userRepository.getProfile(user -> {
+                if (user == null) {
+                    // Repository found isDeleted = true and already signed us out.
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                }
+            });
+        }
+
         // If the user disabled one-handed mode in Accessibility settings while it was active, restore position
         if (isOneHandedActive && !new AccessibilityHelper(this).isOneHandedMode()) {
             deactivateOneHanded();

@@ -243,6 +243,10 @@ public class AdminLogsFragment extends Fragment {
             profileList.clear();
             if (source != null) {
                 for (User u : source) {
+                    // If the profile is already deactivated, don't show it in the logs list
+                    if (u.isDeleted()) {
+                        continue;
+                    }
                     if (query.isEmpty()) {
                         profileList.add(u);
                     } else {
