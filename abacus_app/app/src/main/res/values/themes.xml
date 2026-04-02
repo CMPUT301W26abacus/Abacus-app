@@ -39,6 +39,7 @@
         <item name="strokeColor">@color/orange</item>
         <item name="clockNumberTextColor">@color/orange</item>
         <item name="android:textColorPrimaryInverse">@color/black</item>
+
     </style>
 
     <!-- App theme -->
