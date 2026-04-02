@@ -110,7 +110,6 @@ public class NotificationRepository {
                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
-                               "",
                                eventId,
                                "Congratulations! You have been invited to " + event.getTitle(),
                                Notification.TYPE_SELECTED
@@ -118,7 +117,6 @@ public class NotificationRepository {
                    } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
-                               "",
                                eventId,
                                "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                                Notification.TYPE_NOT_SELECTED
@@ -170,13 +168,12 @@ public class NotificationRepository {
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
                 Event event = eventRDS.getEventById(eventId);
 
-                Notification notification = new Notification(
+                Notification notification = (new Notification(
                         userId,
-                        "",
                         eventId,
                         "Your invitation to " + event.getTitle() + " has expired.",
                         Notification.TYPE_CANCELED
-                );
+                ));
 
                 remote.saveNotification(notification);
                 mainHandler.post(() -> callback.onComplete(null));
@@ -184,14 +181,6 @@ public class NotificationRepository {
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
-    }
-
-    /**
-     * Shuts down the background executor. Call from the owning lifecycle component's
-     * onDestroy() / onTerminate() to prevent thread leaks.
-     */
-    public void shutdown() {
-        executor.shutdown();
     }
 
     /**

@@ -44,13 +44,8 @@
             android:enableOnBackInvokedCallback="true">
         </activity>
 
-        <!-- parentActivityName enables system Up-button and swipe-back gesture
-             so pressing back in these activities returns to the correct screen
-             instead of closing the app. -->
-        <activity android:name=".LoginActivity"
-            android:parentActivityName=".SplashActivity"/>
-        <activity android:name=".RegisterActivity"
-            android:parentActivityName=".LoginActivity"/>
+        <activity android:name=".LoginActivity"/>
+        <activity android:name=".RegisterActivity"/>
 
     </application>
 

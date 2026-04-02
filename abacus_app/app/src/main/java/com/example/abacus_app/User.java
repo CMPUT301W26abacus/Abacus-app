@@ -21,6 +21,7 @@ public class User {
 
     private String  role;
     private boolean notificationsEnabled;
+    private String  status; // "winner" or "loser"
 
     private String profilePhotoUrl;
     private String verificationStatus; // "none" | "email_verified" | "phone_verified"
@@ -44,6 +45,7 @@ public class User {
         this.isGuest     = true;
         this.role        = "entrant";
         this.notificationsEnabled = true;
+        this.status      = "";
     }
 
     public String    getUid()         { return uid; }
@@ -62,6 +64,8 @@ public class User {
 
     public String  getRole()          { return role; }
     public boolean getNotificationsEnabled() { return notificationsEnabled; }
+    public String  getStatus()        { return status; }
+
 
     public void setUid(String uid)               { this.uid = uid; }
     public void setEmail(String email)           { this.email = email; }
@@ -84,6 +88,7 @@ public class User {
 
     public void setRole(String role)             { this.role = role; }
     public void setNotificationsEnabled(boolean enabled) { this.notificationsEnabled = enabled; }
+    public void setStatus(String status)         { this.status = status; }
 
     public String getProfilePhotoUrl()           { return profilePhotoUrl; }
     public void setProfilePhotoUrl(String url)   { this.profilePhotoUrl = url; }

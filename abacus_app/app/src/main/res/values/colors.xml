@@ -9,7 +9,6 @@
 
     <color name="surface_tint">#FFFFFF</color>
     <!-- ── Your existing colors (UNCHANGED) ───────────────────────── -->
-    <color name="surface_tint">#F2F1F0</color>
     <color name="orange">#C96A3A</color>
     <color name="error_red">#B00020</color>
 
@@ -25,10 +24,4 @@
     <color name="color_status_accepted_green">#10B981</color>
     <color name="color_status_declined_red">#EF4444</color>
     <color name="color_status_canceled_black">#374151</color>
-
-    <!-- UI utility colors -->
-    <color name="color_hint">#F3F4F6</color>
-    <color name="color_danger">#DC2626</color>
-    <color name="color_profile_bg">#F5F5F7</color>
-    <color name="login_button_text">#FFFFFF</color>
 </resources>

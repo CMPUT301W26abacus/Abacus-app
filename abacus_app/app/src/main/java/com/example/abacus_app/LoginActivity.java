@@ -117,35 +117,15 @@ public class LoginActivity extends AppCompatActivity {
 
         tvForgot.setOnClickListener(v -> {
             String email = etEmail.getText().toString().trim();
-
             if (email.isEmpty()) {
-                Toast.makeText(this, "Please enter your email address", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Enter your email first", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
             mAuth.sendPasswordResetEmail(email)
-                    .addOnSuccessListener(unused -> {
-                        Toast.makeText(this, "Password reset email sent successfully!", Toast.LENGTH_LONG).show();
-                    })
-                    .addOnFailureListener(e -> {
-                        String errorMessage = "Failed to send reset email. Please try again.";
-                        if (e instanceof com.google.firebase.FirebaseNetworkException
-                                || (e.getMessage() != null && e.getMessage().toLowerCase().contains("network"))) {
-                            errorMessage = "No internet connection. Please check your network and try again.";
-                        } else if (e.getMessage() != null) {
-                            if (e.getMessage().contains("invalid-email")) {
-                                errorMessage = "Invalid email format";
-                            } else if (e.getMessage().contains("user-not-found")) {
-                                errorMessage = "No account found with this email";
-                            }
-                        }
-                        Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
-                    });
+                    .addOnSuccessListener(unused ->
+                            Toast.makeText(this, "Reset email sent!", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e ->
+                            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
         });
 
         tvSignUp.setOnClickListener(v ->
