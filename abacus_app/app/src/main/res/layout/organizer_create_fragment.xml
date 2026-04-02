@@ -239,21 +239,6 @@
 
                     </LinearLayout>
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="@color/grey"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="12dp" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_private"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Private (Invite Only)"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black"
-                        app:thumbIconTint="@color/black" />
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
