@@ -20,8 +20,6 @@ public class Notification {
     // No-argument constructor required by Firestore deserialization
     public Notification() {}
 
-    public Notification(String userId, String eventId, String s, String typeSelected) {}
-
     public Notification(String userId, String userEmail, String eventId, String message, String type) {
         this.userId = userId;
         this.userEmail = userEmail;

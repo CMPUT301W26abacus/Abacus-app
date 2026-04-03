@@ -40,6 +40,13 @@ public class SplashActivity extends AppCompatActivity {
     private static final int BUTTONS_REVEAL_DELAY_MS = 1200; //first-time user
     private UserRepository userRepository;     // Repository for user data
 
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
     /** App-level role model supports only entrant/organizer for signed-in users. */
     private String normalizeAppRole(String role) {
         return "organizer".equals(role) ? "organizer" : "entrant";

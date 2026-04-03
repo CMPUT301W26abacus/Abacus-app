@@ -52,6 +52,13 @@ public class RegisterActivity extends AppCompatActivity {
     private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.registerpage);
