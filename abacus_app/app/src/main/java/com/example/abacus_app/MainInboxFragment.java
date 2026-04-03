@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -36,6 +37,8 @@ public class MainInboxFragment extends Fragment {
     private NotificationRepository notificationRepository;
     private NotificationAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
+    private TextView tvEmptyInbox;
+    private RecyclerView recyclerView;
     private String currentUserId;
     private FirebaseFirestore db;
     private String currentUserEmail;
@@ -52,11 +55,12 @@ public class MainInboxFragment extends Fragment {
         View view = inflater.inflate(R.layout.main_inbox_fragment, container, false);
 
         swipeRefresh = view.findViewById(R.id.inbox_swipe_refresh);
+        tvEmptyInbox = view.findViewById(R.id.tv_empty_inbox);
 
         db = FirebaseFirestore.getInstance();
         manageEventViewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
 
-        RecyclerView recyclerView = view.findViewById(R.id.notificationRecycler);
+        recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new NotificationAdapter();
         recyclerView.setAdapter(adapter);
@@ -204,7 +208,14 @@ public class MainInboxFragment extends Fragment {
         // Sort newest first
         Collections.sort(list, (n1, n2) -> Long.compare(n2.getTimestamp(), n1.getTimestamp()));
         if (isAdded()) {
-            adapter.setNotifications(list);
+            if (list.isEmpty()) {
+                tvEmptyInbox.setVisibility(View.VISIBLE);
+                recyclerView.setVisibility(View.GONE);
+            } else {
+                tvEmptyInbox.setVisibility(View.GONE);
+                recyclerView.setVisibility(View.VISIBLE);
+                adapter.setNotifications(list);
+            }
         }
     }
 
