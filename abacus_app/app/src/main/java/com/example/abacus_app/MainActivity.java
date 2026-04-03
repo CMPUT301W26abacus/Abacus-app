@@ -507,10 +507,25 @@ public class MainActivity extends AppCompatActivity {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
             }
 
-            // US: Private events should not be visible in public browse list
+            // US: Private events visible only to their organizer; public events visible to all
             boolean isPublic = !event.isPrivate();
+            boolean isOrganizerOfPrivate = false;
 
-            if (keywordMatch && dateMatch && notExpired && isPublic) filtered.add(event);
+            if (!isPublic) {
+                // Check both device UUID and Firebase UID for organizer match
+                String organizerId = event.getOrganizerId();
+                boolean isOrganizerByUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
+                boolean isOrganizerByFirebaseUID = false;
+
+                if (!isOrganizerByUUID) {
+                    com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                    isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
+                }
+
+                isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
+            }
+
+            if (keywordMatch && dateMatch && notExpired && (isPublic || isOrganizerOfPrivate)) filtered.add(event);
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────

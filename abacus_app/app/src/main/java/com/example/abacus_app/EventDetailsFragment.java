@@ -191,11 +191,12 @@ public class EventDetailsFragment extends Fragment {
             });
         }
 
-        // ── Admin delete button ────────────────────────────────────────────────
-        // Shown only when the effective role is "admin". Mirrors the organizer
+        // ── Delete button ─────────────────────────────────────────────────────────
+        // Shown to: admins (any event) or organizers (their own events)
         boolean isAdmin = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
+        boolean isOrganizerOfThisEvent = canEditCurrentEvent();
 
-        if (isAdmin) {
+        if (isAdmin || isOrganizerOfThisEvent) {
             btnLeaveWaitlist.setVisibility(View.GONE);
             btnJoinWaitlist.setEnabled(true);
             btnJoinWaitlist.setText("Delete");

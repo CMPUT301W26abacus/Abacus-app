@@ -196,6 +196,11 @@ public class OrganizerManageFragment extends Fragment {
                             } else {
                                 showEventList();
                             }
+                        } else if (currentMode == Mode.EVENT_LIST) {
+                            // Return to Tools/Organizer home
+                            if (getActivity() instanceof MainActivity) {
+                                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                            }
                         }
                     }
                 });
@@ -224,10 +229,10 @@ public class OrganizerManageFragment extends Fragment {
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
 
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String uuid = local.getUUIDSync();
-        if (uuid != null) {
-            viewModel.loadOrganizerEvents(uuid);
+        // Load events by Firebase UID (organizers use Firebase UID as organizerId)
+        com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            viewModel.loadOrganizerEvents(firebaseUser.getUid());
         } else {
             tvCount.setText("Could not load events");
         }

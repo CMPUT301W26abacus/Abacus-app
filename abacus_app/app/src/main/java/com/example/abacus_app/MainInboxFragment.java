@@ -135,16 +135,46 @@ public class MainInboxFragment extends Fragment {
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
 
-        // Use the ViewModel method we created earlier to handle the logic
-        manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
+        String eventId = n.getEventId();
+        String notificationType = n.getType();
 
-        // Remove notification from Firestore
-        db.collection("notifications").document(docId).delete()
-                .addOnSuccessListener(aVoid -> {
-                    allNotifications.remove("MSG_" + docId);
-                    updateUI();
-                    Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
-                });
+        // Determine if this is a co-organizer invitation or private event enrollment
+        boolean isCoOrganizerInvite = "CO_ORGANIZER_INVITE".equals(notificationType);
+
+        db.collection("events").document(eventId).get().addOnSuccessListener(eventDoc -> {
+            if (eventDoc.exists()) {
+                boolean isPrivate = Boolean.TRUE.equals(eventDoc.getBoolean("isPrivate"));
+
+                if (isCoOrganizerInvite) {
+                    // Co-organizer invitation: add as co-organizer
+                    manageEventViewModel.addCoOrganizer(eventId, currentUserId);
+                } else if (isPrivate && currentUserId != null) {
+                    // Private event enrollment: auto-enroll as participant (no lottery needed)
+                    WaitlistEntry entry = new WaitlistEntry(
+                            currentUserId,
+                            eventId,
+                            WaitlistEntry.STATUS_INVITED,  // Auto-invited for private events
+                            0,  // no lottery number
+                            System.currentTimeMillis()
+                    );
+                    // Add to waitlist directly (join without lottery for private)
+                    db.collection("events")
+                            .document(eventId)
+                            .collection("waitlist")
+                            .document(currentUserId)
+                            .set(entry)
+                            .addOnFailureListener(e -> Log.e("Inbox", "Failed to enroll in private event", e));
+                }
+            }
+
+            // Remove notification from Firestore
+            db.collection("notifications").document(docId).delete()
+                    .addOnSuccessListener(aVoid -> {
+                        allNotifications.remove("MSG_" + docId);
+                        updateUI();
+                        Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
+                    });
+        });
     }
 
     private void declineInvite(String docId) {
