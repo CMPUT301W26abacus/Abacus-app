@@ -28,8 +28,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
  * - Logged-out user: Goes to main as guest (can log in from profile screen)
  * - Deleted account: Shows message and returns to onboarding
  *
- * Theme switching: Detects when system dark mode changes and recreates activity
- * with correct colors from values/ or values-night/ directories.
+ * Theme switching: Relies on Android's default configuration-change handling to
+ * apply the correct colors from values/ or values-night/ directories when the
+ * system dark mode setting changes.
  *
  * @author Dyna
  */
