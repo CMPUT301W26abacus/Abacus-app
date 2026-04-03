@@ -1,5 +1,6 @@
 package com.example.abacus_app;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -62,16 +63,30 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         String dateString = sdf.format(new Date(notification.getTimestamp()));
         holder.timestampTextView.setText(dateString);
 
-        if ("CO_ORGANIZER_INVITE".equals(notification.getType())) {
-            holder.layoutActions.setVisibility(View.VISIBLE);
-            holder.btnAccept.setOnClickListener(v -> {
-                if (actionListener != null) actionListener.onAccept(notification);
-            });
-            holder.btnDecline.setOnClickListener(v -> {
-                if (actionListener != null) actionListener.onDecline(notification);
-            });
+        if (Notification.TYPE_CO_ORGANIZER_INVITE.equals(notification.getType())) {
+            String status = notification.getStatus();
+            if (Notification.STATUS_PENDING.equals(status)) {
+                holder.layoutActions.setVisibility(View.VISIBLE);
+                holder.statusTextView.setVisibility(View.GONE);
+                holder.btnAccept.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onAccept(notification);
+                });
+                holder.btnDecline.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onDecline(notification);
+                });
+            } else {
+                holder.layoutActions.setVisibility(View.GONE);
+                holder.statusTextView.setVisibility(View.VISIBLE);
+                holder.statusTextView.setText(status);
+                if (Notification.STATUS_ACCEPTED.equals(status)) {
+                    holder.statusTextView.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    holder.statusTextView.setTextColor(Color.parseColor("#F44336")); // Red
+                }
+            }
         } else {
             holder.layoutActions.setVisibility(View.GONE);
+            holder.statusTextView.setVisibility(View.GONE);
         }
 
         holder.itemView.setOnClickListener(v -> {
@@ -96,6 +111,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView;
         TextView timestampTextView;
+        TextView statusTextView;
         View layoutActions;
         MaterialButton btnAccept, btnDecline;
 
@@ -108,6 +124,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);
             timestampTextView = itemView.findViewById(R.id.notificationTimestamp);
+            statusTextView = itemView.findViewById(R.id.tv_notification_status);
             layoutActions = itemView.findViewById(R.id.layout_notification_actions);
             btnAccept = itemView.findViewById(R.id.btn_accept_notification);
             btnDecline = itemView.findViewById(R.id.btn_decline_notification);

@@ -43,7 +43,6 @@ public class MainInboxFragment extends Fragment {
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
     private final Map<String, Notification> allNotifications = new HashMap<>();
-    private final Map<String, String> notificationDocIds = new HashMap<>();
 
     @Nullable
     @Override
@@ -88,16 +87,13 @@ public class MainInboxFragment extends Fragment {
                 }
             });
         }
-
     }
 
     private void setupNotificationActions() {
         adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
             @Override
             public void onAccept(Notification notification) {
-                String docId = notificationDocIds.get("MSG_" + notification.getTimestamp()); // Use timestamp as proxy or store docId
-                // Better: we need the actual doc ID from Firestore to delete/update it.
-                // Let's find the correct MSG_ key.
+                // Find the doc ID from the map key (e.g., MSG_docId)
                 for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
                     if (entry.getValue().equals(notification)) {
                         String key = entry.getKey();
@@ -129,24 +125,25 @@ public class MainInboxFragment extends Fragment {
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
 
-        // Use the ViewModel method we created earlier to handle the logic
+        // Use the ViewModel method to add user as co-organizer
         manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
 
-        // Remove notification from Firestore
-        db.collection("notifications").document(docId).delete()
+        // Update notification status in Firestore instead of deleting
+        db.collection("notifications").document(docId)
+                .update("status", Notification.STATUS_ACCEPTED)
                 .addOnSuccessListener(aVoid -> {
-                    allNotifications.remove("MSG_" + docId);
-                    updateUI();
                     Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
+                    // UI will update automatically due to SnapshotListener
                 });
     }
 
     private void declineInvite(String docId) {
-        db.collection("notifications").document(docId).delete()
+        // Update notification status in Firestore instead of deleting
+        db.collection("notifications").document(docId)
+                .update("status", Notification.STATUS_DECLINED)
                 .addOnSuccessListener(aVoid -> {
-                    allNotifications.remove("MSG_" + docId);
-                    updateUI();
                     Toast.makeText(getContext(), "Invitation declined", Toast.LENGTH_SHORT).show();
+                    // UI will update automatically due to SnapshotListener
                 });
     }
 
@@ -179,11 +176,11 @@ public class MainInboxFragment extends Fragment {
             db.collection("events").document(eventId).get().addOnSuccessListener(eventDoc -> {
                 if (eventDoc.exists()) {
                     String eventTitle = eventDoc.getString("title");
+                    String organizerId = eventDoc.getString("organizerId");
                     boolean drawn = Boolean.TRUE.equals(eventDoc.getBoolean("lotteryDrawn"));
 
-                    Notification n = createFromStatus(eventId, eventTitle, status, drawn, timestamp);
+                    Notification n = createFromStatus(eventId, eventTitle, status, drawn, timestamp, organizerId);
                     if (n != null) {
-                        // Key by eventId + status to avoid duplicate status updates
                         allNotifications.put("REG_" + eventId, n);
                         updateUI();
                     }
@@ -211,7 +208,7 @@ public class MainInboxFragment extends Fragment {
         }
     }
 
-    private Notification createFromStatus(String eventId, String title, String status, boolean drawn, long time) {
+    private Notification createFromStatus(String eventId, String title, String status, boolean drawn, long time, String organizerId) {
         String msg = null;
         if ("invited".equals(status) || "accepted".equals(status)) {
             msg = "Congratulations! You were selected for " + title + ". Please accept or decline.";
@@ -224,7 +221,8 @@ public class MainInboxFragment extends Fragment {
         }
 
         if (msg == null) return null;
-        Notification n = new Notification(currentUserId, "", eventId, msg, status);
+        // userId, userEmail, organizerId, eventId, message, type
+        Notification n = new Notification(currentUserId, currentUserEmail, organizerId, eventId, msg, status);
         n.setTimestamp(time);
         return n;
     }
