@@ -288,6 +288,11 @@ public class EventDetailsFragment extends Fragment {
         if (currentEventId == null) return;
         registrationRepository.isOnWaitlist(currentUserId, currentEventId, isOn -> {
             if (isOn) {
+                registrationRepository.getUserEntry(currentUserId, currentEventId, entry -> {
+                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                        //showAcceptDeclineButtons();
+                    }
+                });
                 showLeaveButton();
             } else {
                 showJoinButton();
