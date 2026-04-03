@@ -20,10 +20,13 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings;
  * - Creates repositories for accessing user data
  * - Checks if user is already logged in
  *
- * Theme Switching:
- * - Does NOT wrap base context (keeps it responsive to system theme changes)
- * - Font scale applied per-activity in onCreate() instead of globally
- * - This allows instant dark/light mode switching without requiring restart
+ * Theme Switching & Accessibility:
+ * - Does NOT wrap base context globally (keeps it responsive to system theme changes)
+ * - Each Activity must independently apply font scale in attachBaseContext() via
+ *   AccessibilityHelper.buildConfig() to respect user accessibility settings.
+ *   (MainActivity and LoginActivity implement this; others may need to add it.)
+ * - This design allows instant dark/light mode switching without requiring app restart,
+ *   at the cost of requiring per-activity font scale configuration.
  *
  * @author Dyna
  */
