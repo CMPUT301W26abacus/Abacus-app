@@ -191,16 +191,21 @@ public class ProfileViewModel extends ViewModel {
         boolean notificationsEnabled = _notificationsEnabled.getValue() != null
                 ? _notificationsEnabled.getValue() : true;
 
-        InputValidator.ValidationResult nameResult  = InputValidator.validateName(name);
-        InputValidator.ValidationResult emailResult = InputValidator.validateEmail(email);
+        _nameError.setValue(null);
+        _emailError.setValue(null);
 
-        if (!nameResult.isValid) {
-            _nameError.setValue(nameResult.errorMessage);
+        if (name.isEmpty()) {
+            _nameError.setValue("Name is required");
             return;
         }
 
-        if (!emailResult.isValid) {
-            _emailError.setValue(emailResult.errorMessage);
+        if (email.isEmpty()) {
+            _emailError.setValue("Email is required");
+            return;
+        }
+
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            _emailError.setValue("Enter a valid email address");
             return;
         }
 

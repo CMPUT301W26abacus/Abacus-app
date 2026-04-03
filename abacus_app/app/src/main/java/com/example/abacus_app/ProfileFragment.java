@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -317,7 +318,11 @@ public class ProfileFragment extends Fragment {
             }
         });
 
-        btnSave.setOnClickListener(v -> viewModel.saveProfile());
+        btnSave.setOnClickListener(v -> {
+            if (validateProfileInputs()) {
+                viewModel.saveProfile();
+            }
+        });
 
         btnDelete.setOnClickListener(v ->
                 new AlertDialog.Builder(requireContext())
@@ -484,6 +489,40 @@ public class ProfileFragment extends Fragment {
                 ((MainActivity) getActivity()).setEffectiveRole(mode);
             }
         });
+    }
+
+    /**
+     * Simple, local validation before save.
+     */
+    private boolean validateProfileInputs() {
+        String name = etName != null ? etName.getText().toString().trim() : "";
+        String email = etEmail != null ? etEmail.getText().toString().trim() : "";
+
+        boolean isValid = true;
+
+        if (name.isEmpty()) {
+            tvNameError.setText("Name is required");
+            tvNameError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else {
+            tvNameError.setText("");
+            tvNameError.setVisibility(View.GONE);
+        }
+
+        if (email.isEmpty()) {
+            tvEmailError.setText("Email is required");
+            tvEmailError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            tvEmailError.setText("Enter a valid email address");
+            tvEmailError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else {
+            tvEmailError.setText("");
+            tvEmailError.setVisibility(View.GONE);
+        }
+
+        return isValid;
     }
 
     /**
