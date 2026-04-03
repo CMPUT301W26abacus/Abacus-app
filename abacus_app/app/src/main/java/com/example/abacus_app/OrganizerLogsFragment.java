@@ -134,8 +134,9 @@ public class OrganizerLogsFragment extends Fragment {
     }
 
     private void showPrivateEventPicker(User user) {
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String organizerId = local.getUUIDSync();
+        // Use Firebase UID (authenticated account) not device UUID
+        String organizerId = com.google.firebase.auth.FirebaseAuth.getInstance()
+                .getCurrentUser().getUid();
 
         manageEventViewModel.getEvents().observe(getViewLifecycleOwner(), events -> {
             if (events == null || events.isEmpty()) {

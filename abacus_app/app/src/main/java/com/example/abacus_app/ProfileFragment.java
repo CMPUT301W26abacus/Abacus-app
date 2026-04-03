@@ -127,11 +127,6 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        // Apply high-contrast styling if enabled
-        if (new AccessibilityHelper(requireContext()).isHighContrast()) {
-            AccessibilityHelper.applyHighContrast(view);
-        }
-
         // Bind views
         btnBack          = view.findViewById(R.id.btnBack);
         avatarContainer  = view.findViewById(R.id.avatarContainer);
@@ -422,10 +417,10 @@ public class ProfileFragment extends Fragment {
         cardStats.setVisibility(View.VISIBLE);
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
+        btnAccessibility.setVisibility(View.VISIBLE);
         btnSave.setVisibility(View.VISIBLE);
         btnLogout.setVisibility(View.VISIBLE);
         btnDelete.setVisibility(View.VISIBLE);
-        btnAccessibility.setVisibility(View.VISIBLE);
         dangerDivider.setVisibility(View.VISIBLE);
         labelDanger.setVisibility(View.VISIBLE);
         viewModeDot.setVisibility(View.VISIBLE);

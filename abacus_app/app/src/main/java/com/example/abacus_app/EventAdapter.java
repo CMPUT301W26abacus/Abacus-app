@@ -65,6 +65,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     @Nullable
     private final String userKey;
     private final boolean isGuest;
+    @Nullable
+    private final String userRole;
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -74,12 +76,23 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                         boolean isAdmin,
                         @Nullable String userKey,
                         boolean isGuest) {
+        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest, null);
+    }
+
+    public EventAdapter(List<Event> events,
+                        OnEventClickListener clickListener,
+                        OnEventDeleteListener deleteListener,
+                        boolean isAdmin,
+                        @Nullable String userKey,
+                        boolean isGuest,
+                        @Nullable String userRole) {
         this.events         = events;
         this.clickListener  = clickListener;
         this.deleteListener = deleteListener;
         this.isAdmin        = isAdmin;
         this.userKey        = userKey;
         this.isGuest        = isGuest;
+        this.userRole       = userRole;
     }
 
     public EventAdapter(List<Event> events,
@@ -89,7 +102,19 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                         boolean isAdmin,
                         @Nullable String userKey,
                         boolean isGuest) {
-        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest);
+        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest, null);
+        this.manageClickListener = manageClickListener;
+    }
+
+    public EventAdapter(List<Event> events,
+                        OnEventClickListener clickListener,
+                        OnEventDeleteListener deleteListener,
+                        OnManageClickListener manageClickListener,
+                        boolean isAdmin,
+                        @Nullable String userKey,
+                        boolean isGuest,
+                        @Nullable String userRole) {
+        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest, userRole);
         this.manageClickListener = manageClickListener;
     }
 
@@ -138,7 +163,6 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
         // ── Normal mode ────────────────────────────────────────────────────────
         holder.btnDelete.setVisibility(View.GONE);
-        holder.btnJoinStatus.setVisibility(View.VISIBLE);
         holder.btnFavourite.setVisibility(View.VISIBLE);
 
         // Card tap — open details, no auto-join
@@ -149,6 +173,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         // Check if current user is the organizer of this event
         if (userKey != null && userKey.equals(event.getOrganizerId())) {
             // Organizer mode: show "Edit" instead of "Join"
+            holder.btnJoinStatus.setVisibility(View.VISIBLE);
             applyEditButtonState(holder, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (clickListener != null) {
@@ -158,6 +183,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             });
             return;
         }
+
+        // If user is an organizer but not the organizer of this event, hide the button
+        if ("organizer".equals(userRole)) {
+            holder.btnJoinStatus.setVisibility(View.GONE);
+            return;
+        }
+
+        holder.btnJoinStatus.setVisibility(View.VISIBLE);
 
         // ── Join status check ──────────────────────────────────────────────────
         String eventId = event.getEventId();
@@ -184,11 +217,13 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
 
-        String docId = userKey + "_" + eventId;
-
+        // For authenticated users, check in events/{eventId}/waitlist/{userKey}
+        // Registrations are stored in the waitlist subcollection of each event
         FirebaseFirestore.getInstance()
-                .collection("registrations")
-                .document(docId)
+                .collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document(userKey)
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     int pos = holder.getBindingAdapterPosition();

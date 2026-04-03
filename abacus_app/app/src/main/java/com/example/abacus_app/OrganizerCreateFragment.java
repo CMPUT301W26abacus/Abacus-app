@@ -28,6 +28,7 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -201,9 +202,13 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String organizerId = local.getUUIDSync();
-        if (organizerId == null) organizerId = "ORGANIZER_ID";
+        // Use Firebase UID (authenticated account) as organizerId, not device UUID
+        // This ensures each account can only manage their own created events
+        String organizerId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        if (organizerId == null) {
+            Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);

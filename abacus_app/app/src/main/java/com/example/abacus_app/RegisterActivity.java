@@ -142,7 +142,7 @@ public class RegisterActivity extends AppCompatActivity {
         String createdAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
-        
+
         String lastLoginAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
@@ -162,10 +162,10 @@ public class RegisterActivity extends AppCompatActivity {
         userRepository.saveProfileAsync(updates, error -> {
             btnRegister.setEnabled(true);
             btnRegister.setText("Register");
-            
+
             if (error == null) {
                 Toast.makeText(this, "Account created!", Toast.LENGTH_SHORT).show();
-                goToMain();
+                goToMain(role);
             } else {
                 Toast.makeText(this,
                         "Error saving profile: " + error.getMessage(),
@@ -174,9 +174,11 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
-    private void goToMain() {
+    private void goToMain(String role) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("isGuest", false);
+        intent.putExtra("userRole", role);
+        intent.putExtra("role", role);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();

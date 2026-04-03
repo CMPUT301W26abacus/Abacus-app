@@ -263,6 +263,17 @@ public class EventDetailsFragment extends Fragment {
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
+
+            // Check if user is an organizer viewing someone else's event
+            String userRole = ((MainActivity) requireActivity()).getEffectiveRole();
+            if ("organizer".equals(userRole) && loadedEvent != null
+                    && !currentUserId.equals(loadedEvent.getOrganizerId())) {
+                // Organizer viewing another organizer's event — hide waitlist buttons
+                btnJoinWaitlist.setVisibility(View.GONE);
+                btnLeaveWaitlist.setVisibility(View.GONE);
+                return;
+            }
+
             btnJoinWaitlist.setEnabled(true);
             btnLeaveWaitlist.setEnabled(true);
             checkWaitlistStatus();

@@ -548,7 +548,8 @@ public class MainActivity extends AppCompatActivity {
                 },
                 isAdminUser,
                 resolvedUserKey,   // null until resolved — adapter handles gracefully
-                isGuest
+                isGuest,
+                userRole           // Pass user role so organizers don't see join buttons on other's events
         ));
 
         if (finalFiltered.isEmpty()) {

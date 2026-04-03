@@ -151,8 +151,8 @@ public class UserRepository {
     }
 
     /**
-     * Fetches the Firestore user document for the current device UUID and delivers
-     * it via {@code callback}.
+     * Fetches the Firestore user document for the current authenticated account.
+     * Uses Firebase UID for authenticated users, device UUID for guests.
      *
      * <p>Returns {@code null} to the callback if no document exists or if an error
      * occurs. The callback is always delivered on the main thread.
@@ -163,8 +163,15 @@ public class UserRepository {
     public void getProfileAsync(UserCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = getOrCreateUUID();
-                User user = remoteDataSource.getUserSync(uuid);
+                // For authenticated users, use Firebase UID (unique per account)
+                // For guests, fall back to device UUID
+                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                        firebaseUser : getOrCreateUUID();
+
+                User user = remoteDataSource.getUserSync(docId);
 
 
                 if (user != null && user.isDeleted()) {
@@ -194,8 +201,8 @@ public class UserRepository {
 
     /**
      * Merges {@code profileData} into the Firestore user document for the current
-     * device UUID using {@code SetOptions.merge()}, preserving any fields not present
-     * in the map.
+     * authenticated account using {@code SetOptions.merge()}, preserving fields not in the map.
+     * Uses Firebase UID for authenticated users, device UUID for guests.
      *
      * <p>The callback receives {@code null} on success or the exception on failure.
      * Always delivered on the main thread.
@@ -207,8 +214,15 @@ public class UserRepository {
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = getOrCreateUUID();
-                remoteDataSource.updateUserSync(uuid, profileData);
+                // For authenticated users, use Firebase UID (unique per account)
+                // For guests, fall back to device UUID
+                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                        firebaseUser : getOrCreateUUID();
+
+                remoteDataSource.updateUserSync(docId, profileData);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -235,10 +249,17 @@ public class UserRepository {
     public void savePreferencesAsync(Map<String, Object> preferences, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = getOrCreateUUID();
+                // For authenticated users, use Firebase UID (unique per account)
+                // For guests, fall back to device UUID
+                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                        firebaseUser : getOrCreateUUID();
+
                 java.util.Map<String, Object> data = new java.util.HashMap<>();
                 data.put("preferences", preferences);
-                remoteDataSource.updateUserSync(uuid, data);
+                remoteDataSource.updateUserSync(docId, data);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -262,10 +283,21 @@ public class UserRepository {
     public void deleteProfileAsync(VoidCallback callback) {
         executor.submit(() -> {
             try {
-                String uuid = localDataSource.getUUIDSync();
-                if (uuid != null) {
-                    remoteDataSource.deleteUserSync(uuid);
-                    remoteDataSource.deleteWaitlistEntriesForUser(uuid);
+                // Delete both the authenticated profile (if signed in) and device profile
+                String firebaseUid = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                if (firebaseUid != null) {
+                    // Delete authenticated account profile
+                    remoteDataSource.deleteUserSync(firebaseUid);
+                    remoteDataSource.deleteWaitlistEntriesForUser(firebaseUid);
+                }
+
+                String deviceUuid = localDataSource.getUUIDSync();
+                if (deviceUuid != null) {
+                    // Also delete guest/device profile if it exists
+                    remoteDataSource.deleteUserSync(deviceUuid);
+                    remoteDataSource.deleteWaitlistEntriesForUser(deviceUuid);
                 }
 
                 com.google.firebase.auth.FirebaseUser authUser =

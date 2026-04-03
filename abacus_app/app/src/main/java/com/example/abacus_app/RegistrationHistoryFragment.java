@@ -428,30 +428,26 @@ public class RegistrationHistoryFragment extends Fragment {
                 return;
             }
 
-            UserLocalDataSource localDataSource   = new UserLocalDataSource(context);
-            UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(firestore);
-            UserRepository userRepository         =
-                    new UserRepository(localDataSource, remoteDataSource);
+            // For authenticated users, use Firebase UID (not device UUID)
+            String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    .getCurrentUser().getUid();
+            if (firebaseUid == null) {
+                callback.onResult(new ArrayList<>(), null);
+                return;
+            }
 
-            userRepository.getCurrentUserId(userId -> {
-                if (userId == null) {
-                    callback.onResult(new ArrayList<>(), null);
-                    return;
-                }
-
-                executor.execute(() -> {
-                    try {
-                        ArrayList<WaitlistEntry> waitlistEntries =
-                                dataSource.getHistoryForUserSync(userId);
-                        if (waitlistEntries == null || waitlistEntries.isEmpty()) {
-                            callback.onResult(new ArrayList<>(), null);
-                            return;
-                        }
-                        buildRegistrationList(waitlistEntries, callback);
-                    } catch (Exception e) {
-                        callback.onResult(new ArrayList<>(), e);
+            executor.execute(() -> {
+                try {
+                    ArrayList<WaitlistEntry> waitlistEntries =
+                            dataSource.getHistoryForUserSync(firebaseUid);
+                    if (waitlistEntries == null || waitlistEntries.isEmpty()) {
+                        callback.onResult(new ArrayList<>(), null);
+                        return;
                     }
-                });
+                    buildRegistrationList(waitlistEntries, callback);
+                } catch (Exception e) {
+                    callback.onResult(new ArrayList<>(), e);
+                }
             });
         }
 

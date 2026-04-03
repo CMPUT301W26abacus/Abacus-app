@@ -272,25 +272,75 @@ public class RegistrationRemoteDataSource {
      * @param userID the unique ID of the user in the database
      * @return list of all WaitlistEntry objects for the user
      */
+    /**
+     * Returns all waitlist entries for a user across all events.
+     *
+     * Uses a collection group query on the 'waitlist' subcollections.
+     * This requires a composite index in Firestore console:
+     *   Collection: events / Collection: waitlist
+     *   Fields: userId (Ascending), __name__ (Ascending)
+     *
+     * If the index doesn't exist, Firestore will suggest creating it when the
+     * query fails. Create the index in the console, then this will work.
+     *
+     * @param userID the user's UUID or email key
+     * @return list of WaitlistEntry objects, or null on error
+     */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
         try {
+            // Collection group query: search all events/{eventId}/waitlist documents where userId matches
             QuerySnapshot snapshot = Tasks.await(
                     firestore.collectionGroup("waitlist")
-                            .whereEqualTo("userID", userID)
+                            .whereEqualTo("userId", userID)
                             .get()
             );
 
             ArrayList<WaitlistEntry> history = new ArrayList<>();
             for (DocumentSnapshot doc : snapshot.getDocuments()) {
                 WaitlistEntry entry = mapDocument(doc);
-                history.add(entry);
+                if (entry != null) history.add(entry);
             }
+            Log.d("RDS", "getHistoryForUserSync: userId=" + userID + " found=" + history.size());
             return history;
 
         } catch (Exception e) {
-            Log.e("RDS", "query failed", e);
+            Log.e("RDS", "getHistoryForUserSync failed - check Firestore console for index creation: " + e.getMessage(), e);
+            // Fallback to per-event lookup if index doesn't exist yet
+            Log.d("RDS", "Falling back to per-event lookup");
+            try {
+                return getHistoryForUserSyncFallback(userID);
+            } catch (Exception fallbackE) {
+                Log.e("RDS", "Fallback also failed", fallbackE);
+            }
         }
         return null;
+    }
+
+    /**
+     * Fallback method: per-event direct lookups (no index needed).
+     * Used when collection group index hasn't been created yet.
+     */
+    private ArrayList<WaitlistEntry> getHistoryForUserSyncFallback(String userID) throws ExecutionException, InterruptedException {
+        QuerySnapshot eventsSnapshot = Tasks.await(
+                firestore.collection("events").get());
+        ArrayList<WaitlistEntry> history = new ArrayList<>();
+
+        for (DocumentSnapshot eventDoc : eventsSnapshot.getDocuments()) {
+            String eventId = eventDoc.getId();
+            try {
+                DocumentSnapshot waitlistDoc = Tasks.await(
+                        firestore.collection("events").document(eventId)
+                                .collection("waitlist").document(userID).get());
+                if (waitlistDoc.exists()) {
+                    WaitlistEntry entry = mapDocument(waitlistDoc);
+                    if (entry != null) history.add(entry);
+                }
+            } catch (Exception inner) {
+                Log.w("RDS", "Failed to read waitlist for event " + eventId, inner);
+            }
+        }
+        Log.d("RDS", "getHistoryForUserSyncFallback: userId=" + userID + " found=" + history.size());
+        return history;
     }
 
     /**

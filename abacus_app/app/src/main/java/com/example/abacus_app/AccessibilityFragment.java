@@ -5,7 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.RadioButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -19,10 +19,12 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 /**
  * AccessibilityFragment
  *
- * Color-blind type: single-select via manual mutual exclusion (RadioButtons inside
- * clickable rows — RadioGroup cannot manage non-direct children).
- * Text size: Slider with live preview + Apply button (triggers recreate, returns here).
- * Increase contrast / Reduce motion: Switch, no recreate needed.
+ * Accessibility settings:
+ * - Large text: Quick toggle for text scaling
+ * - High contrast: Switch for increased contrast mode
+ * - Text size: Slider with live preview + Apply button (triggers recreate, returns here)
+ * - One-handed mode: Switch for optimized single-hand navigation
+ * - Reduce motion: Switch to disable animations
  */
 public class AccessibilityFragment extends Fragment {
 
@@ -47,58 +49,22 @@ public class AccessibilityFragment extends Fragment {
         view.<android.widget.ImageButton>findViewById(R.id.btnBack).setOnClickListener(v ->
                 Navigation.findNavController(view).navigateUp());
 
-        // ── Quick toggles (colorBlindMode + largeText boolean keys) ──
+        // ── Quick toggles (largeText boolean key) ──
         android.content.SharedPreferences quickPrefs =
                 requireContext().getSharedPreferences("accessibility_prefs",
                         android.content.Context.MODE_PRIVATE);
 
-        SwitchMaterial switchColorBlind = view.findViewById(R.id.switchColorBlind);
-        switchColorBlind.setChecked(quickPrefs.getBoolean("colorBlindMode", false));
-        switchColorBlind.setOnCheckedChangeListener((btn, isChecked) ->
-                quickPrefs.edit().putBoolean("colorBlindMode", isChecked).apply());
-
         SwitchMaterial switchLargeText = view.findViewById(R.id.switchLargeText);
+        LinearLayout llTextSizeSection = view.findViewById(R.id.llTextSizeSection);
+        Slider slider = view.findViewById(R.id.sliderTextScale);
+
         switchLargeText.setChecked(quickPrefs.getBoolean("largeText", false));
-        switchLargeText.setOnCheckedChangeListener((btn, isChecked) ->
-                quickPrefs.edit().putBoolean("largeText", isChecked).apply());
+        updateTextSizeSectionVisibility(switchLargeText.isChecked(), llTextSizeSection, slider);
 
-        // ── Color-blind type — manual single selection ──
-        RadioButton rbNone    = view.findViewById(R.id.rbColorBlindNone);
-        RadioButton rbProtan  = view.findViewById(R.id.rbProtanopia);
-        RadioButton rbDeutan  = view.findViewById(R.id.rbDeuteranopia);
-        RadioButton rbTritan  = view.findViewById(R.id.rbTritanopia);
-        RadioButton rbAchrom  = view.findViewById(R.id.rbAchromatopsia);
-
-        RadioButton[] allRbs  = {rbNone, rbProtan, rbDeutan, rbTritan, rbAchrom};
-        String[] allTypes     = {
-            AccessibilityHelper.COLOR_BLIND_NONE,
-            AccessibilityHelper.COLOR_BLIND_PROTANOPIA,
-            AccessibilityHelper.COLOR_BLIND_DEUTERANOPIA,
-            AccessibilityHelper.COLOR_BLIND_TRITANOPIA,
-            AccessibilityHelper.COLOR_BLIND_ACHROMATOPSIA
-        };
-        int[] rowIds = {
-            R.id.rowColorBlindNone, R.id.rowProtanopia,
-            R.id.rowDeuteranopia,   R.id.rowTritanopia, R.id.rowAchromatopsia
-        };
-
-        // Restore saved selection
-        String savedType = helper.getColorBlindType();
-        for (int i = 0; i < allTypes.length; i++) {
-            allRbs[i].setChecked(allTypes[i].equals(savedType));
-        }
-
-        // Wire row clicks — check selected, uncheck all others, save, apply locally
-        for (int i = 0; i < rowIds.length; i++) {
-            final int idx = i;
-            view.findViewById(rowIds[i]).setOnClickListener(v -> {
-                for (RadioButton rb : allRbs) rb.setChecked(false);
-                allRbs[idx].setChecked(true);
-                helper.setColorBlindType(allTypes[idx]);
-                // Color-blind palette applies in adapters/fragments when they (re)bind;
-                // no full recreate needed — the user sees it when they navigate back.
-            });
-        }
+        switchLargeText.setOnCheckedChangeListener((btn, isChecked) -> {
+            quickPrefs.edit().putBoolean("largeText", isChecked).apply();
+            updateTextSizeSectionVisibility(isChecked, llTextSizeSection, slider);
+        });
 
         // ── High contrast ──
         SwitchMaterial switchHighContrast = view.findViewById(R.id.switchHighContrast);
@@ -112,12 +78,11 @@ public class AccessibilityFragment extends Fragment {
         });
 
         // ── Text size slider ──
-        Slider slider        = view.findViewById(R.id.sliderTextScale);
         TextView tvScaleValue = view.findViewById(R.id.tvTextScaleValue);
         TextView tvPreview    = view.findViewById(R.id.tvTextPreview);
         Button   btnApply     = view.findViewById(R.id.btnApplyTextScale);
 
-        slider.setValue(clampScale(helper.getTextScale()));
+        slider.setValue(clampScale(helper.getTextScale(), switchLargeText.isChecked()));
         updateTextScaleUI(slider.getValue(), tvScaleValue, tvPreview);
 
         slider.addOnChangeListener((s, value, fromUser) ->
@@ -143,8 +108,23 @@ public class AccessibilityFragment extends Fragment {
                 helper.setReduceMotion(isChecked));
     }
 
-    private float clampScale(float scale) {
-        return Math.max(0.8f, Math.min(1.6f, scale));
+    private void updateTextSizeSectionVisibility(boolean isLargeTextEnabled, LinearLayout llTextSizeSection, Slider slider) {
+        llTextSizeSection.setVisibility(isLargeTextEnabled ? android.view.View.VISIBLE : android.view.View.GONE);
+        // Update slider's max value based on whether large text is enabled
+        if (isLargeTextEnabled) {
+            slider.setValueTo(1.9f);
+        } else {
+            // Clamp current value if it exceeds the new max
+            if (slider.getValue() > 1.6f) {
+                slider.setValue(1.6f);
+            }
+            slider.setValueTo(1.6f);
+        }
+    }
+
+    private float clampScale(float scale, boolean isLargeTextEnabled) {
+        float maxScale = isLargeTextEnabled ? 1.9f : 1.6f;
+        return Math.max(0.8f, Math.min(maxScale, scale));
     }
 
     private void updateTextScaleUI(float scale, TextView tvScaleValue, TextView tvPreview) {

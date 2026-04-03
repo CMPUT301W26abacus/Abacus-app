@@ -134,20 +134,28 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     /**
-     * Reads the user's role from Firestore using the local UUID (not Firebase Auth UID)
-     * then navigates to MainActivity with the role as an intent extra.
+     * Reads the user's role from Firestore if not already provided.
+     * If existingRole is provided (from the email lookup), uses that.
+     * Otherwise reads from users/{firebaseUID}.
      */
-    private void fetchRoleAndNavigate() {
-        String uuid = localDataSource.getUUIDSync();
+    private void fetchRoleAndNavigate(String existingRole) {
+        // If we already have the role from the email lookup, use it
+        if (existingRole != null && !existingRole.isEmpty()) {
+            android.util.Log.d("LoginActivity", "Using existing role: " + existingRole);
+            navigateToMain(existingRole);
+            return;
+        }
 
-        if (uuid == null) {
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser == null) {
             navigateToMain("entrant");
             return;
         }
 
+        String firebaseUid = firebaseUser.getUid();
         FirebaseFirestore.getInstance()
                 .collection("users")
-                .document(uuid)
+                .document(firebaseUid)
                 .get()
                 .addOnSuccessListener(doc -> {
                     String role = doc.getString("role");
@@ -185,7 +193,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void restoreIdentityThenNavigate(FirebaseUser authUser) {
         if (authUser == null || authUser.getEmail() == null) {
-            updateProfileFields(authUser);
+            updateProfileFields(authUser, null);
             return;
         }
 
@@ -195,6 +203,7 @@ public class LoginActivity extends AppCompatActivity {
                 .limit(1)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    String existingRole = null;
                     if (!querySnapshot.isEmpty()) {
                         com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
 
@@ -217,16 +226,19 @@ public class LoginActivity extends AppCompatActivity {
                         String existingUuid = doc.getId();
                         localDataSource.saveDeviceId(existingUuid);
                         android.util.Log.d("LoginActivity", "Identity restored from existing account");
+
+                        // Preserve the existing role from the document
+                        existingRole = doc.getString("role");
                     }
-                    updateProfileFields(authUser);
+                    updateProfileFields(authUser, existingRole);
                 })
                 .addOnFailureListener(e -> {
                     android.util.Log.e("LoginActivity", "UUID lookup failed, proceeding anyway", e);
-                    updateProfileFields(authUser);
+                    updateProfileFields(authUser, null);
                 });
     }
 
-    private void updateProfileFields(FirebaseUser authUser) {
+    private void updateProfileFields(FirebaseUser authUser, String existingRole) {
         String lastLoginAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
@@ -250,7 +262,7 @@ public class LoginActivity extends AppCompatActivity {
                     syncNameFromFirestoreToAuth(authUser);
                 }
             }
-            fetchRoleAndNavigate();
+            fetchRoleAndNavigate(existingRole);
         });
     }
 
