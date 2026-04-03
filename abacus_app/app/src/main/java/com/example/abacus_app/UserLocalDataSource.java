@@ -24,11 +24,10 @@ public class UserLocalDataSource {
     static final String KEY_UUID   = "device_uuid";
 
     private final SharedPreferences prefs;
-
     private final Context context;
 
     public UserLocalDataSource(Context context) {
-        this.context = context.getApplicationContext(); // safe for long-lived use
+        this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
@@ -77,14 +76,10 @@ public class UserLocalDataSource {
     }
 
     /**
-     * Returns a stable device ID that persists across app reinstalls.
-     * Only used if no UUID has been saved yet.
+     * Returns a stable device ID (ANDROID_ID) that persists across app reinstalls.
+     * May return null on some emulators — callers should fall back to a random UUID.
      */
     public String getStableDeviceID() {
-        return Settings.Secure.getString(
-                context.getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
+        return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
     }
-
 }

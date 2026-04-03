@@ -30,6 +30,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -1117,6 +1118,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (eventsListener != null) eventsListener.remove();
+        if (userRepository  != null) userRepository.shutdown();
+        if (eventRepository != null) eventRepository.shutdown();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

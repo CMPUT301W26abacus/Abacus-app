@@ -5,8 +5,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.app.AlertDialog;
 import android.widget.ImageButton;
-import com.google.android.material.chip.ChipGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -26,7 +26,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
@@ -34,9 +33,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -62,8 +63,7 @@ public class RegistrationHistoryFragment extends Fragment {
     private ProgressBar progressBar;
     private TextView tvDateRangeLabel;
 
-    // "all" | "active" | "closed"
-    private String activeTabGroup = "all";
+    private final Set<String> activeStatusFilter = new HashSet<>();
     private long[] activeDateRange = null;
 
     @Nullable
@@ -82,9 +82,8 @@ public class RegistrationHistoryFragment extends Fragment {
         setupRecyclerView();
         setupViewModel();
         setupSwipeRefresh();
-        setupTabs(root);
         setupDateFilter(root);
-        setupChipFilter(root);
+        setupStatusFilter(root);
 
         return root;
     }
@@ -136,24 +135,46 @@ public class RegistrationHistoryFragment extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(() -> viewModel.refresh());
     }
 
-    private void setupTabs(View root) {
-        TabLayout tabLayout = root.findViewById(R.id.tab_layout_history);
-        tabLayout.addTab(tabLayout.newTab().setText("All"));
-        tabLayout.addTab(tabLayout.newTab().setText("Active"));
-        tabLayout.addTab(tabLayout.newTab().setText("Closed"));
+    private void setupStatusFilter(View root) {
+        ImageButton btnStatusFilter = root.findViewById(R.id.btnStatusFilter);
+        final String[] statusLabels = {"On Waitlist", "Selected!", "Enrolled", "Declined", "Cancelled"};
+        final boolean[] checked = new boolean[statusLabels.length];
 
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                switch (tab.getPosition()) {
-                    case 1:  activeTabGroup = "active"; break;
-                    case 2:  activeTabGroup = "closed"; break;
-                    default: activeTabGroup = "all";    break;
-                }
-                applyCurrentFilter();
+        btnStatusFilter.setOnClickListener(v -> {
+            for (int i = 0; i < statusLabels.length; i++) {
+                // empty filter = all showing, so pre-check everything
+                checked[i] = activeStatusFilter.isEmpty()
+                        || activeStatusFilter.contains(statusLabels[i]);
             }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Filter by status")
+                    .setMultiChoiceItems(statusLabels, checked,
+                            (dialog, which, isChecked) -> checked[which] = isChecked)
+                    .setPositiveButton("Apply", (dialog, which) -> {
+                        activeStatusFilter.clear();
+                        boolean allChecked = true;
+                        for (int i = 0; i < statusLabels.length; i++) {
+                            if (checked[i]) activeStatusFilter.add(statusLabels[i]);
+                            else allChecked = false;
+                        }
+                        // all selected = same as no filter
+                        if (allChecked) activeStatusFilter.clear();
+                        applyCurrentFilter();
+                        if (!activeStatusFilter.isEmpty()) {
+                            btnStatusFilter.setColorFilter(
+                                    ContextCompat.getColor(requireContext(), R.color.black));
+                        } else {
+                            btnStatusFilter.clearColorFilter();
+                        }
+                    })
+                    .setNeutralButton("Clear all", (dialog, which) -> {
+                        activeStatusFilter.clear();
+                        Arrays.fill(checked, false);
+                        applyCurrentFilter();
+                        btnStatusFilter.clearColorFilter();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
     }
 
@@ -193,27 +214,8 @@ public class RegistrationHistoryFragment extends Fragment {
         });
     }
 
-    private void setupChipFilter(View root) {
-        ChipGroup cgStatusFilter = root.findViewById(R.id.cgStatusFilter);
-        if (cgStatusFilter == null) return;
-        cgStatusFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds.isEmpty()) {
-                activeTabGroup = "all";
-            } else {
-                int id = checkedIds.get(0);
-                if      (id == R.id.chipWaitlist)  activeTabGroup = "waitlisted";
-                else if (id == R.id.chipSelected)   activeTabGroup = "selected";
-                else if (id == R.id.chipEnrolled)   activeTabGroup = "enrolled";
-                else if (id == R.id.chipDeclined)   activeTabGroup = "closed";
-                else if (id == R.id.chipCancelled)  activeTabGroup = "closed";
-                else                                activeTabGroup = "all";
-            }
-            applyCurrentFilter();
-        });
-    }
-
     private void applyCurrentFilter() {
-        adapter.setFilter(activeTabGroup, activeDateRange);
+        adapter.setFilter(activeStatusFilter, activeDateRange);
         boolean empty = adapter.getItemCount() == 0;
         emptyStateLayout.setVisibility(empty ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(empty ? View.GONE : View.VISIBLE);
@@ -221,15 +223,15 @@ public class RegistrationHistoryFragment extends Fragment {
         TextView tvTitle    = emptyStateLayout.findViewById(R.id.tv_empty_state_title);
         TextView tvSubtitle = emptyStateLayout.findViewById(R.id.tv_empty_state_subtitle);
         if (tvTitle != null && tvSubtitle != null) {
-            if (activeDateRange != null) {
+            if (activeDateRange != null && !activeStatusFilter.isEmpty()) {
+                tvTitle.setText("No results");
+                tvSubtitle.setText("No registrations match the selected filters and date range.");
+            } else if (activeDateRange != null) {
                 tvTitle.setText("No results in this date range");
                 tvSubtitle.setText("Try expanding the range or clearing the filter.");
-            } else if ("active".equals(activeTabGroup)) {
-                tvTitle.setText("No active registrations");
-                tvSubtitle.setText("Events you're on the waitlist for or have been selected to will appear here.");
-            } else if ("closed".equals(activeTabGroup)) {
-                tvTitle.setText("No closed registrations");
-                tvSubtitle.setText("Declined and cancelled registrations will appear here.");
+            } else if (!activeStatusFilter.isEmpty()) {
+                tvTitle.setText("No matching registrations");
+                tvSubtitle.setText("No registrations match the selected status filters.");
             } else {
                 tvTitle.setText("No Registration History");
                 tvSubtitle.setText("You haven't registered for any events yet.");
@@ -242,11 +244,6 @@ public class RegistrationHistoryFragment extends Fragment {
     private static class HistoryAdapter
             extends RecyclerView.Adapter<HistoryAdapter.ViewHolder> {
 
-        // Status groups
-        private static final List<String> ACTIVE_STATUSES =
-                Arrays.asList("On Waitlist", "Selected!", "Enrolled");
-        private static final List<String> CLOSED_STATUSES =
-                Arrays.asList("Declined", "Cancelled", "Not Selected");
 
         interface OnEventClickListener {
             void onEventClick(String eventId, String eventTitle);
@@ -269,21 +266,15 @@ public class RegistrationHistoryFragment extends Fragment {
         }
 
         /**
-         * @param groupFilter "all" | "active" | "closed"
-         * @param dateRange   [startMs, endMs] or null
+         * @param selectedStatuses set of status labels to show; empty means show all
+         * @param dateRange        [startMs, endMs] or null
          */
-        void setFilter(String groupFilter, long[] dateRange) {
+        void setFilter(Set<String> selectedStatuses, long[] dateRange) {
             List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
                     new ArrayList<>();
             for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
-                boolean groupOk;
-                if ("active".equals(groupFilter)) {
-                    groupOk = ACTIVE_STATUSES.contains(item.getStatusLabel());
-                } else if ("closed".equals(groupFilter)) {
-                    groupOk = CLOSED_STATUSES.contains(item.getStatusLabel());
-                } else {
-                    groupOk = true;
-                }
+                boolean statusOk = selectedStatuses.isEmpty()
+                        || selectedStatuses.contains(item.getStatusLabel());
 
                 boolean dateOk = true;
                 if (dateRange != null && dateRange.length == 2) {
@@ -291,7 +282,7 @@ public class RegistrationHistoryFragment extends Fragment {
                     dateOk = ts >= dateRange[0] && ts <= (dateRange[1] + 86_400_000L);
                 }
 
-                if (groupOk && dateOk) filtered.add(item);
+                if (statusOk && dateOk) filtered.add(item);
             }
             items = filtered;
             notifyDataSetChanged();

@@ -1,5 +1,7 @@
 package com.example.abacus_app;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -36,6 +38,7 @@ public class MainInboxFragment extends Fragment {
     private NotificationRepository notificationRepository;
     private NotificationAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
+    private User currentUser;
     private String currentUserId;
     private FirebaseFirestore db;
     private String currentUserEmail;
@@ -65,10 +68,18 @@ public class MainInboxFragment extends Fragment {
         setupNotificationActions();
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        currentUserId = local.getUUIDSync();
+        UserRemoteDataSource userRemoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(local, userRemoteDataSource);
+        // Why is there a synchronous method running on the UI thread????
+        //currentUserId = local.getUUIDSync();
+        userRepository.getProfile(user -> {
+            currentUser = user;
+            currentUserId = user.getUid();
+            currentUserEmail = user.getEmail();
 
-        Log.d(TAG, "Loading notifications for UID: " + currentUserId);
-        loadNotifications();
+            Log.d(TAG, "Loading notifications for UID: " + currentUserId);
+            loadNotifications();
+        });
 
         swipeRefresh.setOnRefreshListener(() -> {
             loadNotifications();
@@ -79,16 +90,9 @@ public class MainInboxFragment extends Fragment {
     }
 
     private void loadNotifications() {
-        UserRemoteDataSource userRemote = new UserRemoteDataSource(db);
-        if (currentUserId != null) {
-            userRemote.getUser(currentUserId, user -> {
-                if (user != null) {
-                    currentUserEmail = user.getEmail();
-                    startListening();
-                }
-            });
+        if (currentUser != null) {
+            startListening();
         }
-
     }
 
     private void setupNotificationActions() {

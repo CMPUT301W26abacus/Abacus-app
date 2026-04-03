@@ -87,4 +87,10 @@ public class AbacusApplication extends Application {
     public UserRepository getUserRepository() {
         return userRepository;
     }
+
+    @Override
+    public void onTerminate() {
+        super.onTerminate();
+        if (userRepository != null) userRepository.shutdown();
+    }
 }
