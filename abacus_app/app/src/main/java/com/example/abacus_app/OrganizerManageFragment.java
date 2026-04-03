@@ -69,7 +69,6 @@ public class OrganizerManageFragment extends Fragment {
     private Mode currentMode = Mode.EVENT_LIST;
     private String selectedEventId;
     private Event selectedEvent;
-    private int selectedEventWaitlistSize;
     private boolean isDirectAccess = false; // Flag for co-organizer direct access
 
     @Nullable
@@ -283,16 +282,22 @@ public class OrganizerManageFragment extends Fragment {
 
             allEntries.clear();
             allEntries.addAll(newEntries);
-            selectedEventWaitlistSize = allEntries.size();
-            tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
+            tvCount.setText("Total Entrants: " + allEntries.size());
 
             long countInvitedAccepted = allEntries.stream()
                     .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
                             || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
                     .count();
+            long countWaitlisted = allEntries.stream()
+                    .filter(entry -> WaitlistEntry.STATUS_WAITLISTED.equals(entry.getStatus()))
+                    .count();
 
             if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
+                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), countWaitlisted)) {
+                    Log.d(TAG, "observeViewModel: enable draw replacement");
+                    Log.d(TAG, "countInvitedAccepted: " + countInvitedAccepted);
+                    Log.d(TAG, "cap: " + selectedEvent.getEventCapacity());
+                    Log.d(TAG, "waitlist size: " + countWaitlisted);
                     btnDrawReplacement.setEnabled(true);
                 } else {
                     btnDrawReplacement.setEnabled(false);
