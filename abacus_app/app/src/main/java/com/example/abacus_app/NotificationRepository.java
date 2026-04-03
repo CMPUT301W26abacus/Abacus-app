@@ -46,7 +46,7 @@ public class NotificationRepository {
                 if (user != null) {
                     Notification notification = new Notification(
                             userId,
-                            user.getEmail(), // <-- now included
+                            user.getEmail(),
                             eventId,
                             "Congratulations! You have been selected for the event.",
                             Notification.TYPE_SELECTED
@@ -68,7 +68,7 @@ public class NotificationRepository {
                 if (user != null) {
                     Notification notification = new Notification(
                             userId,
-                            user.getEmail(), // <-- included
+                            user.getEmail(),
                             eventId,
                             "We regret to inform you that you were not selected for the event this time.",
                             Notification.TYPE_NOT_SELECTED
@@ -112,7 +112,7 @@ public class NotificationRepository {
                                         userId,
                                         user.getEmail(),
                                         eventId,
-                                        "Congratulations! You have been invited to " + event.getTitle(),
+                                        "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
                                         Notification.TYPE_SELECTED
                                 );
                             } else { // waitlisted
@@ -120,7 +120,7 @@ public class NotificationRepository {
                                         userId,
                                         user.getEmail(),
                                         eventId,
-                                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
+                                        "The lottery for " + (event != null ? event.getTitle() : "the event") + " has been drawn. Unfortunately you have not been selected at this time.",
                                         Notification.TYPE_NOT_SELECTED
                                 );
                             }
@@ -144,9 +144,9 @@ public class NotificationRepository {
             if (user != null) {
                 Notification notification = new Notification(
                         userId,
-                        user.getEmail(), // <-- included
+                        user.getEmail(),
                         eventId,
-                        "Congratulations! You have been invited to " + "event",
+                        "Congratulations! You have been invited to the event",
                         Notification.TYPE_SELECTED
                 );
                 remote.saveNotification(notification);

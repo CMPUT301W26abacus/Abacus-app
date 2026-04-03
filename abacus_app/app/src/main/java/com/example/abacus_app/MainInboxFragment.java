@@ -16,9 +16,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,23 +30,31 @@ import java.util.Map;
 /**
  * Inbox screen — combines status-based notifications from registrations
  * and custom messages from the notifications collection.
+ * For Admins, provides a toggle to view all notification logs in the system.
  */
 public class MainInboxFragment extends Fragment {
 
     private static final String TAG = "MainInboxFragment";
 
-    private NotificationRepository notificationRepository;
     private NotificationAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
     private TextView tvEmptyInbox;
     private RecyclerView recyclerView;
+    private MaterialButtonToggleGroup toggleGroupAdmin;
     private String currentUserId;
     private FirebaseFirestore db;
     private String currentUserEmail;
     private ManageEventViewModel manageEventViewModel;
+    private User currentUser;
+
+    private boolean showAllLogs = false;
+    private ListenerRegistration registrationListener;
+    private ListenerRegistration customNotificationListener;
+    private ListenerRegistration allLogsListener;
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
-    private final Map<String, Notification> allNotifications = new HashMap<>();
+    private final Map<String, Notification> myNotifications = new HashMap<>();
+    private final Map<String, Notification> allLogs = new HashMap<>();
 
     @Nullable
     @Override
@@ -56,6 +65,7 @@ public class MainInboxFragment extends Fragment {
 
         swipeRefresh = view.findViewById(R.id.inbox_swipe_refresh);
         tvEmptyInbox = view.findViewById(R.id.tv_empty_inbox);
+        toggleGroupAdmin = view.findViewById(R.id.toggle_group_admin);
 
         db = FirebaseFirestore.getInstance();
         manageEventViewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
@@ -70,23 +80,39 @@ public class MainInboxFragment extends Fragment {
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         currentUserId = local.getUUIDSync();
 
-        Log.d(TAG, "Loading notifications for UID: " + currentUserId);
-        loadNotifications();
+        loadUserAndStart();
 
         swipeRefresh.setOnRefreshListener(() -> {
-            loadNotifications();
+            loadUserAndStart();
             swipeRefresh.setRefreshing(false);
+        });
+
+        toggleGroupAdmin.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (isChecked) {
+                showAllLogs = (checkedId == R.id.btn_all_logs);
+                adapter.setReadOnly(showAllLogs); // Set read-only mode for logs
+                updateUI();
+            }
         });
 
         return view;
     }
 
-    private void loadNotifications() {
+    private void loadUserAndStart() {
         UserRemoteDataSource userRemote = new UserRemoteDataSource(db);
         if (currentUserId != null) {
             userRemote.getUser(currentUserId, user -> {
                 if (user != null) {
+                    currentUser = user;
                     currentUserEmail = user.getEmail();
+                    
+                    if ("admin".equals(user.getRole())) {
+                        toggleGroupAdmin.setVisibility(View.VISIBLE);
+                    } else {
+                        toggleGroupAdmin.setVisibility(View.GONE);
+                    }
+                    
+                    stopListening();
                     startListening();
                 }
             });
@@ -97,8 +123,10 @@ public class MainInboxFragment extends Fragment {
         adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
             @Override
             public void onAccept(Notification notification) {
-                // Find the doc ID from the map key (e.g., MSG_docId)
-                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+                // Actions only allowed for "My Inbox"
+                if (showAllLogs) return;
+
+                for (Map.Entry<String, Notification> entry : myNotifications.entrySet()) {
                     if (entry.getValue().equals(notification)) {
                         String key = entry.getKey();
                         if (key.startsWith("MSG_")) {
@@ -112,7 +140,9 @@ public class MainInboxFragment extends Fragment {
 
             @Override
             public void onDecline(Notification notification) {
-                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+                if (showAllLogs) return;
+
+                for (Map.Entry<String, Notification> entry : myNotifications.entrySet()) {
                     if (entry.getValue().equals(notification)) {
                         String key = entry.getKey();
                         if (key.startsWith("MSG_")) {
@@ -128,47 +158,55 @@ public class MainInboxFragment extends Fragment {
 
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
-
-        // Use the ViewModel method to add user as co-organizer
         manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
-
-        // Update notification status in Firestore instead of deleting
         db.collection("notifications").document(docId)
                 .update("status", Notification.STATUS_ACCEPTED)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
-                    // UI will update automatically due to SnapshotListener
                 });
     }
 
     private void declineInvite(String docId) {
-        // Update notification status in Firestore instead of deleting
         db.collection("notifications").document(docId)
                 .update("status", Notification.STATUS_DECLINED)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(getContext(), "Invitation declined", Toast.LENGTH_SHORT).show();
-                    // UI will update automatically due to SnapshotListener
                 });
     }
 
     private void startListening() {
-        // 1. Listen to Registration Status Changes (Lottery Results)
-        db.collection("registrations")
+        // 1. Listen to My Registration Status Changes
+        registrationListener = db.collection("registrations")
                 .whereEqualTo("userId", currentUserId)
                 .addSnapshotListener((value, error) -> {
                     if (error != null || value == null) return;
                     processRegistrations(value.getDocuments());
                 });
 
-        // 2. Listen to Custom Messages (Organizer Announcements + Invites)
+        // 2. Listen to My Custom Notifications
         if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
-            db.collection("notifications")
+            customNotificationListener = db.collection("notifications")
                     .whereEqualTo("userEmail", currentUserEmail)
                     .addSnapshotListener((value, error) -> {
                         if (error != null || value == null) return;
                         processCustomNotifications(value.getDocuments());
                     });
         }
+
+        // 3. If Admin, listen to ALL Notifications for logs
+        if (currentUser != null && "admin".equals(currentUser.getRole())) {
+            allLogsListener = db.collection("notifications")
+                    .addSnapshotListener((value, error) -> {
+                        if (error != null || value == null) return;
+                        processAllLogs(value.getDocuments());
+                    });
+        }
+    }
+
+    private void stopListening() {
+        if (registrationListener != null) registrationListener.remove();
+        if (customNotificationListener != null) customNotificationListener.remove();
+        if (allLogsListener != null) allLogsListener.remove();
     }
 
     private void processRegistrations(List<DocumentSnapshot> docs) {
@@ -185,8 +223,8 @@ public class MainInboxFragment extends Fragment {
 
                     Notification n = createFromStatus(eventId, eventTitle, status, drawn, timestamp, organizerId);
                     if (n != null) {
-                        allNotifications.put("REG_" + eventId, n);
-                        updateUI();
+                        myNotifications.put("REG_" + eventId, n);
+                        if (!showAllLogs) updateUI();
                     }
                 }
             });
@@ -197,16 +235,35 @@ public class MainInboxFragment extends Fragment {
         for (DocumentSnapshot doc : docs) {
             Notification n = doc.toObject(Notification.class);
             if (n != null) {
-                allNotifications.put("MSG_" + doc.getId(), n);
+                myNotifications.put("MSG_" + doc.getId(), n);
             }
         }
-        updateUI();
+        if (!showAllLogs) updateUI();
+    }
+
+    private void processAllLogs(List<DocumentSnapshot> docs) {
+        allLogs.clear();
+        for (DocumentSnapshot doc : docs) {
+            Notification n = doc.toObject(Notification.class);
+            if (n != null) {
+                allLogs.put(doc.getId(), n);
+            }
+        }
+        if (showAllLogs) updateUI();
     }
 
     private void updateUI() {
-        List<Notification> list = new ArrayList<>(allNotifications.values());
-        // Sort newest first
+        List<Notification> list;
+        if (showAllLogs) {
+            list = new ArrayList<>(allLogs.values());
+            tvEmptyInbox.setText("No notification logs found");
+        } else {
+            list = new ArrayList<>(myNotifications.values());
+            tvEmptyInbox.setText("No notifications yet");
+        }
+
         Collections.sort(list, (n1, n2) -> Long.compare(n2.getTimestamp(), n1.getTimestamp()));
+
         if (isAdded()) {
             if (list.isEmpty()) {
                 tvEmptyInbox.setVisibility(View.VISIBLE);
@@ -232,9 +289,14 @@ public class MainInboxFragment extends Fragment {
         }
 
         if (msg == null) return null;
-        // userId, userEmail, organizerId, eventId, message, type
         Notification n = new Notification(currentUserId, currentUserEmail, organizerId, eventId, msg, status);
         n.setTimestamp(time);
         return n;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        stopListening();
     }
 }
