@@ -17,9 +17,9 @@ import java.util.regex.Pattern;
  */
 public final class InputValidator {
 
-    /** Matches SQL injection metacharacters: semicolons, quotes, comment markers. */
+    /** Matches SQL injection metacharacters: semicolons, quotes, and SQL comment markers. */
     private static final Pattern SQL_INJECTION_PATTERN =
-            Pattern.compile("[;'\"\\-\\-]|(/\\*)|\\*/");
+            Pattern.compile("(;|'|\"|--|/\\*|\\*/)");
 
     /** Matches HTML/XML tags to prevent XSS in displayed content. */
     private static final Pattern XSS_PATTERN =
