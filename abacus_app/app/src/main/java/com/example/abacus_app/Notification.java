@@ -17,7 +17,7 @@ public class Notification {
     private String type;
     private long timestamp;
 
-    public Notification() {}
+    public Notification(String userId, String eventId, String s, String typeSelected) {}
 
     public Notification(String userId, String userEmail, String eventId, String message, String type) {
         this.userId = userId;

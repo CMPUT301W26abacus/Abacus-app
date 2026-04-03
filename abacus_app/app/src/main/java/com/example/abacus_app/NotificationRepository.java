@@ -133,56 +133,6 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies a single user that they have been draw for the lottery of an event.
-     *
-     * @param eventId the unique ID of the event in the database
-     * @param userId the unique ID of the user who was drawn
-     * @param callback called when the operation completes
-     */
-    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        executor.submit(() -> {
-            try {
-                RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
-                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-
-                ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
-                Event event = eventRDS.getEventById(eventId);
-
-                for (WaitlistEntry entry : entries) {
-                    String userId = entry.getUserId();
-                    userRemote.getUser(userId, user -> {
-                        if (user != null) {
-                            Notification notification;
-                            if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-                                notification = new Notification(
-                                        userId,
-                                        user.getEmail(),
-                                        eventId,
-                                        "Congratulations! You have been invited to " + event.getTitle(),
-                                        Notification.TYPE_SELECTED
-                                );
-                            } else { // waitlisted
-                                notification = new Notification(
-                                        userId,
-                                        user.getEmail(),
-                                        eventId,
-                                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
-                                        Notification.TYPE_NOT_SELECTED
-                                );
-                            }
-                            remote.saveNotification(notification);
-                        }
-                    });
-                }
-
-                mainHandler.post(() -> callback.onComplete(null));
-            } catch (Exception e) {
-                mainHandler.post(() -> callback.onComplete(e));
-            }
-        });
-    }
-
-    /**
      * Notify a user as a replacement for an event.
      */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
