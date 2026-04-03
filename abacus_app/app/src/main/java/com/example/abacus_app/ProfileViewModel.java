@@ -140,6 +140,12 @@ public class ProfileViewModel extends ViewModel {
 
     public void loadProfile() {
         if (userRepository == null) return;
+        Boolean guestNow = _isGuest.getValue();
+        if (guestNow != null && guestNow) {
+            // Guest session: do not fetch Firestore profile, which could pull an old
+            // role tied to this device UUID and override guest UI state.
+            return;
+        }
         if (profileLoaded) return;   // already loaded in this ViewModel lifetime — skip Firestore round-trip
         profileLoaded = true;
 
@@ -185,13 +191,21 @@ public class ProfileViewModel extends ViewModel {
         boolean notificationsEnabled = _notificationsEnabled.getValue() != null
                 ? _notificationsEnabled.getValue() : true;
 
+        _nameError.setValue(null);
+        _emailError.setValue(null);
+
         if (name.isEmpty()) {
-            _nameError.setValue("Name cannot be empty");
+            _nameError.setValue("Name is required");
             return;
         }
 
-        if (!email.isEmpty() && (!email.contains("@") || !email.contains("."))) {
-            _emailError.setValue("Please enter a valid email address");
+        if (email.isEmpty()) {
+            _emailError.setValue("Email is required");
+            return;
+        }
+
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            _emailError.setValue("Enter a valid email address");
             return;
         }
 

@@ -13,33 +13,32 @@
         android:layout_height="wrap_content"
         android:paddingBottom="48dp">
 
-        <!-- Hairline rule -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/topBar"
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:background="@color/white"
             android:paddingHorizontal="8dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintEnd_toEndOf="parent">
 
             <ImageButton
                 android:id="@+id/btnBack"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:src="@drawable/ic_arrow_back"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Go back"
                 android:padding="6dp"
-                android:src="@drawable/ic_arrow_back"
-                app:layout_constraintBottom_toBottomOf="parent"
+                app:tint="@color/black"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/black" />
+                app:layout_constraintBottom_toBottomOf="parent"/>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <!-- Hairline rule -->
         <View
             android:id="@+id/topDivider"
             android:layout_width="0dp"
@@ -188,7 +187,7 @@
             android:layout_height="48dp"
             android:layout_marginHorizontal="24dp"
             android:layout_marginTop="28dp"
-            android:backgroundTint="@color/orange"
+            android:backgroundTint="@color/btn_tint_selector"
             android:letterSpacing="0.02"
             android:text="Sign in"
             android:textColor="@color/white"

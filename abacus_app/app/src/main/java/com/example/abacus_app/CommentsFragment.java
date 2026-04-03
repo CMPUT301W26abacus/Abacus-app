@@ -108,12 +108,23 @@ public class CommentsFragment extends BottomSheetDialogFragment {
                 currentUser = user;
                 if (user != null) {
                     determineCanDelete();
+                    input.setEnabled(true);
+                    send.setEnabled(true);
+                } else {
+                    // Guest user — disable comment input
+                    input.setEnabled(false);
+                    send.setEnabled(false);
+                    input.setHint("Sign in to add comments");
                 }
             }
         });
 
         // onClick listeners
         send.setOnClickListener(v -> {
+            if (currentUser == null) {
+                Toast.makeText(getContext(), "Sign in to add comments", Toast.LENGTH_SHORT).show();
+                return;
+            }
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
                 addComment(text);
@@ -166,6 +177,10 @@ public class CommentsFragment extends BottomSheetDialogFragment {
      * communicates with adapter to display delete button.
      */
     private void determineCanDelete() {
+        if (currentUser == null) {
+            canDelete = false;
+            return;
+        }
         // event organizer data needed
         EventRepository eventRepository = new EventRepository();
         // in case user is an admin
