@@ -1,7 +1,5 @@
 package com.example.abacus_app;
 
-import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-
 import android.os.Handler;
 import android.os.Looper;
 

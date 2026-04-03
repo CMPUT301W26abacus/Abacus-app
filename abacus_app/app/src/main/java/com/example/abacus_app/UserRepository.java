@@ -163,13 +163,23 @@ public class UserRepository {
     public void getProfileAsync(UserCallback callback) {
         executor.submit(() -> {
             try {
-                // For authenticated users, use Firebase UID (unique per account)
-                // For guests, fall back to device UUID
-                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
-                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                // Prefer the saved device ID (persists across logins).
+                // This handles the case where a user changes their email and logs back in
+                // with the new email — Firebase creates a new UID, but we want to access
+                // the existing account (which is stored under the old UID).
+                String savedUuid = localDataSource.getUUIDSync();
 
-                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
-                        firebaseUser : getOrCreateUUID();
+                String docId;
+                if (savedUuid != null && !savedUuid.isEmpty()) {
+                    // Use the saved UUID — this persists across logins
+                    docId = savedUuid;
+                } else {
+                    // No saved UUID — use Firebase UID if available, or create a new one for guests
+                    String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                    docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                            firebaseUser : getOrCreateUUID();
+                }
 
                 User user = remoteDataSource.getUserSync(docId);
 
@@ -214,13 +224,23 @@ public class UserRepository {
     public void saveProfileAsync(Map<String, Object> profileData, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // For authenticated users, use Firebase UID (unique per account)
-                // For guests, fall back to device UUID
-                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
-                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                // Prefer the saved device ID (persists across logins).
+                // This handles the case where a user changes their email and logs back in
+                // with the new email — Firebase creates a new UID, but we want to update
+                // the existing account (stored under the old UID).
+                String savedUuid = localDataSource.getUUIDSync();
 
-                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
-                        firebaseUser : getOrCreateUUID();
+                String docId;
+                if (savedUuid != null && !savedUuid.isEmpty()) {
+                    // Use the saved UUID — this persists across logins
+                    docId = savedUuid;
+                } else {
+                    // No saved UUID — use Firebase UID if available, or create a new one for guests
+                    String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                    docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                            firebaseUser : getOrCreateUUID();
+                }
 
                 remoteDataSource.updateUserSync(docId, profileData);
                 mainHandler.post(() -> callback.onComplete(null));
@@ -249,13 +269,23 @@ public class UserRepository {
     public void savePreferencesAsync(Map<String, Object> preferences, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // For authenticated users, use Firebase UID (unique per account)
-                // For guests, fall back to device UUID
-                String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
-                        FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                // Prefer the saved device ID (persists across logins).
+                // This handles the case where a user changes their email and logs back in
+                // with the new email — Firebase creates a new UID, but we want to update
+                // the existing account (stored under the old UID).
+                String savedUuid = localDataSource.getUUIDSync();
 
-                String docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
-                        firebaseUser : getOrCreateUUID();
+                String docId;
+                if (savedUuid != null && !savedUuid.isEmpty()) {
+                    // Use the saved UUID — this persists across logins
+                    docId = savedUuid;
+                } else {
+                    // No saved UUID — use Firebase UID if available, or create a new one for guests
+                    String firebaseUser = FirebaseAuth.getInstance().getCurrentUser() != null ?
+                            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                    docId = (firebaseUser != null && !firebaseUser.isEmpty()) ?
+                            firebaseUser : getOrCreateUUID();
+                }
 
                 java.util.Map<String, Object> data = new java.util.HashMap<>();
                 data.put("preferences", preferences);

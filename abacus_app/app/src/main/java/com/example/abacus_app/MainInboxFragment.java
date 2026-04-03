@@ -1,7 +1,5 @@
 package com.example.abacus_app;
 
-import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -73,6 +71,10 @@ public class MainInboxFragment extends Fragment {
         // Why is there a synchronous method running on the UI thread????
         //currentUserId = local.getUUIDSync();
         userRepository.getProfile(user -> {
+            if (user == null) {
+                // Guest user — no inbox notifications
+                return;
+            }
             currentUser = user;
             currentUserId = user.getUid();
             currentUserEmail = user.getEmail();
