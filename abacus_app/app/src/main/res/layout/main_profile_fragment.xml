@@ -60,10 +60,9 @@
                                 android:id="@+id/imgAvatar"
                                 android:layout_width="56dp"
                                 android:layout_height="56dp"
-                                android:background="@drawable/ic_avatar_placeholder"
+                                android:background="@drawable/ic_account_circle"
                                 android:contentDescription="User Avatar"
-                                android:scaleType="centerCrop"
-                                android:src="@drawable/ic_avatar_placeholder" />
+                                android:scaleType="centerCrop" />
 
                         </FrameLayout>
 

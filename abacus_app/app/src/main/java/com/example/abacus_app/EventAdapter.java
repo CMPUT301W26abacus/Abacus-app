@@ -61,6 +61,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     private final OnEventDeleteListener deleteListener;
     private OnManageClickListener manageClickListener;
     private final boolean isAdmin;
+    private final boolean canManageEvents;
 
     @Nullable
     private final String userKey;
@@ -72,12 +73,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                         OnEventClickListener clickListener,
                         OnEventDeleteListener deleteListener,
                         boolean isAdmin,
+                        boolean canManageEvents,
                         @Nullable String userKey,
                         boolean isGuest) {
         this.events         = events;
         this.clickListener  = clickListener;
         this.deleteListener = deleteListener;
         this.isAdmin        = isAdmin;
+        this.canManageEvents = canManageEvents;
         this.userKey        = userKey;
         this.isGuest        = isGuest;
     }
@@ -87,14 +90,15 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                         OnEventDeleteListener deleteListener,
                         OnManageClickListener manageClickListener,
                         boolean isAdmin,
+                        boolean canManageEvents,
                         @Nullable String userKey,
                         boolean isGuest) {
-        this(events, clickListener, deleteListener, isAdmin, userKey, isGuest);
+        this(events, clickListener, deleteListener, isAdmin, canManageEvents, userKey, isGuest);
         this.manageClickListener = manageClickListener;
     }
 
     public EventAdapter(List<Event> events, OnEventClickListener clickListener) {
-        this(events, clickListener, null, false, null, false);
+        this(events, clickListener, null, false, false, null, false);
     }
 
     // ── RecyclerView overrides ────────────────────────────────────────────────
@@ -147,7 +151,17 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         });
 
         // Check if current user is the organizer of this event
-        if (userKey != null && userKey.equals(event.getOrganizerId())) {
+        String organizerId = event.getOrganizerId();
+        boolean isOrganizerByUUID = userKey != null && userKey.equals(organizerId);
+        boolean isOrganizerByFirebaseUID = false;
+
+        if (!isOrganizerByUUID && canManageEvents) {
+            // Also check Firebase UID (organizers are created with Firebase UID as organizerId)
+            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
+        }
+
+        if (canManageEvents && (isOrganizerByUUID || isOrganizerByFirebaseUID)) {
             // Organizer mode: show "Edit" instead of "Join"
             applyEditButtonState(holder, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
@@ -172,7 +186,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         }
 
         // Check if user is a co-organizer
-        if (event.getCoOrganizers() != null && event.getCoOrganizers().contains(userKey)) {
+        if (canManageEvents && event.getCoOrganizers() != null && event.getCoOrganizers().contains(userKey)) {
             applyButtonState(holder, ButtonState.MANAGE, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (manageClickListener != null) manageClickListener.onManageClick(event);
@@ -180,37 +194,63 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             return;
         }
 
+        // Organizers cannot join other people's events — only edit/manage their own
+        if (canManageEvents) {
+            holder.btnJoinStatus.setVisibility(View.GONE);
+            return;
+        }
+
         // Reset to Join while async check runs to avoid stale recycled state
         applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
 
-        String docId = userKey + "_" + eventId;
+        String legacyDocId = userKey + "_" + eventId;
 
-        FirebaseFirestore.getInstance()
-                .collection("registrations")
-                .document(docId)
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document(userKey)
                 .get()
-                .addOnSuccessListener(snapshot -> {
-                    int pos = holder.getBindingAdapterPosition();
-                    if (pos == RecyclerView.NO_ID || pos < 0 || pos >= events.size()) return;
-                    if (!eventId.equals(events.get(pos).getEventId())) return;
+                .addOnSuccessListener(waitlistSnapshot -> {
+                    if (waitlistSnapshot.exists()) {
+                        int pos = holder.getBindingAdapterPosition();
+                        if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
+                        if (!eventId.equals(events.get(pos).getEventId())) return;
 
-                    boolean joined = snapshot.exists();
-                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN, holder.itemView.getContext());
-
-                    if (joined) {
-                        // Already joined — tap opens details so they can leave from there
+                        applyButtonState(holder, ButtonState.JOINED, holder.itemView.getContext());
                         holder.btnJoinStatus.setOnClickListener(v -> {
                             if (clickListener != null)
                                 clickListener.onEventClick(event.getTitle(), false);
                         });
-                    } else {
-                        // Not joined — tap opens details AND triggers join immediately
-                        holder.btnJoinStatus.setOnClickListener(v -> {
-                            if (clickListener != null)
-                                clickListener.onEventClick(event.getTitle(), true);
-                        });
+                        return;
                     }
+
+                    // Legacy fallback for older guest registrations stored only in flat collection.
+                    db.collection("registrations")
+                            .document(legacyDocId)
+                            .get()
+                            .addOnSuccessListener(regSnapshot -> {
+                                int pos = holder.getBindingAdapterPosition();
+                                if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
+                                if (!eventId.equals(events.get(pos).getEventId())) return;
+
+                                boolean joined = regSnapshot.exists();
+                                applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN,
+                                        holder.itemView.getContext());
+
+                                if (joined) {
+                                    holder.btnJoinStatus.setOnClickListener(v -> {
+                                        if (clickListener != null)
+                                            clickListener.onEventClick(event.getTitle(), false);
+                                    });
+                                } else {
+                                    holder.btnJoinStatus.setOnClickListener(v -> {
+                                        if (clickListener != null)
+                                            clickListener.onEventClick(event.getTitle(), true);
+                                    });
+                                }
+                            });
                 });
     }
 

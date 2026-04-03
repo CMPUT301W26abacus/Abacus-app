@@ -80,7 +80,7 @@ public class EventBrowseUnitTest {
         events.add(new Event());
 
         // Pass a dummy lambda for the OnEventClickListener
-        EventAdapter adapter = new EventAdapter(events, title -> {});
+        EventAdapter adapter = new EventAdapter(events, (title, autoJoin) -> {});
         assertEquals(3, adapter.getItemCount());
     }
 

@@ -1,23 +1,28 @@
 /**
- * MainActivity.java
+ * MainActivity - Main screen hosting all app features
  *
- * Role: The single Activity that hosts all fragments via the Navigation
- * component. Responsible for loading and displaying the event browse list,
- * applying keyword and date filters, managing bottom navigation, and
- * routing to event detail, profile, QR scan, and organizer/admin screens.
+ * The central hub of the app. Hosts all fragments and manages:
+ * - Displaying the event list with search and date filtering
+ * - Bottom navigation menu (changes based on user role: entrant/organizer)
+ * - Navigation to event details, profile, QR scan, and organizer tools
+ * - User role and guest status management
  *
- * Design pattern: Activity as host. Fragment navigation is handled through
- * the Jetpack NavController. No ViewModel is used — filter state and event
- * data are held directly in the Activity, consistent with the project's
- * architecture decisions.
+ * Key Features:
+ * - Dynamically rebuilds bottom nav when user role changes (e.g., after logout)
+ * - Instantly switches between light/dark themes when system setting changes
+ * - Maintains event list and filter state
+ * - Handles guest vs logged-in user permissions
  *
- * Outstanding issues:
- * - The event list is not paginated; very large event collections may cause
- *   performance issues.
- * - Role detection makes a Firestore read on every launch; could be cached
- *   locally once the UserRepository stabilizes.
- * - Guest users see the full event list but cannot join waitlists; the UI
- *   does not currently indicate guest-mode restrictions on the browse screen.
+ * User Role Updates:
+ * - onUserLoggedOut(): Called when user signs out, resets role to "entrant"
+ *   and rebuilds bottom navigation immediately
+ * - setEffectiveRole(): Updates user role and refreshes navigation
+ *
+ * Theme Switching:
+ * - onResume() detects dark mode changes and calls recreate() to reload
+ *   with correct theme colors
+ * - Font scale applied after setContentView() to avoid freezing configuration
+ *
  */
 package com.example.abacus_app;
 
@@ -114,6 +119,13 @@ public class MainActivity extends AppCompatActivity {
 
     private ListenerRegistration eventsListener;
 
+    /** App-level role model supports only entrant/organizer for signed-in users. */
+    private String normalizeAppRole(String role) {
+        if ("admin".equals(role)) return "admin";
+        if ("organizer".equals(role)) return "organizer";
+        return "entrant";
+    }
+
     // ── One-handed mode ───────────────────────────────────────────────────────
     private boolean  isOneHandedActive = false;
     private Animator chevronAnimator   = null;
@@ -144,7 +156,10 @@ public class MainActivity extends AppCompatActivity {
 
         isGuest = getIntent().getBooleanExtra("isGuest", false);
         String intentRole = getIntent().getStringExtra("userRole");
-        if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
+        if (intentRole == null || intentRole.isEmpty()) {
+            intentRole = getIntent().getStringExtra("role");
+        }
+        if (intentRole != null && !intentRole.isEmpty()) userRole = normalizeAppRole(intentRole);
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
@@ -277,8 +292,12 @@ public class MainActivity extends AppCompatActivity {
         // ── Wait for profile to load to set up navigation ──────────────────────
         userRepository.getProfile(user -> {
             if (user != null) {
-                userRole = (user.getRole() != null && !user.getRole().isEmpty())
-                        ? user.getRole() : "entrant";
+                // Only update the role from Firestore for authenticated (non-guest) users.
+                // Guest sessions must stay as "entrant" regardless of what the Firestore
+                // doc contains (e.g. an old admin account stored at the same ANDROID_ID).
+                if (!isGuest) {
+                    userRole = normalizeAppRole(user.getRole());
+                }
                 userPreferences = user.getPreferences();
                 android.util.Log.d("MainActivity", "User role resolved: " + userRole);
                 runOnUiThread(() -> {
@@ -320,12 +339,20 @@ public class MainActivity extends AppCompatActivity {
             // if events are already loaded, re-apply now so button states update.
             if (!allEvents.isEmpty()) applyFilters();
         } else {
-            UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
-            UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
-            new UserRepository(local, remote).getCurrentUserId(uuid -> {
-                resolvedUserKey = uuid;
+            FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
+            String email = authUser != null ? authUser.getEmail() : null;
+            if (email != null && !email.trim().isEmpty()) {
+                resolvedUserKey = GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US));
                 if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
-            });
+            } else {
+                // Fallback for edge-cases where Firebase email is missing.
+                UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
+                UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+                new UserRepository(local, remote).getCurrentUserId(uuid -> {
+                    resolvedUserKey = uuid;
+                    if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
+                });
+            }
         }
     }
 
@@ -480,10 +507,25 @@ public class MainActivity extends AppCompatActivity {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
             }
 
-            // US: Private events should not be visible in public browse list
+            // US: Private events visible only to their organizer; public events visible to all
             boolean isPublic = !event.isPrivate();
+            boolean isOrganizerOfPrivate = false;
 
-            if (keywordMatch && dateMatch && notExpired && isPublic) filtered.add(event);
+            if (!isPublic) {
+                // Check both device UUID and Firebase UID for organizer match
+                String organizerId = event.getOrganizerId();
+                boolean isOrganizerByUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
+                boolean isOrganizerByFirebaseUID = false;
+
+                if (!isOrganizerByUUID) {
+                    com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                    isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
+                }
+
+                isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
+            }
+
+            if (keywordMatch && dateMatch && notExpired && (isPublic || isOrganizerOfPrivate)) filtered.add(event);
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────
@@ -510,7 +552,9 @@ public class MainActivity extends AppCompatActivity {
             tvForYouLabel.setText("All Events");
         }
 
-        boolean isAdminUser = "admin".equals(userRole);
+    boolean isAdminUser = "admin".equals(userRole);
+    boolean canManageEvents = !isGuest
+        && ("organizer".equals(userRole) || "admin".equals(userRole));
         final List<Event> finalFiltered = filtered;
 
         recyclerView.setAdapter(new EventAdapter(
@@ -539,6 +583,7 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.organizerManageFragment, false, args);
                 },
                 isAdminUser,
+                canManageEvents,
                 resolvedUserKey,   // null until resolved — adapter handles gracefully
                 isGuest
         ));
@@ -1116,10 +1161,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         if (eventsListener != null) eventsListener.remove();
-        if (userRepository  != null) userRepository.shutdown();
-        if (eventRepository != null) eventRepository.shutdown();
+        if (isFinishing()) {
+            if (userRepository != null) userRepository.shutdown();
+            if (eventRepository != null) eventRepository.shutdown();
+        }
+        super.onDestroy();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -1148,7 +1195,7 @@ public class MainActivity extends AppCompatActivity {
      * @param role "entrant" | "organizer" | "admin"
      */
     public void setEffectiveRole(String role) {
-        userRole = role;
+        userRole = normalizeAppRole(role);
         runOnUiThread(() -> {
             setupBottomNav();
             applyFilters();
@@ -1162,6 +1209,32 @@ public class MainActivity extends AppCompatActivity {
      */
     public String getEffectiveRole() {
         return userRole;
+    }
+
+    /** Returns whether the current session is a guest (unauthenticated) session. */
+    public boolean isGuestSession() { return isGuest; }
+
+    /**
+     * Called by ProfileFragment when the user signs out.
+     * Resets role and guest state and rebuilds the bottom nav as entrant.
+     */
+    public void onUserLoggedOut() {
+        userRole = "entrant";
+        isGuest = true;
+        bottomNavRole = null;    // force nav rebuild even if already "entrant"
+        resolvedUserKey = null;  // clear so event cards revert to "Join" instead of "On Waitlist"
+
+        // Prevent stale guest waitlist identity from being reused after logout.
+        getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, MODE_PRIVATE)
+                .edit()
+                .remove(GuestSignUpFragment.PREF_GUEST_EMAIL)
+                .apply();
+
+        runOnUiThread(() -> {
+            setupBottomNav();
+            if (!allEvents.isEmpty()) applyFilters(); // rebuild adapter with null userKey
+            showHome();
+        });
     }
 
     public void onGuestJoinAttempt() {

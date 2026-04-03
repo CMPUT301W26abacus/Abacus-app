@@ -12,34 +12,46 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 /**
- * Activity for user login for existing users, using Firebase Auth.
+ * LoginActivity - Handles user login
  *
- * Responsibilities:
- * - Handles user login using Firebase Auth.
- * - Links Firebase Auth user data to Firestore profile.
- * - Syncs display name between Firebase Auth and Firestore.
- * - Handles SSO (Single Sign-On) logic.
- * - Handles password reset.
- * - Handles registration flow.
+ * Lets existing users sign in with email and password using Firebase Auth.
  *
- * When a user logs in, their profile shows the correct email and display name,
- * and is marked as a non-guest user.
+ * What it does:
+ * - Authenticates user with Firebase Auth
+ * - Looks up user's existing Firestore profile by email
+ * - Restores user's UUID and history from local storage
+ * - Syncs display name between Firebase and Firestore
+ * - Clears guest email when user logs in (no mixing accounts)
+ * - Shows error messages (wrong password, no account, etc)
+ * - Handles password reset via email
+ * - Links to registration for new users
  *
+ * @author Dyna
  */
 public class LoginActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private UserRepository userRepository;
     private UserLocalDataSource localDataSource;
+
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -150,8 +162,7 @@ public class LoginActivity extends AppCompatActivity {
                 .document(uuid)
                 .get()
                 .addOnSuccessListener(doc -> {
-                    String role = doc.getString("role");
-                    if (role == null) role = "entrant";
+                    String role = normalizeAppRole(doc.getString("role"));
                     android.util.Log.d("LoginActivity", "Role from Firestore: " + role);
                     navigateToMain(role);
                 })
@@ -167,10 +178,17 @@ public class LoginActivity extends AppCompatActivity {
                 .putBoolean("has_launched_before", true)
                 .apply();
 
+    // Authenticated session should not inherit guest waitlist identity.
+    getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, MODE_PRIVATE)
+        .edit()
+        .remove(GuestSignUpFragment.PREF_GUEST_EMAIL)
+        .apply();
+
         Toast.makeText(this, "Welcome back!", Toast.LENGTH_SHORT).show();
 
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("isGuest", false);
+        intent.putExtra("userRole", role);
         intent.putExtra("role", role);
         startActivity(intent);
         finish();
@@ -191,11 +209,15 @@ public class LoginActivity extends AppCompatActivity {
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .whereEqualTo("email", authUser.getEmail())
-                .limit(1)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (!querySnapshot.isEmpty()) {
-                        com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                        DocumentSnapshot doc = pickBestUserDoc(querySnapshot.getDocuments());
+
+                        if (doc == null) {
+                            updateProfileFields(authUser);
+                            return;
+                        }
 
                         // Check if the account is inactivated/deleted
                         Boolean isDeleted = doc.getBoolean("isDeleted");
@@ -268,5 +290,40 @@ public class LoginActivity extends AppCompatActivity {
                         });
             }
         });
+    }
+
+    /**
+     * App supports only entrant/organizer roles for signed-in users.
+     * Any unknown/admin role is treated as entrant.
+     */
+    private String normalizeAppRole(String role) {
+        return "organizer".equals(role) ? "organizer" : "entrant";
+    }
+
+    /**
+     * Picks the most suitable Firestore user doc when duplicate emails exist.
+     * Preference order: active entrant/organizer doc, then any active doc.
+     */
+    private DocumentSnapshot pickBestUserDoc(List<DocumentSnapshot> docs) {
+        if (docs == null || docs.isEmpty()) return null;
+
+        List<DocumentSnapshot> active = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            Boolean isDeleted = doc.getBoolean("isDeleted");
+            if (!Boolean.TRUE.equals(isDeleted)) {
+                active.add(doc);
+            }
+        }
+
+        if (active.isEmpty()) return docs.get(0);
+
+        for (DocumentSnapshot doc : active) {
+            String role = normalizeAppRole(doc.getString("role"));
+            if ("entrant".equals(role) || "organizer".equals(role)) {
+                return doc;
+            }
+        }
+
+        return active.get(0);
     }
 }

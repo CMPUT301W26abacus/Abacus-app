@@ -59,7 +59,6 @@
                     android:background="#00FFFFFF"
                     android:contentDescription="Profile"
                     android:src="@drawable/ic_account_circle"
-                    app:tint="@color/black"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
