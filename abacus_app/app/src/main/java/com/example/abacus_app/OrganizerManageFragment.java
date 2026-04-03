@@ -277,27 +277,27 @@ public class OrganizerManageFragment extends Fragment {
 
         // Waitlist mode
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
-            if (currentMode != Mode.WAITLIST || newEntries == null) return;
+            if (currentMode == Mode.WAITLIST && newEntries != null) {
+                allEntries.clear();
+                allEntries.addAll(newEntries);
+                selectedEventWaitlistSize = allEntries.size();
+                tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
 
-            allEntries.clear();
-            allEntries.addAll(newEntries);
-            selectedEventWaitlistSize = allEntries.size();
-            tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
+                long countInvitedAccepted = allEntries.stream()
+                        .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
+                                || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
+                        .count();
 
-            long countInvitedAccepted = allEntries.stream()
-                    .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
-                            || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
-                    .count();
-
-            if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
-                    btnDrawReplacement.setEnabled(true);
-                } else {
-                    btnDrawReplacement.setEnabled(false);
+                if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
+                    if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
+                        btnDrawReplacement.setEnabled(true);
+                    } else {
+                        btnDrawReplacement.setEnabled(false);
+                    }
                 }
-            }
 
-            applyFilter();
+                applyFilter();
+            }
         });
 
         // Search results

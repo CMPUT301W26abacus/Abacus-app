@@ -18,14 +18,17 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Inbox screen — combines status-based notifications from registrations
@@ -55,6 +58,7 @@ public class MainInboxFragment extends Fragment {
     // We store notifications in a map keyed by a unique ID to prevent duplicates
     private final Map<String, Notification> myNotifications = new HashMap<>();
     private final Map<String, Notification> allLogs = new HashMap<>();
+    private final Map<String, String> organizerEmailCache = new HashMap<>();
 
     @Nullable
     @Override
@@ -90,7 +94,7 @@ public class MainInboxFragment extends Fragment {
         toggleGroupAdmin.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (isChecked) {
                 showAllLogs = (checkedId == R.id.btn_all_logs);
-                adapter.setReadOnly(showAllLogs); // Set read-only mode for logs
+                adapter.setReadOnly(showAllLogs);
                 updateUI();
             }
         });
@@ -123,7 +127,6 @@ public class MainInboxFragment extends Fragment {
         adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
             @Override
             public void onAccept(Notification notification) {
-                // Actions only allowed for "My Inbox"
                 if (showAllLogs) return;
 
                 for (Map.Entry<String, Notification> entry : myNotifications.entrySet()) {
@@ -175,7 +178,6 @@ public class MainInboxFragment extends Fragment {
     }
 
     private void startListening() {
-        // 1. Listen to My Registration Status Changes
         registrationListener = db.collection("registrations")
                 .whereEqualTo("userId", currentUserId)
                 .addSnapshotListener((value, error) -> {
@@ -183,7 +185,6 @@ public class MainInboxFragment extends Fragment {
                     processRegistrations(value.getDocuments());
                 });
 
-        // 2. Listen to My Custom Notifications
         if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
             customNotificationListener = db.collection("notifications")
                     .whereEqualTo("userEmail", currentUserEmail)
@@ -193,7 +194,6 @@ public class MainInboxFragment extends Fragment {
                     });
         }
 
-        // 3. If Admin, listen to ALL Notifications for logs
         if (currentUser != null && "admin".equals(currentUser.getRole())) {
             allLogsListener = db.collection("notifications")
                     .addSnapshotListener((value, error) -> {
@@ -243,12 +243,35 @@ public class MainInboxFragment extends Fragment {
 
     private void processAllLogs(List<DocumentSnapshot> docs) {
         allLogs.clear();
+        Set<String> newOrganizerIds = new HashSet<>();
+
         for (DocumentSnapshot doc : docs) {
             Notification n = doc.toObject(Notification.class);
             if (n != null) {
                 allLogs.put(doc.getId(), n);
+                String orgId = n.getOrganizerId();
+                if (orgId != null && !organizerEmailCache.containsKey(orgId)) {
+                    newOrganizerIds.add(orgId);
+                }
             }
         }
+
+        if (!newOrganizerIds.isEmpty()) {
+            // Firestore limit is 10 for whereIn, but for this project's scale we'll assume it's small or fetch in chunks
+            // For robust handling, fetch one by one if the list is large
+            for (String orgId : newOrganizerIds) {
+                db.collection("users").document(orgId).get().addOnSuccessListener(userDoc -> {
+                    if (userDoc.exists()) {
+                        String email = userDoc.getString("email");
+                        if (email != null) {
+                            organizerEmailCache.put(orgId, email);
+                            adapter.setOrganizerEmails(organizerEmailCache);
+                        }
+                    }
+                });
+            }
+        }
+
         if (showAllLogs) updateUI();
     }
 
@@ -257,6 +280,7 @@ public class MainInboxFragment extends Fragment {
         if (showAllLogs) {
             list = new ArrayList<>(allLogs.values());
             tvEmptyInbox.setText("No notification logs found");
+            adapter.setOrganizerEmails(organizerEmailCache);
         } else {
             list = new ArrayList<>(myNotifications.values());
             tvEmptyInbox.setText("No notifications yet");

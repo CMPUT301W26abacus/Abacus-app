@@ -15,8 +15,10 @@ import com.google.android.material.button.MaterialButton;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Adapter class for the RecyclerView in NotificationFragment.
@@ -33,6 +35,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     }
 
     private List<Notification> notifications = new ArrayList<>();
+    private Map<String, String> organizerEmails = new HashMap<>();
     private OnNotificationActionListener actionListener;
     private boolean isReadOnly = false;
 
@@ -42,6 +45,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
     public void setNotifications(List<Notification> notifications) {
         this.notifications = notifications;
+        notifyDataSetChanged();
+    }
+
+    public void setOrganizerEmails(Map<String, String> emails) {
+        this.organizerEmails = emails;
         notifyDataSetChanged();
     }
 
@@ -78,7 +86,13 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             logHolder.messageTextView.setText(notification.getMessage());
             logHolder.timestampTextView.setText(dateString);
             logHolder.tvRecipient.setText("To: " + (notification.getUserEmail() != null ? notification.getUserEmail() : "Unknown"));
-            logHolder.tvSender.setText("From: " + (notification.getOrganizerId() != null ? notification.getOrganizerId() : "System/Unknown"));
+            
+            // Resolve organizer email from cache or fallback to ID
+            String orgId = notification.getOrganizerId();
+            String email = organizerEmails.get(orgId);
+            String senderDisplay = (email != null) ? email : (orgId != null ? orgId : "System/Unknown");
+            
+            logHolder.tvSender.setText("From: " + senderDisplay);
             logHolder.tvType.setText(notification.getType());
             logHolder.statusTextView.setText("Status: " + notification.getStatus());
             

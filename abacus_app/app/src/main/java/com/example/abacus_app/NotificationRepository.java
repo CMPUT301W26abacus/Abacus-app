@@ -25,12 +25,14 @@ public class NotificationRepository {
 
     private final NotificationRemoteDataSource remote;
     private final UserRemoteDataSource userRemote;
+    private final EventRemoteDataSource eventRemote;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public NotificationRepository() {
         this.remote = new NotificationRemoteDataSource();
         this.userRemote = new UserRemoteDataSource(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+        this.eventRemote = new EventRemoteDataSource();
     }
 
     // ── Selected / Not Selected Notifications ────────────────────────────────
@@ -41,20 +43,24 @@ public class NotificationRepository {
     public void notifySelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
 
-        for (String userId : userIds) {
-            userRemote.getUser(userId, user -> {
-                if (user != null) {
-                    Notification notification = new Notification(
-                            userId,
-                            user.getEmail(),
-                            eventId,
-                            "Congratulations! You have been selected for the event.",
-                            Notification.TYPE_SELECTED
-                    );
-                    remote.saveNotification(notification);
-                }
-            });
-        }
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            String organizerId = (event != null) ? event.getOrganizerId() : null;
+            for (String userId : userIds) {
+                userRemote.getUser(userId, user -> {
+                    if (user != null) {
+                        Notification notification = new Notification(
+                                userId,
+                                user.getEmail(),
+                                organizerId,
+                                eventId,
+                                "Congratulations! You have been selected for the event.",
+                                Notification.TYPE_SELECTED
+                        );
+                        remote.saveNotification(notification);
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -63,20 +69,24 @@ public class NotificationRepository {
     public void notifyNotSelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
 
-        for (String userId : userIds) {
-            userRemote.getUser(userId, user -> {
-                if (user != null) {
-                    Notification notification = new Notification(
-                            userId,
-                            user.getEmail(),
-                            eventId,
-                            "We regret to inform you that you were not selected for the event this time.",
-                            Notification.TYPE_NOT_SELECTED
-                    );
-                    remote.saveNotification(notification);
-                }
-            });
-        }
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            String organizerId = (event != null) ? event.getOrganizerId() : null;
+            for (String userId : userIds) {
+                userRemote.getUser(userId, user -> {
+                    if (user != null) {
+                        Notification notification = new Notification(
+                                userId,
+                                user.getEmail(),
+                                organizerId,
+                                eventId,
+                                "We regret to inform you that you were not selected for the event this time.",
+                                Notification.TYPE_NOT_SELECTED
+                        );
+                        remote.saveNotification(notification);
+                    }
+                });
+            }
+        });
     }
 
     // ── Listening ───────────────────────────────────────────────────────────
@@ -97,10 +107,9 @@ public class NotificationRepository {
         executor.submit(() -> {
             try {
                 RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
-                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-
                 ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
-                Event event = eventRDS.getEventById(eventId);
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
 
                 for (WaitlistEntry entry : entries) {
                     String userId = entry.getUserId();
@@ -111,6 +120,7 @@ public class NotificationRepository {
                                 notification = new Notification(
                                         userId,
                                         user.getEmail(),
+                                        organizerId,
                                         eventId,
                                         "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
                                         Notification.TYPE_SELECTED
@@ -119,6 +129,7 @@ public class NotificationRepository {
                                 notification = new Notification(
                                         userId,
                                         user.getEmail(),
+                                        organizerId,
                                         eventId,
                                         "The lottery for " + (event != null ? event.getTitle() : "the event") + " has been drawn. Unfortunately you have not been selected at this time.",
                                         Notification.TYPE_NOT_SELECTED
@@ -140,20 +151,24 @@ public class NotificationRepository {
      * Notify a user as a replacement for an event.
      */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        userRemote.getUser(userId, user -> {
-            if (user != null) {
-                Notification notification = new Notification(
-                        userId,
-                        user.getEmail(),
-                        eventId,
-                        "Congratulations! You have been invited to the event",
-                        Notification.TYPE_SELECTED
-                );
-                remote.saveNotification(notification);
-            }
-            if (callback != null) {
-                mainHandler.post(() -> callback.onComplete(null));
-            }
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            String organizerId = (event != null) ? event.getOrganizerId() : null;
+            userRemote.getUser(userId, user -> {
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(),
+                            organizerId,
+                            eventId,
+                            "Congratulations! You have been invited to the event",
+                            Notification.TYPE_SELECTED
+                    );
+                    remote.saveNotification(notification);
+                }
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(null));
+                }
+            });
         });
     }
 
