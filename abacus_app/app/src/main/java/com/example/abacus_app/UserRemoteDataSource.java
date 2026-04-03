@@ -97,9 +97,8 @@ public class UserRemoteDataSource {
         user.setOrganizationName(getString(snap, "organizationName"));
 
         Object prefsRaw = snap.get("preferences");
-        if (prefsRaw instanceof Map) {
-            //noinspection unchecked
-            user.setPreferences((Map<String, Object>) prefsRaw);
+        if (prefsRaw instanceof Map<?, ?>) {
+            user.setPreferences(toStringObjectMap((Map<?, ?>) prefsRaw));
         }
 
         try {
@@ -201,5 +200,19 @@ public class UserRemoteDataSource {
         if (v instanceof Long)   return (Long) v;
         if (v instanceof Number) return ((Number) v).longValue();
         return 0L;
+    }
+
+    /**
+     * Converts an unknown map into a {@code Map<String, Object>} without unchecked casts.
+     * Non-string keys are ignored.
+     */
+    private Map<String, Object> toStringObjectMap(Map<?, ?> raw) {
+        Map<String, Object> out = new java.util.HashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            if (entry.getKey() instanceof String) {
+                out.put((String) entry.getKey(), entry.getValue());
+            }
+        }
+        return out;
     }
 }
