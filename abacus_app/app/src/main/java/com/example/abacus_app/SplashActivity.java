@@ -18,14 +18,20 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * Splash Activity
+ * Splash Activity - Entry point for the app
  *
- * Behaviour:
- * - Entry point for the app, shown before the main screen.
- * - Handles user state (first-time vs returning) and navigates accordingly.
- * - Shows an animation and buttons for guest browsing or signing up.
+ * Shows a splash screen with animation and handles navigation based on user state.
  *
+ * Behavior:
+ * - First launch (no UUID): Shows "Get Started" and "Browse as Guest" buttons
+ * - Returning logged-in user: Goes straight to main screen with their role
+ * - Logged-out user: Goes to main as guest (can log in from profile screen)
+ * - Deleted account: Shows message and returns to onboarding
  *
+ * Theme switching: Detects when system dark mode changes and recreates activity
+ * with correct colors from values/ or values-night/ directories.
+ *
+ * @author Dyna
  */
 public class SplashActivity extends AppCompatActivity {
 

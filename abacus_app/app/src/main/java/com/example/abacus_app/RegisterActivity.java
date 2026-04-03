@@ -23,6 +23,25 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * RegisterActivity - Handles new user registration
+ *
+ * Creates new user accounts in Firebase Auth and Firestore.
+ *
+ * What it does:
+ * - Takes name, email, password, and role (entrant/organizer)
+ * - If organizer, also takes organization name
+ * - Validates email format and password strength
+ * - Creates Firebase Auth account
+ * - Saves user profile to Firestore with role and timestamps
+ * - Shows error messages for duplicate emails, weak passwords, etc
+ * - Links back to login for existing users
+ *
+ * Theme Switching:
+ * - onResume() detects dark mode changes and recreates activity with new colors
+ *
+ * @author Dyna
+ */
 public class RegisterActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private UserRepository userRepository;

@@ -11,8 +11,21 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 
 /**
- * Application class for initializing global components and repositories.
- * This class is instantiated when the app starts and remains active for the entire app lifecycle.
+ * AbacusApplication - App initialization and global setup
+ *
+ * Runs once when the app starts and stays active the entire time.
+ *
+ * What it does:
+ * - Initializes Firebase Firestore with offline support enabled
+ * - Creates repositories for accessing user data
+ * - Checks if user is already logged in
+ *
+ * Theme Switching:
+ * - Does NOT wrap base context (keeps it responsive to system theme changes)
+ * - Font scale applied per-activity in onCreate() instead of globally
+ * - This allows instant dark/light mode switching without requiring restart
+ *
+ * @author Dyna
  */
 public class AbacusApplication extends Application {
 

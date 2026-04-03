@@ -31,12 +31,24 @@ import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * ProfileFragment
+ * ProfileFragment - User profile screen
  *
- * The profile screen UI. Displays input fields and observes LiveData
- * from ProfileViewModel. Contains no business logic or data access.
+ * Shows user profile info and settings. Displays input fields and observes
+ * data from ProfileViewModel. Contains UI only, no business logic.
  *
- * Ref: US 01.02.01–04
+ * What it does:
+ * - Shows user name, email, avatar
+ * - Lets user edit name and email
+ * - Lets user upload profile picture
+ * - Shows accessibility settings
+ * - Handles logout confirmation dialog
+ *
+ * Logout Handling:
+ * - When user confirms logout, calls viewModel.logout() to clear session
+ * - Then calls MainActivity.onUserLoggedOut() to immediately update UI
+ * - Bottom nav switches back to entrant menu, no waiting needed
+ *
+ * @author Dyna
  */
 public class ProfileFragment extends Fragment {
 

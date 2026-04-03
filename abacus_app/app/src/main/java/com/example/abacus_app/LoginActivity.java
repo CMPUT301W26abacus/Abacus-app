@@ -24,19 +24,24 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Activity for user login for existing users, using Firebase Auth.
+ * LoginActivity - Handles user login
  *
- * Responsibilities:
- * - Handles user login using Firebase Auth.
- * - Links Firebase Auth user data to Firestore profile.
- * - Syncs display name between Firebase Auth and Firestore.
- * - Handles SSO (Single Sign-On) logic.
- * - Handles password reset.
- * - Handles registration flow.
+ * Lets existing users sign in with email and password using Firebase Auth.
  *
- * When a user logs in, their profile shows the correct email and display name,
- * and is marked as a non-guest user.
+ * What it does:
+ * - Authenticates user with Firebase Auth
+ * - Looks up user's existing Firestore profile by email
+ * - Restores user's UUID and history from local storage
+ * - Syncs display name between Firebase and Firestore
+ * - Clears guest email when user logs in (no mixing accounts)
+ * - Shows error messages (wrong password, no account, etc)
+ * - Handles password reset via email
+ * - Links to registration for new users
  *
+ * Theme Switching:
+ * - onResume() detects dark mode changes and recreates activity with new colors
+ *
+ * @author Dyna
  */
 public class LoginActivity extends AppCompatActivity {
 

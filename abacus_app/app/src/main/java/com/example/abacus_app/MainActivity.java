@@ -1,23 +1,28 @@
 /**
- * MainActivity.java
+ * MainActivity - Main screen hosting all app features
  *
- * Role: The single Activity that hosts all fragments via the Navigation
- * component. Responsible for loading and displaying the event browse list,
- * applying keyword and date filters, managing bottom navigation, and
- * routing to event detail, profile, QR scan, and organizer/admin screens.
+ * The central hub of the app. Hosts all fragments and manages:
+ * - Displaying the event list with search and date filtering
+ * - Bottom navigation menu (changes based on user role: entrant/organizer)
+ * - Navigation to event details, profile, QR scan, and organizer tools
+ * - User role and guest status management
  *
- * Design pattern: Activity as host. Fragment navigation is handled through
- * the Jetpack NavController. No ViewModel is used — filter state and event
- * data are held directly in the Activity, consistent with the project's
- * architecture decisions.
+ * Key Features:
+ * - Dynamically rebuilds bottom nav when user role changes (e.g., after logout)
+ * - Instantly switches between light/dark themes when system setting changes
+ * - Maintains event list and filter state
+ * - Handles guest vs logged-in user permissions
  *
- * Outstanding issues:
- * - The event list is not paginated; very large event collections may cause
- *   performance issues.
- * - Role detection makes a Firestore read on every launch; could be cached
- *   locally once the UserRepository stabilizes.
- * - Guest users see the full event list but cannot join waitlists; the UI
- *   does not currently indicate guest-mode restrictions on the browse screen.
+ * User Role Updates:
+ * - onUserLoggedOut(): Called when user signs out, resets role to "entrant"
+ *   and rebuilds bottom navigation immediately
+ * - setEffectiveRole(): Updates user role and refreshes navigation
+ *
+ * Theme Switching:
+ * - onResume() detects dark mode changes and calls recreate() to reload
+ *   with correct theme colors
+ * - Font scale applied after setContentView() to avoid freezing configuration
+ *
  */
 package com.example.abacus_app;
 
