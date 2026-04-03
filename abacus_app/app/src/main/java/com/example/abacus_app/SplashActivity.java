@@ -33,6 +33,7 @@ public class SplashActivity extends AppCompatActivity {
     private static final int ANIMATION_DELAY_MS = 1800; //returning user
     private static final int BUTTONS_REVEAL_DELAY_MS = 1200; //first-time user
     private UserRepository userRepository;     // Repository for user data
+    private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -145,5 +146,17 @@ public class SplashActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Detect theme changes and trigger activity recreation
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
+            // Theme changed, recreate the activity to apply new theme colors
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
+        }
+        lastNightMode = currentNightMode;
     }
 }

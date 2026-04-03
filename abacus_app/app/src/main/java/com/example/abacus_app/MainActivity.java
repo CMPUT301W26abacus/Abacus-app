@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private boolean isGuest;
+    private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     /**
      * Resolved user identifier passed into EventAdapter for join-status checks.
@@ -126,16 +127,24 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void attachBaseContext(android.content.Context newBase) {
-        AccessibilityHelper helper = new AccessibilityHelper(newBase);
-        android.content.res.Configuration config =
-                AccessibilityHelper.buildConfig(newBase, helper.getTextScale());
-        super.attachBaseContext(newBase.createConfigurationContext(config));
+        // Don't wrap context with createConfigurationContext as it interferes with
+        // Material Design Sliders in accessibility settings
+        super.attachBaseContext(newBase);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Apply accessibility font scale after setContentView to preserve theme responsiveness
+        AccessibilityHelper a11yHelper = new AccessibilityHelper(this);
+        float textScale = a11yHelper.getTextScale();
+        if (textScale != 1.0f) {
+            android.content.res.Configuration config = new android.content.res.Configuration(getResources().getConfiguration());
+            config.fontScale = textScale;
+            getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+        }
 
         UserLocalDataSource localDataSource = new UserLocalDataSource(getApplicationContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
@@ -161,9 +170,8 @@ public class MainActivity extends AppCompatActivity {
 
         WindowInsetsControllerCompat windowInsetsController =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        boolean isNightMode = (getResources().getConfiguration().uiMode
-                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
-                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        boolean isNightMode = currentNightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
         windowInsetsController.setAppearanceLightNavigationBars(!isNightMode);
         windowInsetsController.setAppearanceLightStatusBars(!isNightMode);
 
@@ -188,7 +196,6 @@ public class MainActivity extends AppCompatActivity {
         navController = navHost.getNavController();
 
         // If we recreated the activity to apply text scale, go back to accessibility settings
-        AccessibilityHelper a11yHelper = new AccessibilityHelper(this);
         if (a11yHelper.shouldReturnToAccessibility()) {
             a11yHelper.clearReturnToAccessibility();
             navController.navigate(R.id.mainProfileFragment);
@@ -633,6 +640,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        // Detect theme changes and trigger activity recreation
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
+            // Theme changed, recreate the activity to apply new theme colors
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
+            return;  // Skip other onResume logic during recreation
+        }
+        lastNightMode = currentNightMode;
 
         // Quick security check: reuse the repository logic
         if (!isGuest) {
@@ -1120,6 +1136,7 @@ public class MainActivity extends AppCompatActivity {
 
         return super.dispatchTouchEvent(ev);
     }
+
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

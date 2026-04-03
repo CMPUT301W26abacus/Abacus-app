@@ -30,12 +30,12 @@ public class RegisterActivity extends AppCompatActivity {
     private RadioButton rbOrganizer;
     private EditText etOrganizationName;
     private TextView labelOrgName;
+    private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.registerpage);
-
         mAuth = FirebaseAuth.getInstance();
 
         // Initialize UserRepository
@@ -182,5 +182,17 @@ public class RegisterActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Detect theme changes and trigger activity recreation
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
+            // Theme changed, recreate the activity to apply new theme colors
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
+        }
+        lastNightMode = currentNightMode;
     }
 }

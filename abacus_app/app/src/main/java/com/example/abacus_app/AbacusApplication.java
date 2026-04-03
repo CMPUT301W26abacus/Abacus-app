@@ -22,9 +22,8 @@ public class AbacusApplication extends Application {
 
     @Override
     protected void attachBaseContext(Context base) {
-        AccessibilityHelper helper = new AccessibilityHelper(base);
-        Configuration config = AccessibilityHelper.buildConfig(base, helper.getTextScale());
-        super.attachBaseContext(base.createConfigurationContext(config));
+        // Don't wrap context — keep it responsive to system configuration changes
+        super.attachBaseContext(base);
     }
 
     @Override

@@ -40,6 +40,7 @@ public class LoginActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private UserRepository userRepository;
     private UserLocalDataSource localDataSource;
+    private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,6 +132,18 @@ public class LoginActivity extends AppCompatActivity {
         tvSignUp.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
                 // Note: Do NOT call finish() here to preserve back stack
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Detect theme changes and trigger activity recreation
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
+            // Theme changed, recreate the activity to apply new theme colors
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
+        }
+        lastNightMode = currentNightMode;
     }
 
     /**
