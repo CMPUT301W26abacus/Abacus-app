@@ -194,6 +194,12 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             return;
         }
 
+        // Organizers cannot join other people's events — only edit/manage their own
+        if (canManageEvents) {
+            holder.btnJoinStatus.setVisibility(View.GONE);
+            return;
+        }
+
         // Reset to Join while async check runs to avoid stale recycled state
         applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
