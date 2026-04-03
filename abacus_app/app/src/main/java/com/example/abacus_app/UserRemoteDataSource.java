@@ -57,34 +57,6 @@ public class UserRemoteDataSource {
     }
 
     /**
-     * Reads the {@code users/{uuid}} document asynchronously and delivers the parsed
-     * {@link User} to {@code callback}. Calls {@code callback.onCallback(null)} if the
-     * document does not exist or if an error occurs.
-     *
-     * @param uuid     the document ID to look up
-     * @param callback receives the {@link User} object or {@code null}
-     */
-    public void getUser(String uuid, UserCallback callback) {
-        db.collection(COLLECTION).document(uuid).get()
-                .addOnSuccessListener(snap -> {
-                    if (!snap.exists()) {
-                        callback.onCallback(null);
-                        return;
-                    }
-                    User user = parseUser(snap);
-                    if (user != null && user.isDeleted()) {
-                        callback.onCallback(null); // Treat deleted as non-existent
-                    } else {
-                        callback.onCallback(user);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error getting user: " + uuid, e);
-                    callback.onCallback(null);
-                });
-    }
-
-    /**
      * Reads the {@code users/{uuid}} document synchronously (blocking).
      * Must be called on a background thread.
      *
@@ -98,12 +70,7 @@ public class UserRemoteDataSource {
 
         if (!snap.exists()) return null;
 
-        User user = parseUser(snap);
-
-        if (user != null && user.isDeleted()) {
-            return null;
-        }
-        return user;
+        return parseUser(snap);
     }
 
     private User parseUser(DocumentSnapshot snap) {

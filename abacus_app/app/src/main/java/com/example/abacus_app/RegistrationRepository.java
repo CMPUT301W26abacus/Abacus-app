@@ -170,6 +170,7 @@ public class RegistrationRepository {
             }
         });
     }
+
     /**
      * Deletes the data related to the waitlist entry of the user.
      *
@@ -178,8 +179,6 @@ public class RegistrationRepository {
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the given user is not on the waitlist
      */
-
-
     public void leaveWaitlist(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -227,6 +226,15 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Changes the status of an invited entrant from invited to accepted.
+     *
+     * @param userID the unique ID of the user in the database
+     * @param eventID the unique ID of the event in the database
+     * @param callback called when the operation completes
+     * @throws IllegalArgumentException the user is not on the waitlist
+     * @throws IllegalStateException the user status is not invited
+     */
     public void acceptInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {

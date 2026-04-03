@@ -1,7 +1,11 @@
 package com.example.abacus_app;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+
 import android.os.Handler;
 import android.os.Looper;
+
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,45 +42,55 @@ public class NotificationRepository {
     /**
      * Notify users they have been selected for an event.
      */
-    public void notifySelected(String eventId, List<String> userIds) {
-        if (userIds == null || userIds.isEmpty()) return;
+    public void notifySelected(String eventId, List<String> userIds, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                if (userIds == null || userIds.isEmpty()) return;
 
-        for (String userId : userIds) {
-            userRemote.getUser(userId, user -> {
-                if (user != null) {
-                    Notification notification = new Notification(
-                            userId,
-                            user.getEmail(), // <-- now included
-                            eventId,
-                            "Congratulations! You have been selected for the event.",
-                            Notification.TYPE_SELECTED
-                    );
-                    remote.saveNotification(notification);
+                for (String userId : userIds) {
+                    User user = userRemote.getUserSync(userId);
+                    if (user != null) {
+                        Notification notification = new Notification(
+                                userId,
+                                user.getEmail(), // <-- now included
+                                eventId,
+                                "Congratulations! You have been selected for the event.",
+                                Notification.TYPE_SELECTED
+                        );
+                        remote.saveNotification(notification);
+                    }
                 }
-            });
-        }
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     /**
      * Notify users they were not selected for an event.
      */
-    public void notifyNotSelected(String eventId, List<String> userIds) {
-        if (userIds == null || userIds.isEmpty()) return;
+    public void notifyNotSelected(String eventId, List<String> userIds, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                if (userIds == null || userIds.isEmpty()) return;
 
-        for (String userId : userIds) {
-            userRemote.getUser(userId, user -> {
-                if (user != null) {
-                    Notification notification = new Notification(
-                            userId,
-                            user.getEmail(), // <-- included
-                            eventId,
-                            "We regret to inform you that you were not selected for the event this time.",
-                            Notification.TYPE_NOT_SELECTED
-                    );
-                    remote.saveNotification(notification);
+                for (String userId : userIds) {
+                    User user = userRemote.getUserSync(userId);
+                    if (user != null) {
+                        Notification notification = new Notification(
+                                userId,
+                                user.getEmail(), // <-- included
+                                eventId,
+                                "We regret to inform you that you were not selected for the event this time.",
+                                Notification.TYPE_NOT_SELECTED
+                        );
+                        remote.saveNotification(notification);
+                    }
                 }
-            });
-        }
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
     }
 
     // ── Listening ───────────────────────────────────────────────────────────
@@ -107,10 +121,15 @@ public class NotificationRepository {
 
                ArrayList<Notification> notifications = new ArrayList<>();
                for (WaitlistEntry entry : entries) {
+                   // get user email
+                   User entryUser = userRemote.getUserSync(entry.getUserID());
+
+                   // send appropriate notification
                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
                                eventId,
+                               entryUser.getEmail(),
                                "Congratulations! You have been invited to " + event.getTitle(),
                                Notification.TYPE_SELECTED
                        ));
@@ -118,6 +137,7 @@ public class NotificationRepository {
                        notifications.add(new Notification(
                                entry.getUserId(),
                                eventId,
+                               entryUser.getEmail(),
                                "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                                Notification.TYPE_NOT_SELECTED
                        ));
@@ -133,33 +153,40 @@ public class NotificationRepository {
     }
 
     /**
-     * Notify a user as a replacement for an event.
+     * Notifies a single user that they have been invited to an event.
+     *
+     * @param eventId the unique ID of the event in the database
+     * @param userId the unique ID of the user who was drawn
+     * @param callback called when the operation completes
      */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        userRemote.getUser(userId, user -> {
-            if (user != null) {
-                Notification notification = new Notification(
+        executor.submit(() -> {
+            try {
+                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
+                Event event = eventRDS.getEventById(eventId);
+                User entryUser = userRemote.getUserSync(userId);
+
+                Notification notification = (new Notification(
                         userId,
-                        user.getEmail(), // <-- included
                         eventId,
-                        "Congratulations! You have been invited to " + "event",
+                        entryUser.getEmail(),
+                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                         Notification.TYPE_SELECTED
-                );
+                ));
+
                 remote.saveNotification(notification);
-            }
-            if (callback != null) {
                 mainHandler.post(() -> callback.onComplete(null));
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
             }
         });
     }
-
-    // ── Callback Interface ───────────────────────────────────────────────────
 
     /**
      * Notifies a single user that they have been cancelled from an event.
      *
      * @param eventId the unique ID of the event in the database
-     * @param userId the unique ID of the user who was drawn
+     * @param userId the unique ID of the user who was cancelled
      * @param callback called when the operation completes
      */
     public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
@@ -167,10 +194,12 @@ public class NotificationRepository {
             try {
                 EventRemoteDataSource eventRDS = new EventRemoteDataSource();
                 Event event = eventRDS.getEventById(eventId);
+                User entryUser = userRemote.getUserSync(userId);
 
                 Notification notification = (new Notification(
                         userId,
                         eventId,
+                        entryUser.getEmail(),
                         "Your invitation to " + event.getTitle() + " has expired.",
                         Notification.TYPE_CANCELED
                 ));
@@ -181,6 +210,16 @@ public class NotificationRepository {
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
+    }
+
+    // ── Callback Interface ───────────────────────────────────────────────────
+
+    /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
     }
 
     /**

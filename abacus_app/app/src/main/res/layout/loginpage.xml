@@ -17,6 +17,7 @@
             android:id="@+id/topBar"
             android:layout_width="0dp"
             android:layout_height="56dp"
+            android:background="@color/white"
             android:paddingHorizontal="8dp"
             android:background="@color/white"
             app:layout_constraintTop_toTopOf="parent"
