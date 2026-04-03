@@ -7,7 +7,6 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -277,51 +276,46 @@ public class RegistrationRemoteDataSource {
      */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
         try {
-            QuerySnapshot primarySnapshot = Tasks.await(
-                    firestore.collectionGroup("waitlist")
+            Map<String, WaitlistEntry> merged = new LinkedHashMap<>();
+
+            // Simpler, index-free lookup: inspect each event waitlist directly.
+            QuerySnapshot eventsSnapshot = Tasks.await(firestore.collection("events").get());
+            for (DocumentSnapshot eventDoc : eventsSnapshot.getDocuments()) {
+                String eventId = eventDoc.getId();
+                CollectionReference waitlistRef = firestore
+                        .collection("events")
+                        .document(eventId)
+                        .collection("waitlist");
+
+                // Canonical schema: waitlist doc id == user key.
+                DocumentSnapshot byIdDoc = Tasks.await(waitlistRef.document(userID).get());
+                if (byIdDoc.exists()) {
+                    WaitlistEntry entry = mapDocument(byIdDoc);
+                    if (entry != null) merged.put(byIdDoc.getReference().getPath(), entry);
+                }
+
+                // Legacy schema: user key stored in fields.
+                QuerySnapshot byUserIdSnapshot = Tasks.await(
+                        waitlistRef.whereEqualTo("userId", userID).get());
+                for (DocumentSnapshot doc : byUserIdSnapshot.getDocuments()) {
+                    WaitlistEntry entry = mapDocument(doc);
+                    if (entry != null) merged.put(doc.getReference().getPath(), entry);
+                }
+
+                QuerySnapshot byUserIDSnapshot = Tasks.await(
+                        waitlistRef.whereEqualTo("userID", userID).get());
+                for (DocumentSnapshot doc : byUserIDSnapshot.getDocuments()) {
+                    WaitlistEntry entry = mapDocument(doc);
+                    if (entry != null) merged.put(doc.getReference().getPath(), entry);
+                }
+            }
+
+            // Backward compatibility for older flows that wrote only to flat registrations.
+            QuerySnapshot registrationsSnapshot = Tasks.await(
+                    firestore.collection("registrations")
                             .whereEqualTo("userId", userID)
                             .get()
             );
-
-            // Backward compatibility: older docs may have used userID instead of userId.
-            QuerySnapshot legacySnapshot = Tasks.await(
-                    firestore.collectionGroup("waitlist")
-                            .whereEqualTo("userID", userID)
-                            .get()
-            );
-
-        // Some historical docs may rely on the waitlist doc ID as the user key
-        // without storing userId/userID as a field.
-        QuerySnapshot byDocIdSnapshot = Tasks.await(
-            firestore.collectionGroup("waitlist")
-                .whereEqualTo(FieldPath.documentId(), userID)
-                .get()
-        );
-
-        // Backward compatibility for older flows that wrote only to flat registrations.
-        QuerySnapshot registrationsSnapshot = Tasks.await(
-            firestore.collection("registrations")
-                .whereEqualTo("userId", userID)
-                .get()
-        );
-
-            Map<String, WaitlistEntry> merged = new LinkedHashMap<>();
-
-            for (DocumentSnapshot doc : primarySnapshot.getDocuments()) {
-                WaitlistEntry entry = mapDocument(doc);
-                if (entry != null) merged.put(doc.getReference().getPath(), entry);
-            }
-
-            for (DocumentSnapshot doc : legacySnapshot.getDocuments()) {
-                WaitlistEntry entry = mapDocument(doc);
-                if (entry != null) merged.put(doc.getReference().getPath(), entry);
-            }
-
-            for (DocumentSnapshot doc : byDocIdSnapshot.getDocuments()) {
-                WaitlistEntry entry = mapDocument(doc);
-                if (entry != null) merged.put(doc.getReference().getPath(), entry);
-            }
-
             for (DocumentSnapshot doc : registrationsSnapshot.getDocuments()) {
                 WaitlistEntry entry = mapDocument(doc);
                 if (entry != null) merged.put(doc.getReference().getPath(), entry);
