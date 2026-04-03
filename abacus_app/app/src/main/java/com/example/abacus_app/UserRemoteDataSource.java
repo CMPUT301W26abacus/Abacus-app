@@ -73,6 +73,25 @@ public class UserRemoteDataSource {
         return parseUser(snap);
     }
 
+    /**
+     * Reads a user document by email (first match) for flows where foreign docs
+     * are keyed by a normalized email rather than UUID.
+     */
+    public User getUserByEmailSync(String email) throws Exception {
+        if (email == null || email.trim().isEmpty()) return null;
+
+        QuerySnapshot snapshot = Tasks.await(
+                db.collection(COLLECTION)
+                        .whereEqualTo("email", email)
+                        .limit(1)
+                        .get()
+        );
+
+        if (snapshot.isEmpty()) return null;
+        DocumentSnapshot snap = snapshot.getDocuments().get(0);
+        return parseUser(snap);
+    }
+
     private User parseUser(DocumentSnapshot snap) {
         User user = new User();
         user.setUid(snap.getId());

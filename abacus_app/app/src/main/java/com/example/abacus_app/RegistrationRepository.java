@@ -70,6 +70,15 @@ public class RegistrationRepository {
         for (WaitlistEntry entry : waitlist) {
             try {
                 User user = userRemoteDataSource.getUserSync(entry.getUserId());
+                if (user == null) {
+                    String possibleEmail = decodeEmailKey(entry.getUserId());
+                    if (possibleEmail != null) {
+                        user = userRemoteDataSource.getUserByEmailSync(possibleEmail);
+                        if (user == null) {
+                            entry.setUserEmail(possibleEmail);
+                        }
+                    }
+                }
                 if (user != null) {
                     entry.setUserName(user.getName());
                     entry.setUserEmail(user.getEmail());
@@ -78,6 +87,12 @@ public class RegistrationRepository {
                 Log.e("RegistrationRepository", "Failed to fetch user info for " + entry.getUserId(), e);
             }
         }
+    }
+
+    private String decodeEmailKey(String key) {
+        if (key == null || key.isEmpty()) return null;
+        if (!key.contains("_at_")) return null;
+        return key.replace("_at_", "@").replace("_", ".");
     }
 
     /**

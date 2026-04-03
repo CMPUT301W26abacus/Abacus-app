@@ -142,6 +142,12 @@ public class MainSavedFragment extends Fragment {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmpty.setVisibility(View.GONE);
 
+            boolean canManageEvents = false;
+            if (getActivity() instanceof MainActivity) {
+                String role = ((MainActivity) getActivity()).getEffectiveRole();
+                canManageEvents = "organizer".equals(role) || "admin".equals(role);
+            }
+
             adapter = new EventAdapter(
                     displayList,
                     (title, autoJoin) -> {
@@ -168,6 +174,7 @@ public class MainSavedFragment extends Fragment {
                         ((MainActivity) getActivity()).showFragment(R.id.organizerManageFragment, false, args);
                     },
                     false,
+            canManageEvents,
                     userUid,
                     false
             );

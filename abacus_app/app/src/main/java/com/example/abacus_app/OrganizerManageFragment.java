@@ -26,7 +26,6 @@ import com.google.android.material.chip.ChipGroup;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -225,10 +224,10 @@ public class OrganizerManageFragment extends Fragment {
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
 
-        // Use Firebase UID (authenticated account) to load only this organizer's events
-        String organizerId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        if (organizerId != null) {
-            viewModel.loadOrganizerEvents(organizerId);
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        String uuid = local.getUUIDSync();
+        if (uuid != null) {
+            viewModel.loadOrganizerEvents(uuid);
         } else {
             tvCount.setText("Could not load events");
         }
@@ -246,8 +245,8 @@ public class OrganizerManageFragment extends Fragment {
             }
             tvCount.setText(eventList.size() + " event(s)");
 
-            // Use Firebase UID (authenticated account) for authorization checks
-            String organizerId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            UserLocalDataSource local = new UserLocalDataSource(requireContext());
+            String uuid = local.getUUIDSync();
 
             recyclerView.setAdapter(new EventAdapter(
                     eventList,
@@ -266,13 +265,14 @@ public class OrganizerManageFragment extends Fragment {
                                 .setTitle("Delete Event")
                                 .setMessage("Are you sure you want to delete this event? This cannot be undone.")
                                 .setPositiveButton("Delete", (dialog, which) -> {
-                                    viewModel.deleteEvent(event.getEventId(), organizerId);
+                                    viewModel.deleteEvent(event.getEventId(), uuid);
                                 })
                                 .setNegativeButton("Cancel", null)
                                 .show();
                     },
                     true, // isAdmin (to show delete button)
-                    organizerId,
+            true,
+                    uuid,
                     false
             ));
         });

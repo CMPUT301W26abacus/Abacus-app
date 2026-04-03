@@ -12,11 +12,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -40,7 +43,6 @@ public class LoginActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private UserRepository userRepository;
     private UserLocalDataSource localDataSource;
-    private int lastNightMode = -1;  // Track theme changes for auto-recreation
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,45 +136,24 @@ public class LoginActivity extends AppCompatActivity {
                 // Note: Do NOT call finish() here to preserve back stack
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Detect theme changes and trigger activity recreation
-        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
-            // Theme changed, recreate the activity to apply new theme colors
-            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
-        }
-        lastNightMode = currentNightMode;
-    }
-
     /**
-     * Reads the user's role from Firestore if not already provided.
-     * If existingRole is provided (from the email lookup), uses that.
-     * Otherwise reads from users/{firebaseUID}.
+     * Reads the user's role from Firestore using the local UUID (not Firebase Auth UID)
+     * then navigates to MainActivity with the role as an intent extra.
      */
-    private void fetchRoleAndNavigate(String existingRole) {
-        // If we already have the role from the email lookup, use it
-        if (existingRole != null && !existingRole.isEmpty()) {
-            android.util.Log.d("LoginActivity", "Using existing role: " + existingRole);
-            navigateToMain(existingRole);
-            return;
-        }
+    private void fetchRoleAndNavigate() {
+        String uuid = localDataSource.getUUIDSync();
 
-        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (firebaseUser == null) {
+        if (uuid == null) {
             navigateToMain("entrant");
             return;
         }
 
-        String firebaseUid = firebaseUser.getUid();
         FirebaseFirestore.getInstance()
                 .collection("users")
-                .document(firebaseUid)
+                .document(uuid)
                 .get()
                 .addOnSuccessListener(doc -> {
-                    String role = doc.getString("role");
-                    if (role == null) role = "entrant";
+                    String role = normalizeAppRole(doc.getString("role"));
                     android.util.Log.d("LoginActivity", "Role from Firestore: " + role);
                     navigateToMain(role);
                 })
@@ -187,6 +168,12 @@ public class LoginActivity extends AppCompatActivity {
                 .edit()
                 .putBoolean("has_launched_before", true)
                 .apply();
+
+    // Authenticated session should not inherit guest waitlist identity.
+    getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, MODE_PRIVATE)
+        .edit()
+        .remove(GuestSignUpFragment.PREF_GUEST_EMAIL)
+        .apply();
 
         Toast.makeText(this, "Welcome back!", Toast.LENGTH_SHORT).show();
 
@@ -206,19 +193,22 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void restoreIdentityThenNavigate(FirebaseUser authUser) {
         if (authUser == null || authUser.getEmail() == null) {
-            updateProfileFields(authUser, null);
+            updateProfileFields(authUser);
             return;
         }
 
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .whereEqualTo("email", authUser.getEmail())
-                .limit(1)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    String existingRole = null;
                     if (!querySnapshot.isEmpty()) {
-                        com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                        DocumentSnapshot doc = pickBestUserDoc(querySnapshot.getDocuments());
+
+                        if (doc == null) {
+                            updateProfileFields(authUser);
+                            return;
+                        }
 
                         // Check if the account is inactivated/deleted
                         Boolean isDeleted = doc.getBoolean("isDeleted");
@@ -239,19 +229,16 @@ public class LoginActivity extends AppCompatActivity {
                         String existingUuid = doc.getId();
                         localDataSource.saveDeviceId(existingUuid);
                         android.util.Log.d("LoginActivity", "Identity restored from existing account");
-
-                        // Preserve the existing role from the document
-                        existingRole = doc.getString("role");
                     }
-                    updateProfileFields(authUser, existingRole);
+                    updateProfileFields(authUser);
                 })
                 .addOnFailureListener(e -> {
                     android.util.Log.e("LoginActivity", "UUID lookup failed, proceeding anyway", e);
-                    updateProfileFields(authUser, null);
+                    updateProfileFields(authUser);
                 });
     }
 
-    private void updateProfileFields(FirebaseUser authUser, String existingRole) {
+    private void updateProfileFields(FirebaseUser authUser) {
         String lastLoginAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
@@ -275,7 +262,7 @@ public class LoginActivity extends AppCompatActivity {
                     syncNameFromFirestoreToAuth(authUser);
                 }
             }
-            fetchRoleAndNavigate(existingRole);
+            fetchRoleAndNavigate();
         });
     }
 
@@ -294,5 +281,40 @@ public class LoginActivity extends AppCompatActivity {
                         });
             }
         });
+    }
+
+    /**
+     * App supports only entrant/organizer roles for signed-in users.
+     * Any unknown/admin role is treated as entrant.
+     */
+    private String normalizeAppRole(String role) {
+        return "organizer".equals(role) ? "organizer" : "entrant";
+    }
+
+    /**
+     * Picks the most suitable Firestore user doc when duplicate emails exist.
+     * Preference order: active entrant/organizer doc, then any active doc.
+     */
+    private DocumentSnapshot pickBestUserDoc(List<DocumentSnapshot> docs) {
+        if (docs == null || docs.isEmpty()) return null;
+
+        List<DocumentSnapshot> active = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            Boolean isDeleted = doc.getBoolean("isDeleted");
+            if (!Boolean.TRUE.equals(isDeleted)) {
+                active.add(doc);
+            }
+        }
+
+        if (active.isEmpty()) return docs.get(0);
+
+        for (DocumentSnapshot doc : active) {
+            String role = normalizeAppRole(doc.getString("role"));
+            if ("entrant".equals(role) || "organizer".equals(role)) {
+                return doc;
+            }
+        }
+
+        return active.get(0);
     }
 }

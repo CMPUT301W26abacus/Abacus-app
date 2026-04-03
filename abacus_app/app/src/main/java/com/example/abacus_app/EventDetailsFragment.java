@@ -46,6 +46,8 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.CancellationTokenSource;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -70,6 +72,7 @@ public class EventDetailsFragment extends Fragment {
 
     private String currentEventId = null;
     private String currentUserId  = null;
+    private String currentRegistrationKey = null;
     private Event  loadedEvent    = null;
     private String eventTitle     = "Event Details";
     private boolean isGuest       = false;
@@ -264,14 +267,14 @@ public class EventDetailsFragment extends Fragment {
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
 
-            // Check if user is an organizer viewing someone else's event
-            String userRole = ((MainActivity) requireActivity()).getEffectiveRole();
-            if ("organizer".equals(userRole) && loadedEvent != null
-                    && !currentUserId.equals(loadedEvent.getOrganizerId())) {
-                // Organizer viewing another organizer's event — hide waitlist buttons
-                btnJoinWaitlist.setVisibility(View.GONE);
-                btnLeaveWaitlist.setVisibility(View.GONE);
-                return;
+            FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
+            String email = authUser != null ? authUser.getEmail() : null;
+            if (email != null && !email.trim().isEmpty()) {
+                currentRegistrationKey = GuestSignUpFragment.emailToKey(
+                        email.trim().toLowerCase(Locale.US));
+            } else {
+                // Fallback if auth email is unavailable.
+                currentRegistrationKey = uuid;
             }
 
             btnJoinWaitlist.setEnabled(true);
@@ -280,8 +283,7 @@ public class EventDetailsFragment extends Fragment {
         });
 
         btnJoinWaitlist.setOnClickListener(v -> {
-            if (loadedEvent != null && currentUserId != null
-                    && currentUserId.equals(loadedEvent.getOrganizerId())) {
+            if (canEditCurrentEvent()) {
                 toggleEditMode();
             } else {
                 handleJoinFlow();
@@ -296,8 +298,8 @@ public class EventDetailsFragment extends Fragment {
      * waitlist, immediately fires handleJoinFlow().
      */
     private void checkWaitlistStatus() {
-        if (currentEventId == null) return;
-        registrationRepository.isOnWaitlist(currentUserId, currentEventId, isOn -> {
+        if (currentEventId == null || currentRegistrationKey == null) return;
+        registrationRepository.isOnWaitlist(currentRegistrationKey, currentEventId, isOn -> {
             if (isOn) {
                 showLeaveButton();
             } else {
@@ -402,8 +404,7 @@ public class EventDetailsFragment extends Fragment {
                     }
 
                     if (btnViewMap != null && event.isGeoRequired()
-                            && currentUserId != null
-                            && currentUserId.equals(event.getOrganizerId())) {
+                            && canEditCurrentEvent()) {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
@@ -515,12 +516,12 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private void joinWaitlist(Location location) {
-        if (currentUserId == null || currentEventId == null) {
+        if (currentRegistrationKey == null || currentEventId == null) {
             Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        registrationRepository.joinWaitlist(currentUserId, currentEventId, location, error -> {
+        registrationRepository.joinWaitlist(currentRegistrationKey, currentEventId, location, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
                         "Something went wrong. Please try again.",
@@ -547,9 +548,9 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private void leaveWaitlist() {
-        if (currentUserId == null || currentEventId == null) return;
+        if (currentRegistrationKey == null || currentEventId == null) return;
 
-        registrationRepository.leaveWaitlist(currentUserId, currentEventId, error -> {
+        registrationRepository.leaveWaitlist(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
                         "Something went wrong. Please try again.",
@@ -569,8 +570,7 @@ public class EventDetailsFragment extends Fragment {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
 
-        if (loadedEvent != null && currentUserId != null &&
-                currentUserId.equals(loadedEvent.getOrganizerId())) {
+        if (canEditCurrentEvent()) {
             if (btnJoinWaitlist != null) {
                 btnJoinWaitlist.setEnabled(true);
                 btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
@@ -590,6 +590,17 @@ public class EventDetailsFragment extends Fragment {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
+    }
+
+    private boolean canEditCurrentEvent() {
+        if (loadedEvent == null || currentUserId == null || getActivity() == null) return false;
+        if (!(getActivity() instanceof MainActivity)) return false;
+
+        String role = ((MainActivity) getActivity()).getEffectiveRole();
+        boolean hasOrganizerRole = "organizer".equals(role) || "admin".equals(role);
+        boolean ownsEvent = currentUserId.equals(loadedEvent.getOrganizerId());
+
+        return hasOrganizerRole && ownsEvent;
     }
 
     // ── Edit mode (organizer) ─────────────────────────────────────────────────

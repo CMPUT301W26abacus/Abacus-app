@@ -25,6 +25,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -34,6 +36,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -94,6 +97,15 @@ public class RegistrationHistoryFragment extends Fragment {
         viewModel.loadRegistrationHistory();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Keep history in sync with join/leave actions done in EventDetailsFragment.
+        if (viewModel != null) {
+            viewModel.refresh();
+        }
+    }
+
     private void setupRecyclerView() {
         adapter = new HistoryAdapter((eventId, eventTitle) -> {
             Bundle args = new Bundle();
@@ -110,8 +122,8 @@ public class RegistrationHistoryFragment extends Fragment {
         FirebaseRegistrationRepository repository =
                 new FirebaseRegistrationRepository(requireContext());
         viewModel = new ViewModelProvider(this,
-                new RegistrationHistoryViewModel.Factory(repository))
-                .get(RegistrationHistoryViewModel.class);
+        new RegistrationHistoryViewModel.Factory(repository))
+        .get(RegistrationHistoryViewModel.class);
 
         viewModel.getRegistrations().observe(getViewLifecycleOwner(), registrations -> {
             adapter.setItems(registrations);
@@ -270,9 +282,9 @@ public class RegistrationHistoryFragment extends Fragment {
          * @param dateRange        [startMs, endMs] or null
          */
         void setFilter(Set<String> selectedStatuses, long[] dateRange) {
-            List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
+        List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
                     new ArrayList<>();
-            for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
+        for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
                 boolean statusOk = selectedStatuses.isEmpty()
                         || selectedStatuses.contains(item.getStatusLabel());
 
@@ -392,10 +404,12 @@ public class RegistrationHistoryFragment extends Fragment {
 
         @Override
         public void getHistoryForUser(
-                RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+        RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
 
             boolean isGuest = false;
-            if (context instanceof android.app.Activity) {
+            if (context instanceof MainActivity) {
+                isGuest = ((MainActivity) context).isGuestSession();
+            } else if (context instanceof android.app.Activity) {
                 isGuest = ((android.app.Activity) context)
                         .getIntent().getBooleanExtra("isGuest", false);
             }
@@ -428,22 +442,49 @@ public class RegistrationHistoryFragment extends Fragment {
                 return;
             }
 
-            // For authenticated users, use Firebase UID (not device UUID)
-            String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance()
-                    .getCurrentUser().getUid();
-            if (firebaseUid == null) {
+            FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
+            String email = authUser != null ? authUser.getEmail() : null;
+            final String emailKey = (email != null && !email.trim().isEmpty())
+                    ? GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US))
+                    : null;
+
+            UserLocalDataSource localDataSource = new UserLocalDataSource(context);
+            final String uuidKey = localDataSource.getUUIDSync();
+
+            final List<String> userKeys = new ArrayList<>();
+            if (emailKey != null && !emailKey.trim().isEmpty()) {
+                userKeys.add(emailKey);
+            }
+            if (uuidKey != null && !uuidKey.trim().isEmpty() && !uuidKey.equals(emailKey)) {
+                userKeys.add(uuidKey);
+            }
+
+            if (userKeys.isEmpty()) {
                 callback.onResult(new ArrayList<>(), null);
                 return;
             }
 
             executor.execute(() -> {
                 try {
-                    ArrayList<WaitlistEntry> waitlistEntries =
-                            dataSource.getHistoryForUserSync(firebaseUid);
-                    if (waitlistEntries == null || waitlistEntries.isEmpty()) {
+                    Map<String, WaitlistEntry> mergedByEventId = new LinkedHashMap<>();
+                    for (String key : userKeys) {
+                        ArrayList<WaitlistEntry> entriesForKey = dataSource.getHistoryForUserSync(key);
+                        if (entriesForKey == null) continue;
+
+                        for (WaitlistEntry entry : entriesForKey) {
+                            if (entry == null || entry.getEventId() == null) continue;
+                            // One registration history record per event per user.
+                            mergedByEventId.put(entry.getEventId(), entry);
+                        }
+                    }
+
+                    if (mergedByEventId.isEmpty()) {
                         callback.onResult(new ArrayList<>(), null);
                         return;
                     }
+
+                    ArrayList<WaitlistEntry> waitlistEntries =
+                            new ArrayList<>(mergedByEventId.values());
                     buildRegistrationList(waitlistEntries, callback);
                 } catch (Exception e) {
                     callback.onResult(new ArrayList<>(), e);
@@ -453,7 +494,7 @@ public class RegistrationHistoryFragment extends Fragment {
 
         private void buildRegistrationList(
                 ArrayList<WaitlistEntry> entries,
-                RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+        RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
 
             List<String> eventIds = new ArrayList<>();
             for (WaitlistEntry entry : entries) {
@@ -468,7 +509,7 @@ public class RegistrationHistoryFragment extends Fragment {
                             : "Event " + entry.getEventId();
                     String posterUrl = eventPosters.get(entry.getEventId());
 
-                    registrations.add(new RegistrationHistoryViewModel.Registration(
+            registrations.add(new RegistrationHistoryViewModel.Registration(
                             entry.getEventId(),
                             title,
                             posterUrl,
