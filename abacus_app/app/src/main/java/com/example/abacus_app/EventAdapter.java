@@ -185,11 +185,20 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             return;
         }
 
-        // Check if user is a co-organizer
-        if (canManageEvents && event.getCoOrganizers() != null && event.getCoOrganizers().contains(userKey)) {
+        // Check if user is a co-organizer — coOrganizers stores Firebase UID
+        com.google.firebase.auth.FirebaseUser fbUser =
+                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        String firebaseUid = fbUser != null ? fbUser.getUid() : null;
+        boolean isCoOrganizer = event.getCoOrganizers() != null
+                && ((firebaseUid != null && event.getCoOrganizers().contains(firebaseUid))
+                || (userKey != null && event.getCoOrganizers().contains(userKey)));
+        if (isCoOrganizer) {
             applyButtonState(holder, ButtonState.MANAGE, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (manageClickListener != null) manageClickListener.onManageClick(event);
+            });
+            holder.itemView.setOnClickListener(v -> {
+                if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
             });
             return;
         }
