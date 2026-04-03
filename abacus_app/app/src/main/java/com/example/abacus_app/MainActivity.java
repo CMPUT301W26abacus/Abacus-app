@@ -144,6 +144,9 @@ public class MainActivity extends AppCompatActivity {
 
         isGuest = getIntent().getBooleanExtra("isGuest", false);
         String intentRole = getIntent().getStringExtra("userRole");
+        if (intentRole == null || intentRole.isEmpty()) {
+            intentRole = getIntent().getStringExtra("role");
+        }
         if (intentRole != null && !intentRole.isEmpty()) userRole = intentRole;
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -277,8 +280,13 @@ public class MainActivity extends AppCompatActivity {
         // ── Wait for profile to load to set up navigation ──────────────────────
         userRepository.getProfile(user -> {
             if (user != null) {
-                userRole = (user.getRole() != null && !user.getRole().isEmpty())
-                        ? user.getRole() : "entrant";
+                // Only update the role from Firestore for authenticated (non-guest) users.
+                // Guest sessions must stay as "entrant" regardless of what the Firestore
+                // doc contains (e.g. an old admin account stored at the same ANDROID_ID).
+                if (!isGuest) {
+                    userRole = (user.getRole() != null && !user.getRole().isEmpty())
+                            ? user.getRole() : "entrant";
+                }
                 userPreferences = user.getPreferences();
                 android.util.Log.d("MainActivity", "User role resolved: " + userRole);
                 runOnUiThread(() -> {
@@ -1160,6 +1168,25 @@ public class MainActivity extends AppCompatActivity {
      */
     public String getEffectiveRole() {
         return userRole;
+    }
+
+    /** Returns whether the current session is a guest (unauthenticated) session. */
+    public boolean isGuestSession() { return isGuest; }
+
+    /**
+     * Called by ProfileFragment when the user signs out.
+     * Resets role and guest state and rebuilds the bottom nav as entrant.
+     */
+    public void onUserLoggedOut() {
+        userRole = "entrant";
+        isGuest = true;
+        bottomNavRole = null;    // force nav rebuild even if already "entrant"
+        resolvedUserKey = null;  // clear so event cards revert to "Join" instead of "On Waitlist"
+        runOnUiThread(() -> {
+            setupBottomNav();
+            if (!allEvents.isEmpty()) applyFilters(); // rebuild adapter with null userKey
+            showHome();
+        });
     }
 
     public void onGuestJoinAttempt() {

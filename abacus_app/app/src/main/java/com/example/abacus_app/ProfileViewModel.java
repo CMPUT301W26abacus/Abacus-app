@@ -140,6 +140,12 @@ public class ProfileViewModel extends ViewModel {
 
     public void loadProfile() {
         if (userRepository == null) return;
+        Boolean guestNow = _isGuest.getValue();
+        if (guestNow != null && guestNow) {
+            // Guest session: do not fetch Firestore profile, which could pull an old
+            // role tied to this device UUID and override guest UI state.
+            return;
+        }
         if (profileLoaded) return;   // already loaded in this ViewModel lifetime — skip Firestore round-trip
         profileLoaded = true;
 

@@ -179,7 +179,10 @@ public class ProfileFragment extends Fragment {
         viewModel = new ViewModelProvider(requireActivity()).get(ProfileViewModel.class);
 
         boolean isGuest = true;
-        if (getActivity() != null) {
+        if (getActivity() instanceof MainActivity) {
+            isGuest = ((MainActivity) getActivity()).isGuestSession();
+        } else if (getActivity() != null) {
+            // Fallback for non-MainActivity hosts.
             isGuest = getActivity().getIntent().getBooleanExtra("isGuest", true);
         }
 
@@ -328,7 +331,12 @@ public class ProfileFragment extends Fragment {
                 new AlertDialog.Builder(requireContext())
                         .setTitle("Log out")
                         .setMessage("Are you sure you want to log out?")
-                        .setPositiveButton("Log out", (dialog, which) -> viewModel.logout())
+                        .setPositiveButton("Log out", (dialog, which) -> {
+                            viewModel.logout();
+                            if (getActivity() instanceof MainActivity) {
+                                ((MainActivity) getActivity()).onUserLoggedOut();
+                            }
+                        })
                         .setNegativeButton("Cancel", null)
                         .show());
 

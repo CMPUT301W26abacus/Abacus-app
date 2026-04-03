@@ -171,6 +171,7 @@ public class LoginActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("isGuest", false);
+        intent.putExtra("userRole", role);
         intent.putExtra("role", role);
         startActivity(intent);
         finish();

@@ -69,47 +69,49 @@ public class SplashActivity extends AppCompatActivity {
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
 
-        userRepository.getCurrentUserIdAsync(uuid -> {
-            if (uuid == null || uuid.isEmpty()) {
-                // Brand new device — no UUID yet, show onboarding buttons
+        // IMPORTANT: do NOT call getCurrentUserIdAsync() here because it creates
+        // and persists a UUID on first launch, which prevents onboarding buttons.
+        String uuid = localDataSource.getUUIDSync();
+        if (uuid == null || uuid.isEmpty()) {
+            // Brand new device — no UUID yet, show onboarding buttons
+            showButtons(btnGetStarted, tvBrowseGuest);
+            return;
+        }
+
+        userRepository.getProfileAsync(user -> {
+            // Only navigate as a signed-in user if Firebase Auth still holds
+            // a valid session. If Auth has expired the user must log in again.
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
+
+            // If getProfileAsync returned null, it means either the user doesn't exist
+            // OR UserRepository already detected isDeleted=true and signed them out.
+            if (user == null && firebaseSignedIn) {
+                // This covers the "Deleted" case. User exists in Auth but Repository returned null.
                 showButtons(btnGetStarted, tvBrowseGuest);
+                Toast.makeText(this, "Account is no longer active.", Toast.LENGTH_LONG).show();
                 return;
             }
-            userRepository.getProfileAsync(user -> {
-                // Only navigate as a signed-in user if Firebase Auth still holds
-                // a valid session. If Auth has expired the user must log in again.
-                FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-                boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
 
-                // If getProfileAsync returned null, it means either the user doesn't exist
-                // OR UserRepository already detected isDeleted=true and signed them out.
-                if (user == null && firebaseSignedIn) {
-                    // This covers the "Deleted" case. User exists in Auth but Repository returned null.
-                    showButtons(btnGetStarted, tvBrowseGuest);
-                    Toast.makeText(this, "Account is no longer active.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                if (firebaseSignedIn && user != null
-                        && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
-                    // Returning logged-in user — go straight to main
-                    String role = (user.getRole() != null && !user.getRole().isEmpty())
-                            ? user.getRole() : "entrant";
-                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
-                    new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(false, role),
-                            delay
-                    );
-                } else {
-                    // UUID exists but no active Firebase session (guest or expired).
-                    // Auto-navigate as guest — they can log in from the profile screen.
-                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
-                    new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(true, "entrant"),
-                            delay
-                    );
-                }
-            });
+            if (firebaseSignedIn && user != null
+                    && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
+                // Returning logged-in user — go straight to main
+                String role = (user.getRole() != null && !user.getRole().isEmpty())
+                        ? user.getRole() : "entrant";
+                long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> goToMain(false, role),
+                        delay
+                );
+            } else {
+                // UUID exists but no active Firebase session (guest or expired).
+                // Auto-navigate as guest — they can log in from the profile screen.
+                long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> goToMain(true, "entrant"),
+                        delay
+                );
+            }
         });
     }
 
