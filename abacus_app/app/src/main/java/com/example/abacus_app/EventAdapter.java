@@ -151,7 +151,17 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         });
 
         // Check if current user is the organizer of this event
-        if (canManageEvents && userKey != null && userKey.equals(event.getOrganizerId())) {
+        String organizerId = event.getOrganizerId();
+        boolean isOrganizerByUUID = userKey != null && userKey.equals(organizerId);
+        boolean isOrganizerByFirebaseUID = false;
+
+        if (!isOrganizerByUUID && canManageEvents) {
+            // Also check Firebase UID (organizers are created with Firebase UID as organizerId)
+            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
+        }
+
+        if (canManageEvents && (isOrganizerByUUID || isOrganizerByFirebaseUID)) {
             // Organizer mode: show "Edit" instead of "Join"
             applyEditButtonState(holder, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
@@ -199,7 +209,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                 .addOnSuccessListener(waitlistSnapshot -> {
                     if (waitlistSnapshot.exists()) {
                         int pos = holder.getBindingAdapterPosition();
-                        if (pos == RecyclerView.NO_ID || pos < 0 || pos >= events.size()) return;
+                        if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
                         if (!eventId.equals(events.get(pos).getEventId())) return;
 
                         applyButtonState(holder, ButtonState.JOINED, holder.itemView.getContext());
@@ -216,7 +226,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                             .get()
                             .addOnSuccessListener(regSnapshot -> {
                                 int pos = holder.getBindingAdapterPosition();
-                                if (pos == RecyclerView.NO_ID || pos < 0 || pos >= events.size()) return;
+                                if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
                                 if (!eventId.equals(events.get(pos).getEventId())) return;
 
                                 boolean joined = regSnapshot.exists();

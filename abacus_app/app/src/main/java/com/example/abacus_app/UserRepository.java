@@ -151,8 +151,9 @@ public class UserRepository {
     }
 
     /**
-     * Fetches the Firestore user document for the current authenticated account.
-     * Uses Firebase UID for authenticated users, device UUID for guests.
+     * Fetches the Firestore user document for the current user account.
+     * Always prefers the locally saved device UUID (which persists across logins and email changes).
+     * Only falls back to Firebase UID or generates a new UUID if no saved UUID exists.
      *
      * <p>Returns {@code null} to the callback if no document exists or if an error
      * occurs. The callback is always delivered on the main thread.

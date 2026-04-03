@@ -593,12 +593,23 @@ public class EventDetailsFragment extends Fragment {
     }
 
     private boolean canEditCurrentEvent() {
-        if (loadedEvent == null || currentUserId == null || getActivity() == null) return false;
+        if (loadedEvent == null || getActivity() == null) return false;
         if (!(getActivity() instanceof MainActivity)) return false;
 
         String role = ((MainActivity) getActivity()).getEffectiveRole();
         boolean hasOrganizerRole = "organizer".equals(role) || "admin".equals(role);
-        boolean ownsEvent = currentUserId.equals(loadedEvent.getOrganizerId());
+
+        // Check both device UUID and Firebase UID for ownership
+        boolean ownsEvent = false;
+        if (currentUserId != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
+            ownsEvent = true;
+        } else {
+            // Also check Firebase UID (events are created with Firebase UID as organizerId)
+            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (firebaseUser != null && firebaseUser.getUid().equals(loadedEvent.getOrganizerId())) {
+                ownsEvent = true;
+            }
+        }
 
         return hasOrganizerRole && ownsEvent;
     }

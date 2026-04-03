@@ -282,9 +282,9 @@ public class RegistrationHistoryFragment extends Fragment {
          * @param dateRange        [startMs, endMs] or null
          */
         void setFilter(Set<String> selectedStatuses, long[] dateRange) {
-        List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
+            List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
                     new ArrayList<>();
-        for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
+            for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
                 boolean statusOk = selectedStatuses.isEmpty()
                         || selectedStatuses.contains(item.getStatusLabel());
 

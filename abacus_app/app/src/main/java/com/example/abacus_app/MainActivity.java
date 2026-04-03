@@ -121,7 +121,9 @@ public class MainActivity extends AppCompatActivity {
 
     /** App-level role model supports only entrant/organizer for signed-in users. */
     private String normalizeAppRole(String role) {
-        return "organizer".equals(role) ? "organizer" : "entrant";
+        if ("admin".equals(role)) return "admin";
+        if ("organizer".equals(role)) return "organizer";
+        return "entrant";
     }
 
     // ── One-handed mode ───────────────────────────────────────────────────────
@@ -1144,8 +1146,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         if (eventsListener != null) eventsListener.remove();
+        if (isFinishing()) {
+            if (userRepository != null) userRepository.shutdown();
+            if (eventRepository != null) eventRepository.shutdown();
+        }
+        super.onDestroy();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

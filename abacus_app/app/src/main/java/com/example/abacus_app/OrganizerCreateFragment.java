@@ -204,11 +204,12 @@ public class OrganizerCreateFragment extends Fragment {
 
         // Use Firebase UID (authenticated account) as organizerId, not device UUID
         // This ensures each account can only manage their own created events
-        String organizerId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        if (organizerId == null) {
+        com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
             Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
             return;
         }
+        String organizerId = currentUser.getUid();
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
