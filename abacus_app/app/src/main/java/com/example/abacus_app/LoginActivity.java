@@ -38,9 +38,6 @@ import java.util.Map;
  * - Handles password reset via email
  * - Links to registration for new users
  *
- * Theme Switching:
- * - onResume() detects dark mode changes and recreates activity with new colors
- *
  * @author Dyna
  */
 public class LoginActivity extends AppCompatActivity {

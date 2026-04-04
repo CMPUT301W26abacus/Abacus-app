@@ -113,24 +113,15 @@ public class RegistrationRepository {
     }
 
     /**
-     * Adds a user to the waitlist of the event. Their lottery number is randomly generated and the
-     * timestamp is recorded.
-     *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
-     * @param callback called when the operation completes
-     * @throws IllegalStateException the waitlist is full or closed
-     * @throws IllegalArgumentException the user is already on the waitlist
-     */
-    /**
      * Adds a user to the waitlist of the event atomically.
      *
-     * <p>Uses a Firestore transaction to check capacity and duplicate status,
-     * then writes the entry and increments {@code Event.waitlistCount} in a
-     * single atomic operation — preventing over-subscription under concurrent load.
+     * <p>A lottery number is randomly generated and the timestamp is recorded for the entry.
+     * Uses a Firestore transaction to check capacity and duplicate status, then writes the entry
+     * and increments {@code Event.waitlistCount} in a single atomic operation — preventing
+     * over-subscription under concurrent load.
      *
-     * <p>Location (if provided) is attached to the entry <em>before</em> the
-     * transaction write so it is persisted correctly.
+     * <p>Location (if provided) is attached to the entry <em>before</em> the transaction write
+     * so it is persisted correctly.
      *
      * @param userID   the unique ID of the user in the database
      * @param eventID  the unique ID of the event in the database
