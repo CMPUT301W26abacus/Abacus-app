@@ -501,7 +501,7 @@ public class RegistrationHistoryFragment extends Fragment {
                 if (entry.getEventId() != null) eventIds.add(entry.getEventId());
             }
 
-            fetchEventData(eventIds, (eventTitles, eventPosters) -> {
+            fetchEventData(eventIds, (eventTitles, eventPosters, deletedEvents) -> {
                 List<RegistrationHistoryViewModel.Registration> registrations = new ArrayList<>();
                 for (WaitlistEntry entry : entries) {
                     String title = eventTitles.containsKey(entry.getEventId())
@@ -509,11 +509,17 @@ public class RegistrationHistoryFragment extends Fragment {
                             : "Event " + entry.getEventId();
                     String posterUrl = eventPosters.get(entry.getEventId());
 
+                    // If event is deleted, override status to "cancelled"
+                    String status = entry.getStatus();
+                    if (deletedEvents.contains(entry.getEventId())) {
+                        status = "cancelled";
+                    }
+
             registrations.add(new RegistrationHistoryViewModel.Registration(
                             entry.getEventId(),
                             title,
                             posterUrl,
-                            entry.getStatus(),
+                            status,
                             entry.getTimestamp() != null
                                     ? entry.getTimestamp()
                                     : System.currentTimeMillis()
@@ -526,8 +532,9 @@ public class RegistrationHistoryFragment extends Fragment {
         private void fetchEventData(List<String> eventIds, EventDataCallback callback) {
             Map<String, String> eventTitles  = new HashMap<>();
             Map<String, String> eventPosters = new HashMap<>();
+            Set<String> deletedEvents = new HashSet<>();
             if (eventIds.isEmpty()) {
-                callback.onResult(eventTitles, eventPosters);
+                callback.onResult(eventTitles, eventPosters, deletedEvents);
                 return;
             }
 
@@ -540,17 +547,23 @@ public class RegistrationHistoryFragment extends Fragment {
                                 if (title != null) eventTitles.put(eventId, title);
                                 String posterUrl = doc.getString("posterImageUrl");
                                 if (posterUrl != null) eventPosters.put(eventId, posterUrl);
+
+                                // Check if event is deleted
+                                Boolean isDeleted = doc.getBoolean("isDeleted");
+                                if (isDeleted != null && isDeleted) {
+                                    deletedEvents.add(eventId);
+                                }
                             }
-                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters);
+                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters, deletedEvents);
                         })
                         .addOnFailureListener(e -> {
-                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters);
+                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters, deletedEvents);
                         });
             }
         }
 
         private interface EventDataCallback {
-            void onResult(Map<String, String> eventTitles, Map<String, String> eventPosters);
+            void onResult(Map<String, String> eventTitles, Map<String, String> eventPosters, Set<String> deletedEvents);
         }
     }
 }
