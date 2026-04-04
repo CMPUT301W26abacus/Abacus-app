@@ -158,6 +158,48 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * A separate join method specifically for guests. Uses a guest key for userId. Actual user
+     * does not exist.
+     *
+     * @param guestKey   the unique ID of the user in the database
+     * @param guestEmail the email entered by the guest
+     * @param guestName the name entered by the guest
+     * @param eventID  the unique ID of the event in the database
+     * @param location the user's current location, or {@code null} if not required
+     * @param callback called when the operation completes; {@code error} is non-null on failure
+     * @throws IllegalStateException    if the waitlist is full or closed
+     * @throws IllegalArgumentException if the user is already on the waitlist
+     */
+    public void joinWaitlistGuest(String guestKey, String guestEmail, String guestName, String eventID, Location location, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                Random random = new Random();
+                WaitlistEntry entry = new WaitlistEntry(
+                        guestKey,
+                        eventID,
+                        WaitlistEntry.STATUS_WAITLISTED,
+                        random.nextInt(100000),
+                        System.currentTimeMillis()
+                );
+
+                // Set location BEFORE writing so it is included in the Firestore document.
+                if (location != null) {
+                    entry.setLatitude(location.getLatitude());
+                    entry.setLongitude(location.getLongitude());
+                }
+
+                // Atomic join: checks duplicates + capacity, then writes entry in one transaction.
+                remoteDataSource.joinWaitlistAtomicSync(eventID, entry);
+                remoteDataSource.addGuestFields(eventID, guestKey, guestEmail, guestName);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
     public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {

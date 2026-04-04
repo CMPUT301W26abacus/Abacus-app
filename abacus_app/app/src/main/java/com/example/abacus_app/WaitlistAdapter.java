@@ -51,7 +51,7 @@ public class WaitlistAdapter extends RecyclerView.Adapter<WaitlistAdapter.Waitli
         // set display name
         String displayName = entry.getUserName();
         if (displayName == null || displayName.isEmpty()) {
-            displayName = "User: " + entry.getUserID();
+            displayName = "Guest: " + entry.getUserID().split("_", 2)[0];
         }
         holder.tvName.setText(displayName);
 
