@@ -207,13 +207,12 @@ public class GuestSignUpFragment extends Fragment {
         btnJoin.setText("Joining…");
 
         String guestKey = emailToKey(email);
-        String docId    = guestKey + "_" + eventId;
+        String docId = guestKey + "_" + eventId;
 
-        RegistrationRepository registrationRepository = new RegistrationRepository();
-        registrationRepository.joinWaitlistGuest(docId, email, name, eventId, location, error -> {
+        new RegistrationRepository().joinWaitlistGuest(docId, email, name, eventId, location, error -> {
             if (error == null) {
                 saveGuestEmail(email);
-                Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_SHORT).show();
                 Navigation.findNavController(view).popBackStack();
             } else {
                 resetJoinButton();

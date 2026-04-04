@@ -133,6 +133,9 @@ public class RegistrationRepository {
     public void joinWaitlist(String userID, String eventID, Location location, VoidCallback callback) {
         executor.submit(() -> {
             try {
+                // Fetch user info to persist name/email for the map
+                User user = userRemoteDataSource.getUserSync(userID);
+
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
                         userID,
@@ -151,6 +154,11 @@ public class RegistrationRepository {
                 // Atomic join: checks duplicates + capacity, then writes entry in one transaction.
                 remoteDataSource.joinWaitlistAtomicSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
+
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
 
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
@@ -195,6 +203,7 @@ public class RegistrationRepository {
                 mainHandler.post(() -> callback.onComplete(null));
 
             } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error joining waitlist", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
@@ -203,6 +212,8 @@ public class RegistrationRepository {
     public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
+                User user = userRemoteDataSource.getUserSync(userID);
+
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
                         userID,
@@ -211,9 +222,16 @@ public class RegistrationRepository {
                         random.nextInt(100000),
                         System.currentTimeMillis()
                 );
+
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
+
                 remoteDataSource.joinWaitlistSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error manually inviting entrant", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });

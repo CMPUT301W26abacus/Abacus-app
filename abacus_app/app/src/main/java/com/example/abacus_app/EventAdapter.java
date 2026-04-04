@@ -213,53 +213,34 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
 
-        String legacyDocId = userKey + "_" + eventId;
-
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("events")
+        // Authenticated users: Check status in the event's waitlist subcollection
+        FirebaseFirestore.getInstance()
+                .collection("events")
                 .document(eventId)
                 .collection("waitlist")
                 .document(userKey)
                 .get()
-                .addOnSuccessListener(waitlistSnapshot -> {
-                    if (waitlistSnapshot.exists()) {
-                        int pos = holder.getBindingAdapterPosition();
-                        if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
-                        if (!eventId.equals(events.get(pos).getEventId())) return;
+                .addOnSuccessListener(snapshot -> {
+                    int pos = holder.getBindingAdapterPosition();
+                    if (pos == RecyclerView.NO_ID || pos < 0 || pos >= events.size()) return;
+                    if (!eventId.equals(events.get(pos).getEventId())) return;
 
-                        applyButtonState(holder, ButtonState.JOINED, holder.itemView.getContext());
+                    boolean joined = snapshot.exists();
+                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN, holder.itemView.getContext());
+
+                    if (joined) {
+                        // Already joined — tap opens details so they can leave from there
                         holder.btnJoinStatus.setOnClickListener(v -> {
                             if (clickListener != null)
                                 clickListener.onEventClick(event.getTitle(), false);
                         });
-                        return;
+                    } else {
+                        // Not joined — tap opens details AND triggers join immediately
+                        holder.btnJoinStatus.setOnClickListener(v -> {
+                            if (clickListener != null)
+                                clickListener.onEventClick(event.getTitle(), true);
+                        });
                     }
-
-                    // Legacy fallback for older guest registrations stored only in flat collection.
-                    db.collection("registrations")
-                            .document(legacyDocId)
-                            .get()
-                            .addOnSuccessListener(regSnapshot -> {
-                                int pos = holder.getBindingAdapterPosition();
-                                if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
-                                if (!eventId.equals(events.get(pos).getEventId())) return;
-
-                                boolean joined = regSnapshot.exists();
-                                applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN,
-                                        holder.itemView.getContext());
-
-                                if (joined) {
-                                    holder.btnJoinStatus.setOnClickListener(v -> {
-                                        if (clickListener != null)
-                                            clickListener.onEventClick(event.getTitle(), false);
-                                    });
-                                } else {
-                                    holder.btnJoinStatus.setOnClickListener(v -> {
-                                        if (clickListener != null)
-                                            clickListener.onEventClick(event.getTitle(), true);
-                                    });
-                                }
-                            });
                 });
     }
 
