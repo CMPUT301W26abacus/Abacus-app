@@ -341,18 +341,18 @@ public class MainActivity extends AppCompatActivity {
         } else {
             FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
             String email = authUser != null ? authUser.getEmail() : null;
-            if (email != null && !email.trim().isEmpty()) {
-                resolvedUserKey = GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US));
-                if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
-            } else {
-                // Fallback for edge-cases where Firebase email is missing.
-                UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
-                UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
-                new UserRepository(local, remote).getCurrentUserId(uuid -> {
+            UserLocalDataSource local   = new UserLocalDataSource(getApplicationContext());
+            UserRemoteDataSource remote = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+            new UserRepository(local, remote).getCurrentUserId(uuid -> {
+                if (email != null && !email.trim().isEmpty() && uuid == null) {
+                    resolvedUserKey = GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US));
+                    if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
+                } else {
+                    // Fallback for edge-cases where Firebase email is missing.
                     resolvedUserKey = uuid;
                     if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
-                });
-            }
+                }
+            });
         }
     }
 
