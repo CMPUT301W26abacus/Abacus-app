@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
@@ -48,6 +49,10 @@ public class RegistrationRemoteDataSource {
                 .collection("waitlist");
     }
 
+    private DocumentReference getEventDocRef(String eventID) {
+        return firestore.collection("events").document(eventID);
+    }
+
     /**
      * Helper to extract WaitlistEntry from a document.
      *
@@ -81,7 +86,13 @@ public class RegistrationRemoteDataSource {
         Long lottoLong = doc.getLong("lotteryNumber");
         Integer lotteryNumber = lottoLong != null ? lottoLong.intValue() : 0;
 
-        return new WaitlistEntry(userId, eventId, status, lotteryNumber, timestamp);
+        WaitlistEntry entry = new WaitlistEntry(userId, eventId, status, lotteryNumber, timestamp);
+        entry.setLatitude(doc.getDouble("latitude"));
+        entry.setLongitude(doc.getDouble("longitude"));
+        entry.setUserName(doc.getString("userName"));
+        entry.setUserEmail(doc.getString("userEmail"));
+        
+        return entry;
     }
 
     // ── Existing methods (unchanged) ──────────────────────────────────────────
@@ -118,7 +129,7 @@ public class RegistrationRemoteDataSource {
                         .get()
         );
         if (doc.exists()) {
-            return doc.toObject(WaitlistEntry.class);
+            return mapDocument(doc);
         }
         return null;
     }
@@ -147,7 +158,13 @@ public class RegistrationRemoteDataSource {
      */
     public void joinWaitlistSync(String eventID, WaitlistEntry entry) throws Exception {
         DocumentReference docRef = getCollectionRef(eventID).document(entry.getUserID());
+        
+        // Use a transaction or batch to ensure count consistency if needed, 
+        // but simple update is usually enough for this scope.
         Tasks.await(docRef.set(entry));
+        
+        // Increment waitlistCount in the event document
+        Tasks.await(getEventDocRef(eventID).update("waitlistCount", FieldValue.increment(1)));
     }
 
     /**
@@ -160,6 +177,9 @@ public class RegistrationRemoteDataSource {
     public void removeWaitlistEntrySync(String eventId, String userId) throws Exception {
         DocumentReference docRef = getCollectionRef(eventId).document(userId);
         Tasks.await(docRef.delete());
+        
+        // Decrement waitlistCount in the event document
+        Tasks.await(getEventDocRef(eventId).update("waitlistCount", FieldValue.increment(-1)));
     }
 
     /**

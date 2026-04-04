@@ -292,7 +292,7 @@ public class EventDetailsFragment extends Fragment {
             } else {
                 showJoinButton();
                 // Auto-join: fire immediately, no extra tap needed
-                if (autoJoin) handleJoinFlow();
+                if (autoJoin && btnJoinWaitlist.getVisibility() == View.VISIBLE) handleJoinFlow();
             }
         });
     }
@@ -396,11 +396,10 @@ public class EventDetailsFragment extends Fragment {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
+                    // Re-apply join button visibility based on loaded event privacy
+                    if (currentUserId != null) checkWaitlistStatus();
+
                     // Organizer name — direct Firestore read used here intentionally.
-                    // UserRepository only exposes getProfile() which fetches the CURRENT
-                    // user by their locally stored UUID. There is no getUserById(id) method
-                    // to look up an arbitrary user by ID. Until UserRepository is extended
-                    // to support that, this lookup stays as a direct Firestore call.
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -427,8 +426,6 @@ public class EventDetailsFragment extends Fragment {
             if (tvWaitlistCount == null || event == null) return;
             int count        = event.getWaitlistCount() != null ? event.getWaitlistCount() : 0;
             Integer capacity = event.getWaitlistCapacity();
-            // BUG FIX from part3: Disables button and changes text to EVENT FULL when spotsLeft
-            // is 0, only when the join button is currently showing (so the user isn't on the waitlist)
             if (capacity == null) {
                 tvWaitlistCount.setText(count + " on waiting list");
             } else {
@@ -564,14 +561,21 @@ public class EventDetailsFragment extends Fragment {
                 btnJoinWaitlist.setEnabled(true);
                 btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
             }
-        } else {
-            if (btnJoinWaitlist != null) {
-                boolean isEnded = loadedEvent != null
-                        && loadedEvent.getRegistrationEnd() != null
-                        && loadedEvent.getRegistrationEnd().toDate().before(new Date());
-                btnJoinWaitlist.setEnabled(currentUserId != null && !isEnded);
-                btnJoinWaitlist.setText(isEnded ? "Registration Ended" : "Join Waiting List");
-            }
+            return;
+        }
+
+        // US: Private events are invite-only. If not already on waitlist/invited, hide join button.
+        if (loadedEvent != null && loadedEvent.isPrivate()) {
+            if (btnJoinWaitlist != null) btnJoinWaitlist.setVisibility(View.GONE);
+            return;
+        }
+
+        if (btnJoinWaitlist != null) {
+            boolean isEnded = loadedEvent != null
+                    && loadedEvent.getRegistrationEnd() != null
+                    && loadedEvent.getRegistrationEnd().toDate().before(new Date());
+            btnJoinWaitlist.setEnabled(currentUserId != null && !isEnded);
+            btnJoinWaitlist.setText(isEnded ? "Registration Ended" : "Join Waiting List");
         }
     }
 
@@ -634,19 +638,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
 
-    /**
-     * Performs a soft delete of the current event by setting isDeleted=true in
-     * Firestore. The real-time snapshot listener in MainActivity will automatically
-     * remove the event from the browse list on next update.
-     *
-     * Note: Firestore queries that don't filter on isDeleted will still return
-     * this document. MainActivity's loadEventsFromFirestore() should either use
-     * .whereEqualTo("isDeleted", false) or skip documents where isDeleted is true
-     * during the snapshot loop.
-     *
-     * On success, navigates back (popping the back stack or returning home),
-     * mirroring the pattern used after saving organizer edits.
-     */
     private void softDeleteFromDetails() {
         if (currentEventId == null) return;
         FirebaseFirestore.getInstance()
@@ -656,7 +647,6 @@ public class EventDetailsFragment extends Fragment {
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(requireContext(),
                             "Event deleted.", Toast.LENGTH_SHORT).show();
-                    // Return to previous screen — same pattern as organizer save
                     if (!Navigation.findNavController(requireView()).popBackStack()) {
                         ((MainActivity) requireActivity()).showHome();
                     }

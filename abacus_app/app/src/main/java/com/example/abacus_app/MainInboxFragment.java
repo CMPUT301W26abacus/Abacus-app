@@ -43,6 +43,7 @@ public class MainInboxFragment extends Fragment {
     private FirebaseFirestore db;
     private String currentUserEmail;
     private ManageEventViewModel manageEventViewModel;
+    private RegistrationRepository registrationRepository;
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
     private final Map<String, Notification> allNotifications = new HashMap<>();
@@ -59,6 +60,7 @@ public class MainInboxFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         manageEventViewModel = new ViewModelProvider(this).get(ManageEventViewModel.class);
+        registrationRepository = new RegistrationRepository();
 
         recyclerView = view.findViewById(R.id.notificationRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -97,58 +99,92 @@ public class MainInboxFragment extends Fragment {
         adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
             @Override
             public void onAccept(Notification notification) {
-                // Find the doc ID from the map key (e.g., MSG_docId)
-                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
-                    if (entry.getValue().equals(notification)) {
-                        String key = entry.getKey();
-                        if (key.startsWith("MSG_")) {
-                            String actualDocId = key.substring(4);
-                            acceptInvite(notification, actualDocId);
-                            break;
-                        }
-                    }
+                String eventId = notification.getEventId();
+                if (eventId == null) return;
+
+                if (Notification.TYPE_CO_ORGANIZER_INVITE.equals(notification.getType())) {
+                    // Handle co-organizer invitation
+                    acceptCoOrganizerInvite(notification);
+                } else {
+                    // Handle regular event invitation (move from 'invited' to 'accepted')
+                    acceptEventInvitation(eventId);
                 }
             }
 
             @Override
             public void onDecline(Notification notification) {
-                for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
-                    if (entry.getValue().equals(notification)) {
-                        String key = entry.getKey();
-                        if (key.startsWith("MSG_")) {
-                            String actualDocId = key.substring(4);
-                            declineInvite(actualDocId);
-                            break;
-                        }
-                    }
+                String eventId = notification.getEventId();
+                if (eventId == null) return;
+
+                if (Notification.TYPE_CO_ORGANIZER_INVITE.equals(notification.getType())) {
+                    declineCoOrganizerInvite(notification);
+                } else {
+                    declineEventInvitation(eventId);
                 }
             }
         });
     }
 
-    private void acceptInvite(Notification n, String docId) {
-        if (n.getEventId() == null) return;
+    private void acceptCoOrganizerInvite(Notification n) {
+        // Find the doc ID from the map key (e.g., MSG_docId)
+        String docId = null;
+        for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+            if (entry.getValue().equals(n)) {
+                if (entry.getKey().startsWith("MSG_")) {
+                    docId = entry.getKey().substring(4);
+                    break;
+                }
+            }
+        }
 
-        // Use the ViewModel method to add user as co-organizer
+        if (docId == null) return;
+
         manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
-
-        // Update notification status in Firestore instead of deleting
         db.collection("notifications").document(docId)
                 .update("status", Notification.STATUS_ACCEPTED)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
-                    // UI will update automatically due to SnapshotListener
+                    Toast.makeText(getContext(), "Co-organizer invitation accepted", Toast.LENGTH_SHORT).show();
                 });
     }
 
-    private void declineInvite(String docId) {
-        // Update notification status in Firestore instead of deleting
+    private void declineCoOrganizerInvite(Notification n) {
+        String docId = null;
+        for (Map.Entry<String, Notification> entry : allNotifications.entrySet()) {
+            if (entry.getValue().equals(n)) {
+                if (entry.getKey().startsWith("MSG_")) {
+                    docId = entry.getKey().substring(4);
+                    break;
+                }
+            }
+        }
+
+        if (docId == null) return;
+
         db.collection("notifications").document(docId)
                 .update("status", Notification.STATUS_DECLINED)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Invitation declined", Toast.LENGTH_SHORT).show();
-                    // UI will update automatically due to SnapshotListener
+                    Toast.makeText(getContext(), "Co-organizer invitation declined", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void acceptEventInvitation(String eventId) {
+        registrationRepository.acceptInvitation(currentUserId, eventId, error -> {
+            if (error == null) {
+                Toast.makeText(getContext(), "Event invitation accepted", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), "Failed to accept: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void declineEventInvitation(String eventId) {
+        registrationRepository.declineInvitation(currentUserId, eventId, error -> {
+            if (error == null) {
+                Toast.makeText(getContext(), "Event invitation declined", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), "Failed to decline: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void startListening() {

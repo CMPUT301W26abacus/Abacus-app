@@ -184,11 +184,12 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
         holder.btnJoinStatus.setOnClickListener(null); // clear during check
 
-        String docId = userKey + "_" + eventId;
-
+        // Authenticated users: Check status in the event's waitlist subcollection
         FirebaseFirestore.getInstance()
-                .collection("registrations")
-                .document(docId)
+                .collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document(userKey)
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     int pos = holder.getBindingAdapterPosition();

@@ -232,8 +232,8 @@ public class GuestSignUpFragment extends Fragment {
                 }
 
                 Map<String, Object> registration = new HashMap<>();
-                registration.put("guestName",  name);
-                registration.put("guestEmail", email);
+                registration.put("userName",   name);
+                registration.put("userEmail",  email);
                 registration.put("eventId",    eventId);
                 registration.put("status",     "guest_waitlisted");
                 registration.put("isGuest",    true);
@@ -245,12 +245,13 @@ public class GuestSignUpFragment extends Fragment {
 
                 regRef.set(registration).addOnSuccessListener(unused -> {
                     Map<String, Object> waitlistEntry = new HashMap<>();
-                    waitlistEntry.put("guestName",     name);
-                    waitlistEntry.put("guestEmail",    email);
-                    waitlistEntry.put("eventID",       eventId);
+                    waitlistEntry.put("userName",      name);
+                    waitlistEntry.put("userEmail",     email);
+                    waitlistEntry.put("eventId",       eventId);
                     waitlistEntry.put("status",        "guest_waitlisted");
                     waitlistEntry.put("isGuest",       true);
                     waitlistEntry.put("joinTime",      Timestamp.now());
+                    waitlistEntry.put("timestamp",     System.currentTimeMillis());
                     waitlistEntry.put("lotteryNumber", 0);
                     if (location != null) {
                         waitlistEntry.put("latitude", location.getLatitude());

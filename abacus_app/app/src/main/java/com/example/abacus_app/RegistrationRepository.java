@@ -90,24 +90,8 @@ public class RegistrationRepository {
     public void joinWaitlist(String userID, String eventID, Location location, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                // logic checks
-                /**
-                 EventRemoteDataSource eventDS = new EventRemoteDataSource();
-                 boolean waitlistOpen = eventDS.isWaitlistOpen(eventID);
-                 if (!waitlistOpen) {
-                 throw new IllegalStateException("Waitlist is closed.");
-                 }
-                 int waitlistCapacity = eventDS.getWaitlistCapacity(eventID);
-                 if (waitlistCapacity != -1) { // or whatever indicates that a waitlist has no limit <--TODO
-                 int waitlistSize = remoteDataSource.getWaitlistSizeSync(eventID);
-                 if (waitlistSize >= waitlistCapacity) {
-                 throw new IllegalStateException("Waitlist is full.");
-                 }
-                 }
-                 if (remoteDataSource.isUserOnWaitlistSync(eventID, userID)) {
-                 throw new IllegalArgumentException("User is already on waitlist.");
-                 }
-                 **/
+                // Fetch user info to persist name/email for the map
+                User user = userRemoteDataSource.getUserSync(userID);
 
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
@@ -117,16 +101,23 @@ public class RegistrationRepository {
                         random.nextInt(100000),
                         System.currentTimeMillis()
                 );
-                remoteDataSource.joinWaitlistSync(eventID, entry);
-                mainHandler.post(() -> callback.onComplete(null));
 
-                // This was outside the try block, needs to be inside
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
+
                 if (location != null) {
                     entry.setLatitude(location.getLatitude());
                     entry.setLongitude(location.getLongitude());
                 }
 
+                // Call sync join AFTER setting all properties including location
+                remoteDataSource.joinWaitlistSync(eventID, entry);
+                mainHandler.post(() -> callback.onComplete(null));
+
             } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error joining waitlist", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
@@ -135,6 +126,8 @@ public class RegistrationRepository {
     public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
+                User user = userRemoteDataSource.getUserSync(userID);
+
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
                         userID,
@@ -143,9 +136,16 @@ public class RegistrationRepository {
                         random.nextInt(100000),
                         System.currentTimeMillis()
                 );
+
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
+
                 remoteDataSource.joinWaitlistSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error manually inviting entrant", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });

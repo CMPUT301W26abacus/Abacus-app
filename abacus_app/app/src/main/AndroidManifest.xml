@@ -28,7 +28,7 @@
         <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR-API-KEY-HERE" />
+            android:value="AIzaSyC5Qd9OKAhUtJwVJLPVgjDJYyi7ixl6TMM" />
 
         <activity android:name=".SplashActivity"
             android:exported="true">
@@ -46,6 +46,16 @@
 
         <activity android:name=".LoginActivity"/>
         <activity android:name=".RegisterActivity"/>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.example.abacus_app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

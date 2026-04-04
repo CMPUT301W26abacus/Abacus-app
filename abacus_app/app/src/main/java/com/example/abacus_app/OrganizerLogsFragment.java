@@ -169,14 +169,13 @@ public class OrganizerLogsFragment extends Fragment {
     }
 
     private void inviteToWaitlist(User user, Event event) {
-        // Logic to add user to registrations collection with status 'invited' or 'waitlisted'
-        // For now, we'll just show a toast as the actual Firestore logic for manual invite
-        // might need a specific repository method.
+        manageEventViewModel.inviteToPrivateEvent(event.getEventId(), event.getTitle(), user);
         Toast.makeText(getContext(), "Invited " + user.getName() + " to " + event.getTitle(), Toast.LENGTH_SHORT).show();
     }
 
     private void inviteAsCoOrganizer(User user) {
-        // Logic to update user's role or add to a co-organizers sub-collection
-        Toast.makeText(getContext(), user.getName() + " invited as co-organizer", Toast.LENGTH_SHORT).show();
+        // Logic to invite as co-organizer (this usually requires a specific event)
+        // For simplicity, we can reuse the private event picker or just toast if not linked to an event
+        Toast.makeText(getContext(), "Use 'Manage Events' to invite co-organizers to specific events", Toast.LENGTH_LONG).show();
     }
 }
