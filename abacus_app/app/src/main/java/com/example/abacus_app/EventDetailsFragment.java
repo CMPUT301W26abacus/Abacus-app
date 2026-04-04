@@ -82,6 +82,9 @@ public class EventDetailsFragment extends Fragment {
     private FirebaseFirestore db;
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
+    private Button btnAccept;
+    private Button btnDecline;
+    private TextView tvStatusMessage;
     private Button btnViewMap;
     private ImageButton btnViewQr;
     private TextView tvWaitlistCount;
@@ -175,11 +178,16 @@ public class EventDetailsFragment extends Fragment {
         // ── Waitlist setup ─────────────────────────────────────────────────────
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
+        btnAccept = view.findViewById(R.id.btn_accept_invitation);
+        btnDecline = view.findViewById(R.id.btn_decline_invitation);
+        tvStatusMessage = view.findViewById(R.id.tv_event_waitlist_status_message);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
         btnViewMap       = view.findViewById(R.id.btn_view_map);
 
         btnJoinWaitlist.setEnabled(false);
         btnLeaveWaitlist.setEnabled(false);
+        btnAccept.setEnabled(false);
+        btnDecline.setEnabled(false);
 
         if (btnViewMap != null) {
             btnViewMap.setVisibility(View.GONE);
@@ -270,7 +278,7 @@ public class EventDetailsFragment extends Fragment {
 
             FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
             String email = authUser != null ? authUser.getEmail() : null;
-            if (email != null && !email.trim().isEmpty()) {
+            if (email != null && !email.trim().isEmpty() && uuid == null) {
                 currentRegistrationKey = GuestSignUpFragment.emailToKey(
                         email.trim().toLowerCase(Locale.US));
             } else {
@@ -294,6 +302,8 @@ public class EventDetailsFragment extends Fragment {
             }
         });
         btnLeaveWaitlist.setOnClickListener(v -> showLeaveConfirmationDialog());
+        btnAccept.setOnClickListener(v -> acceptInvitation());
+        btnDecline.setOnClickListener(v -> showDeclineConfirmationDialog());
     }
 
     /**
@@ -305,7 +315,26 @@ public class EventDetailsFragment extends Fragment {
         if (currentEventId == null || currentRegistrationKey == null) return;
         registrationRepository.isOnWaitlist(currentRegistrationKey, currentEventId, isOn -> {
             if (isOn) {
-                showLeaveButton();
+                registrationRepository.getUserEntry(currentRegistrationKey, currentEventId, entry -> {
+                    // show correct button/text depending on waitlist status
+                    switch (entry.getStatus()) {
+                        case WaitlistEntry.STATUS_WAITLISTED:
+                            showLeaveButton();
+                            break;
+                        case WaitlistEntry.STATUS_INVITED:
+                            showAcceptDeclineButtons();
+                            break;
+                        case WaitlistEntry.STATUS_ACCEPTED:
+                            showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
+                            break;
+                        case WaitlistEntry.STATUS_DECLINED:
+                            showStatusMessage(WaitlistEntry.STATUS_DECLINED);
+                            break;
+                        case WaitlistEntry.STATUS_CANCELLED:
+                            showStatusMessage(WaitlistEntry.STATUS_CANCELLED);
+                            break;
+                    }
+                });
             } else {
                 showJoinButton();
                 // Auto-join: fire immediately, no extra tap needed
@@ -568,11 +597,55 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    private void showDeclineConfirmationDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Decline Invitation?")
+                .setMessage("Are you sure you want to decline your invitation to this event? Once you do, you cannot change your mind.")
+                .setPositiveButton("YES",  (dialog, which) -> declineInvitation())
+                .setNegativeButton("NO", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private void declineInvitation() {
+        if (currentRegistrationKey == null || currentEventId == null) return;
+        registrationRepository.declineInvitation(currentRegistrationKey, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "Declined.", Toast.LENGTH_SHORT).show();
+            showStatusMessage(WaitlistEntry.STATUS_DECLINED);
+            loadWaitlistCount();
+        });
+    }
+
+    private void acceptInvitation() {
+        if (currentRegistrationKey == null || currentEventId == null) return;
+        registrationRepository.acceptInvitation(currentRegistrationKey, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "Accepted.", Toast.LENGTH_SHORT).show();
+            showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
+            loadWaitlistCount();
+        });
+    }
+
     // ── Button visibility ─────────────────────────────────────────────────────
 
     private void showJoinButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
 
         if (canEditCurrentEvent()) {
             if (btnJoinWaitlist != null) {
@@ -594,7 +667,45 @@ public class EventDetailsFragment extends Fragment {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
     }
+
+    private void showAcceptDeclineButtons() {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.VISIBLE);
+        if (btnDecline != null) btnDecline.setVisibility(View.VISIBLE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setEnabled(true);
+        if (btnDecline != null) btnDecline.setEnabled(true);
+    }
+
+    private void showStatusMessage(String status) {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.VISIBLE);
+
+        switch (status) {
+            case WaitlistEntry.STATUS_ACCEPTED:
+                tvStatusMessage.setText("Congratulations! You are going to this event.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
+                break;
+            case WaitlistEntry.STATUS_DECLINED:
+                tvStatusMessage.setText("You have declined your invitation to this event.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
+                break;
+            case WaitlistEntry.STATUS_CANCELLED:
+                tvStatusMessage.setText("Sorry, your invitation to this event has been cancelled.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
+                break;
+        }
+    }
+
+    // ── Edit mode (organizer) ─────────────────────────────────────────────────
 
     private boolean canEditCurrentEvent() {
         if (loadedEvent == null || getActivity() == null) return false;
@@ -625,8 +736,6 @@ public class EventDetailsFragment extends Fragment {
 
         return (hasOrganizerRole && ownsEvent) || isCoOrganizer;
     }
-
-    // ── Edit mode (organizer) ─────────────────────────────────────────────────
 
     private void toggleEditMode() {
         if (loadedEvent == null) return;
