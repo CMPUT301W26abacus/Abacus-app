@@ -13,6 +13,7 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -349,5 +350,21 @@ public class RegistrationRemoteDataSource {
             Log.e("RDS", "getHistoryForGuestSync failed", e);
         }
         return new ArrayList<>();
+    }
+
+    public void addGuestFields(String eventId, String guestId, String guestEmail, String guestName) throws Exception {
+        DocumentReference docRef = getCollectionRef(eventId).document(guestId);
+
+        // Data to add
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("guestEmail", guestEmail);
+        updates.put("guestName", guestName);
+        updates.put("isGuest", true);
+
+        // Update only if document exists
+        DocumentSnapshot snapshot = Tasks.await(docRef.get());
+        if (snapshot.exists()) {
+            Tasks.await(docRef.update(updates));
+        }
     }
 }

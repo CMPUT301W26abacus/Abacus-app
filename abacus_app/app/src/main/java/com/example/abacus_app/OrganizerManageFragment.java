@@ -299,11 +299,10 @@ public class OrganizerManageFragment extends Fragment {
                     .count();
 
             if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), countWaitlisted)) {
-                    Log.d(TAG, "observeViewModel: enable draw replacement");
-                    Log.d(TAG, "countInvitedAccepted: " + countInvitedAccepted);
-                    Log.d(TAG, "cap: " + selectedEvent.getEventCapacity());
-                    Log.d(TAG, "waitlist size: " + countWaitlisted);
+                Log.d(TAG, "countInvitedAccepted: " + countInvitedAccepted);
+                Log.d(TAG, "cap: " + selectedEvent.getEventCapacity());
+                Log.d(TAG, "waitlist size: " + countWaitlisted);
+                if (countInvitedAccepted < selectedEvent.getEventCapacity() && countWaitlisted > 0) {
                     btnDrawReplacement.setEnabled(true);
                 } else {
                     btnDrawReplacement.setEnabled(false);
