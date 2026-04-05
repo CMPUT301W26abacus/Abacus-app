@@ -45,14 +45,15 @@
             android:letterSpacing="0.1"
             android:layout_marginBottom="8dp" />
 
-        <!-- Keyword input with enforced colors -->
+        <!-- Keyword input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_keyword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             app:boxBackgroundColor="@color/white"
-            app:boxStrokeColor="@color/orange_textinput">   <!-- focused outline -->
+            app:boxStrokeColor="@color/orange_textinput"
+            android:layout_marginBottom="20dp">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_keyword"
@@ -61,6 +62,7 @@
                 android:hint="e.g. music, fitness, tech"
                 android:textColor="@color/black"/>
         </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Date label -->
         <TextView
             android:layout_width="match_parent"
@@ -78,11 +80,42 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginBottom="28dp"
+            android:layout_marginBottom="20dp"
             android:text="Select a date"
             android:textAppearance="?attr/textAppearanceBodyLarge"
             android:textColor="@color/black"
             app:strokeColor="@color/black" />
+
+        <!-- Availability label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AVAILABILITY"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Open for registration toggle -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_open_only"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Open for registration only"
+            android:textColor="@color/black"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Has spots left toggle -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_has_spots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Has spots left (not full)"
+            android:textColor="@color/black"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:layout_marginBottom="28dp" />
 
         <!-- Apply + Clear buttons -->
         <LinearLayout

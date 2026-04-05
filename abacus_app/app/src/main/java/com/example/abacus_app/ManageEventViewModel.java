@@ -16,6 +16,7 @@ import com.google.firebase.firestore.WriteBatch;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Manages UI state and business logic for tracking entrants and finalizing the lottery.
@@ -36,6 +37,7 @@ public class ManageEventViewModel extends ViewModel {
     private final MutableLiveData<Boolean>             isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean>             lotteryCompleted = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean>             eventDeleted = new MutableLiveData<>(false);
+    private final MutableLiveData<Event>               eventDetails = new MutableLiveData<>();
 
     public ManageEventViewModel() {
         this.registrationRepository = new RegistrationRepository();
@@ -51,6 +53,7 @@ public class ManageEventViewModel extends ViewModel {
     public LiveData<Boolean>             getIsLoading() { return isLoading; }
     public LiveData<Boolean>             getLotteryCompleted() { return lotteryCompleted; }
     public LiveData<Boolean>             getEventDeleted() { return eventDeleted; }
+    public LiveData<Event>               getEventDetails() { return eventDetails; }
 
     public void loadWaitlist(String eventId) {
         isLoading.setValue(true);
@@ -68,9 +71,10 @@ public class ManageEventViewModel extends ViewModel {
         isLoading.setValue(true);
         eventRepository.getEventByIdAsync(eventId, event -> {
             if (event != null) {
+                eventDetails.setValue(event);
                 lotteryCompleted.setValue(event.isLotteryDrawn());
             } else {
-                error.setValue("Failed to load lottery status");
+                error.setValue("Failed to load event details");
             }
             isLoading.setValue(false);
         });
@@ -79,8 +83,12 @@ public class ManageEventViewModel extends ViewModel {
     public void loadOrganizerEvents(String organizerId) {
         isLoading.setValue(true);
         eventRepository.getEventsByOrganizer(organizerId).addOnSuccessListener(queryDocumentSnapshots -> {
-            List<Event> eventList = queryDocumentSnapshots.toObjects(Event.class);
-            events.setValue(eventList);
+            List<Event> allEvents = queryDocumentSnapshots.toObjects(Event.class);
+            // Filter out deleted events
+            List<Event> activeEvents = allEvents.stream()
+                    .filter(event -> !Boolean.TRUE.equals(event.getIsDeleted()))
+                    .collect(Collectors.toList());
+            events.setValue(activeEvents);
             isLoading.setValue(false);
         }).addOnFailureListener(e -> {
             error.setValue("Failed to load events: " + e.getMessage());
@@ -204,6 +212,26 @@ public class ManageEventViewModel extends ViewModel {
                 .addOnFailureListener(e -> {
                     error.setValue("Failed to send invite: " + e.getMessage());
                 });
+    }
+
+    public void inviteToPrivateEvent(String eventId, String eventTitle, User user) {
+        if (eventId == null || user == null) return;
+        isLoading.setValue(true);
+        registrationRepository.manuallyInviteEntrant(user.getUid(), eventId, e -> {
+            isLoading.setValue(false);
+            if (e != null) {
+                error.setValue("Failed to invite: " + e.getMessage());
+            } else {
+                Notification notification = new Notification(
+                        user.getUid(),
+                        user.getEmail(),
+                        eventId,
+                        "You have been invited to the private event: " + eventTitle,
+                        Notification.TYPE_SELECTED
+                );
+                db.collection("notifications").add(notification);
+            }
+        });
     }
 
     public void addCoOrganizer(String eventId, String userId) {

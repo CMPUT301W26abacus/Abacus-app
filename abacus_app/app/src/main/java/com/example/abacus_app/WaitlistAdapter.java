@@ -51,7 +51,7 @@ public class WaitlistAdapter extends RecyclerView.Adapter<WaitlistAdapter.Waitli
         // set display name
         String displayName = entry.getUserName();
         if (displayName == null || displayName.isEmpty()) {
-            displayName = "User: " + entry.getUserID();
+            displayName = "Guest: " + entry.getUserID().split("_", 2)[0];
         }
         holder.tvName.setText(displayName);
 
@@ -68,14 +68,23 @@ public class WaitlistAdapter extends RecyclerView.Adapter<WaitlistAdapter.Waitli
             case WaitlistEntry.STATUS_WAITLISTED:
                 holder.tvStatus.setText("Waitlisted");
                 holder.tvStatus.getBackground().setTint(ContextCompat.getColor(context, R.color.color_status_waitlisted_orange));
+                holder.btnCancel.setEnabled(true);
+                holder.btnCancel.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.error_red)));
+                holder.cardView.setCardBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.light_grey));
                 break;
             case WaitlistEntry.STATUS_INVITED:
                 holder.tvStatus.setText("Invited");
                 holder.tvStatus.getBackground().setTint(ContextCompat.getColor(context, R.color.color_status_invited_blue));
+                holder.btnCancel.setEnabled(true);
+                holder.btnCancel.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.error_red)));
+                holder.cardView.setCardBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.light_grey));
                 break;
             case WaitlistEntry.STATUS_ACCEPTED:
                 holder.tvStatus.setText("Accepted");
                 holder.tvStatus.getBackground().setTint(ContextCompat.getColor(context, R.color.color_status_accepted_green));
+                holder.btnCancel.setEnabled(true);
+                holder.btnCancel.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.error_red)));
+                holder.cardView.setCardBackgroundColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.light_grey));
                 break;
             case WaitlistEntry.STATUS_DECLINED:
                 holder.tvStatus.setText("Declined");

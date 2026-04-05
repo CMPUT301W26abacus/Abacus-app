@@ -52,14 +52,31 @@
                     android:lineSpacingExtra="2dp"
                     tools:text="Congratulations! You have been selected for the event."/>
 
-                <TextView
-                    android:id="@+id/notificationTimestamp"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:textSize="12sp"
-                    android:textColor="@color/grey"
-                    tools:text="Oct 24, 2023 14:30"/>
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+
+                    <TextView
+                        android:id="@+id/notificationTimestamp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/grey"
+                        tools:text="Oct 24, 2023 14:30"/>
+
+                    <TextView
+                        android:id="@+id/tv_notification_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        tools:text="ACCEPTED"
+                        tools:visibility="visible"/>
+                </LinearLayout>
 
             </LinearLayout>
         </LinearLayout>

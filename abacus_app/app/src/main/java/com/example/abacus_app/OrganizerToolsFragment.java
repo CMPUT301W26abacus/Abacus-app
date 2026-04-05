@@ -46,11 +46,11 @@ public class OrganizerToolsFragment extends Fragment {
                 ((MainActivity) getActivity()).showFragment(R.id.organizerManageFragment, false);
         });
 
-        // Browse Entrants card
+        // Browse Entrants card - Redirects to OrganizerLogsFragment which handles profile browsing and invites
         MaterialCardView cardBrowseEntrants = view.findViewById(R.id.card_browse_entrants);
         cardBrowseEntrants.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity)
-                ((MainActivity) getActivity()).showFragment(R.id.browseEntrantsFragment, false);
+                ((MainActivity) getActivity()).showFragment(R.id.organizerLogsFragment, false);
         });
     }
 }

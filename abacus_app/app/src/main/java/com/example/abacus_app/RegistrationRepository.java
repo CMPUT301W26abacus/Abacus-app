@@ -133,6 +133,9 @@ public class RegistrationRepository {
     public void joinWaitlist(String userID, String eventID, Location location, VoidCallback callback) {
         executor.submit(() -> {
             try {
+                // Fetch user info to persist name/email for the map
+                User user = userRemoteDataSource.getUserSync(userID);
+
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
                         userID,
@@ -152,7 +155,55 @@ public class RegistrationRepository {
                 remoteDataSource.joinWaitlistAtomicSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
 
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
+
             } catch (Exception e) {
+                mainHandler.post(() -> callback.onComplete(e));
+            }
+        });
+    }
+
+    /**
+     * A separate join method specifically for guests. Uses a guest key for userId. Actual user
+     * does not exist.
+     *
+     * @param guestKey   the unique ID of the user in the database
+     * @param guestEmail the email entered by the guest
+     * @param guestName the name entered by the guest
+     * @param eventID  the unique ID of the event in the database
+     * @param location the user's current location, or {@code null} if not required
+     * @param callback called when the operation completes; {@code error} is non-null on failure
+     * @throws IllegalStateException    if the waitlist is full or closed
+     * @throws IllegalArgumentException if the user is already on the waitlist
+     */
+    public void joinWaitlistGuest(String guestKey, String guestEmail, String guestName, String eventID, Location location, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                Random random = new Random();
+                WaitlistEntry entry = new WaitlistEntry(
+                        guestKey,
+                        eventID,
+                        WaitlistEntry.STATUS_WAITLISTED,
+                        random.nextInt(100000),
+                        System.currentTimeMillis()
+                );
+
+                // Set location BEFORE writing so it is included in the Firestore document.
+                if (location != null) {
+                    entry.setLatitude(location.getLatitude());
+                    entry.setLongitude(location.getLongitude());
+                }
+
+                // Atomic join: checks duplicates + capacity, then writes entry in one transaction.
+                remoteDataSource.joinWaitlistAtomicSync(eventID, entry);
+                remoteDataSource.addGuestFields(eventID, guestKey, guestEmail, guestName);
+                mainHandler.post(() -> callback.onComplete(null));
+
+            } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error joining waitlist", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });
@@ -161,6 +212,8 @@ public class RegistrationRepository {
     public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
+                User user = userRemoteDataSource.getUserSync(userID);
+
                 Random random = new Random();
                 WaitlistEntry entry = new WaitlistEntry(
                         userID,
@@ -169,9 +222,16 @@ public class RegistrationRepository {
                         random.nextInt(100000),
                         System.currentTimeMillis()
                 );
+
+                if (user != null) {
+                    entry.setUserName(user.getName());
+                    entry.setUserEmail(user.getEmail());
+                }
+
                 remoteDataSource.joinWaitlistSync(eventID, entry);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error manually inviting entrant", e);
                 mainHandler.post(() -> callback.onComplete(e));
             }
         });

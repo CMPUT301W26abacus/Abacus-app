@@ -207,70 +207,18 @@ public class GuestSignUpFragment extends Fragment {
         btnJoin.setText("Joining…");
 
         String guestKey = emailToKey(email);
-        String docId    = guestKey + "_" + eventId;
+        String docId = guestKey + "_" + eventId;
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        com.google.firebase.firestore.DocumentReference regRef = db.collection("registrations").document(docId);
-        com.google.firebase.firestore.DocumentReference eventRef = db.collection("events").document(eventId);
-
-        regRef.get().addOnSuccessListener(snapshot -> {
-            if (snapshot.exists()) {
+        new RegistrationRepository().joinWaitlistGuest(docId, email, name, eventId, location, error -> {
+            if (error == null) {
                 saveGuestEmail(email);
-                Toast.makeText(requireContext(), "Already on the waiting list.", Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_SHORT).show();
                 Navigation.findNavController(view).popBackStack();
-                return;
+            } else {
+                resetJoinButton();
+                Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_LONG).show();
             }
-
-            eventRef.get().addOnSuccessListener(eventSnap -> {
-                Long count = eventSnap.getLong("waitlistCount");
-                Long capacity = eventSnap.getLong("waitlistCapacity");
-                if (count == null) count = 0L;
-                if (capacity != null && capacity != -1 && count >= capacity) {
-                    Toast.makeText(requireContext(), "Waiting list is full.", Toast.LENGTH_LONG).show();
-                    resetJoinButton();
-                    return;
-                }
-
-                Map<String, Object> registration = new HashMap<>();
-                registration.put("guestName",  name);
-                registration.put("guestEmail", email);
-                registration.put("eventId",    eventId);
-                registration.put("status",     "guest_waitlisted");
-                registration.put("isGuest",    true);
-                registration.put("timestamp",  System.currentTimeMillis());
-                if (location != null) {
-                    registration.put("latitude", location.getLatitude());
-                    registration.put("longitude", location.getLongitude());
-                }
-
-                regRef.set(registration).addOnSuccessListener(unused -> {
-                    Map<String, Object> waitlistEntry = new HashMap<>();
-                    waitlistEntry.put("guestName",     name);
-                    waitlistEntry.put("guestEmail",    email);
-                    waitlistEntry.put("eventID",       eventId);
-                    waitlistEntry.put("status",        "guest_waitlisted");
-                    waitlistEntry.put("isGuest",       true);
-                    waitlistEntry.put("joinTime",      Timestamp.now());
-                    waitlistEntry.put("lotteryNumber", 0);
-                    if (location != null) {
-                        waitlistEntry.put("latitude", location.getLatitude());
-                        waitlistEntry.put("longitude", location.getLongitude());
-                    }
-
-                    db.collection("events").document(eventId).collection("waitlist").document(guestKey)
-                            .set(waitlistEntry)
-                            .addOnSuccessListener(unused2 -> {
-                                eventRef.update("waitlistCount", FieldValue.increment(1));
-                                saveGuestEmail(email);
-                                Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_SHORT).show();
-                                Navigation.findNavController(view).popBackStack();
-                            })
-                            .addOnFailureListener(e -> {
-                                resetJoinButton();
-                            });
-                }).addOnFailureListener(e -> resetJoinButton());
-            }).addOnFailureListener(e -> resetJoinButton());
-        }).addOnFailureListener(e -> resetJoinButton());
+        });
     }
 
     public static String emailToKey(String email) {

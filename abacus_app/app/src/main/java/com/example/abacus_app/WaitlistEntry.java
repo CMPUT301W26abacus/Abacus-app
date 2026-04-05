@@ -26,9 +26,9 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     private Double latitude;
     private Double longitude;
 
-    // Transient fields for UI display
-    @Exclude private String userName;
-    @Exclude private String userEmail;
+    // Persisted fields for UI display on map without extra lookups
+    private String userName;
+    private String userEmail;
 
     /** Firebase Timestamp — stored for tests and code that uses getJoinTime(). */
     @Exclude private Timestamp joinTime;
@@ -76,11 +76,11 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
 
-    @Exclude public String getUserName()             { return userName; }
-    @Exclude public void   setUserName(String v)     { this.userName = v; }
+    public String getUserName()             { return userName; }
+    public void   setUserName(String v)     { this.userName = v; }
 
-    @Exclude public String getUserEmail()            { return userEmail; }
-    @Exclude public void   setUserEmail(String v)    { this.userEmail = v; }
+    public String getUserEmail()            { return userEmail; }
+    public void   setUserEmail(String v)    { this.userEmail = v; }
 
     /** Returns the Firebase Timestamp set via the Timestamp constructor (may be null). */
     @Exclude public Timestamp getJoinTime()          { return joinTime; }
@@ -97,6 +97,9 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
      */
     @Override
     public int compareTo(WaitlistEntry other) {
-        return Integer.compare(this.getLotteryNumber(), other.getLotteryNumber());
+        if (this.lotteryNumber == null && other.lotteryNumber == null) return 0;
+        if (this.lotteryNumber == null) return 1;
+        if (other.lotteryNumber == null) return -1;
+        return Integer.compare(this.lotteryNumber, other.lotteryNumber);
     }
 }

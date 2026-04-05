@@ -149,7 +149,7 @@ public class RegistrationHistoryFragment extends Fragment {
 
     private void setupStatusFilter(View root) {
         ImageButton btnStatusFilter = root.findViewById(R.id.btnStatusFilter);
-        final String[] statusLabels = {"On Waitlist", "Selected!", "Enrolled", "Declined", "Cancelled"};
+        final String[] statusLabels = {"Waitlisted", "Invited", "Accepted", "Declined", "Cancelled"};
         final boolean[] checked = new boolean[statusLabels.length];
 
         btnStatusFilter.setOnClickListener(v -> {
@@ -342,6 +342,7 @@ public class RegistrationHistoryFragment extends Fragment {
                         .format(new Date(item.getTimestamp())));
 
                 statusButton.setText(item.getStatusLabel());
+                statusButton.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.white));
                 statusButton.setEnabled(false);
                 statusButton.setBackgroundTintList(
                         android.content.res.ColorStateList.valueOf(
@@ -371,12 +372,11 @@ public class RegistrationHistoryFragment extends Fragment {
             private int statusColor(String status) {
                 if (status == null) return android.R.color.darker_gray;
                 switch (status) {
-                    case "Selected!":    return android.R.color.holo_green_light;
-                    case "Enrolled":     return android.R.color.holo_blue_bright;
-                    case "On Waitlist":  return android.R.color.holo_orange_light;
-                    case "Declined":
-                    case "Not Selected":
-                    case "Cancelled":    return android.R.color.holo_red_light;
+                    case "Invited":    return R.color.color_status_invited_blue;
+                    case "Accepted":     return R.color.color_status_accepted_green;
+                    case "Waitlisted":  return R.color.color_status_waitlisted_orange;
+                    case "Declined": return R.color.color_status_declined_red;
+                    case "Cancelled":    return R.color.color_status_canceled_black;
                     default:             return android.R.color.darker_gray;
                 }
             }

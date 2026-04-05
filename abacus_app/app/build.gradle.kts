@@ -28,7 +28,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Load local.properties for API keys
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 

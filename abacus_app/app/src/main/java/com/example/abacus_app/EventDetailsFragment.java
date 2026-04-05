@@ -82,6 +82,9 @@ public class EventDetailsFragment extends Fragment {
     private FirebaseFirestore db;
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
+    private Button btnAccept;
+    private Button btnDecline;
+    private TextView tvStatusMessage;
     private Button btnViewMap;
     private ImageButton btnViewQr;
     private TextView tvWaitlistCount;
@@ -175,11 +178,16 @@ public class EventDetailsFragment extends Fragment {
         // ── Waitlist setup ─────────────────────────────────────────────────────
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
+        btnAccept = view.findViewById(R.id.btn_accept_invitation);
+        btnDecline = view.findViewById(R.id.btn_decline_invitation);
+        tvStatusMessage = view.findViewById(R.id.tv_event_waitlist_status_message);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
         btnViewMap       = view.findViewById(R.id.btn_view_map);
 
         btnJoinWaitlist.setEnabled(false);
         btnLeaveWaitlist.setEnabled(false);
+        btnAccept.setEnabled(false);
+        btnDecline.setEnabled(false);
 
         if (btnViewMap != null) {
             btnViewMap.setVisibility(View.GONE);
@@ -270,7 +278,7 @@ public class EventDetailsFragment extends Fragment {
 
             FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
             String email = authUser != null ? authUser.getEmail() : null;
-            if (email != null && !email.trim().isEmpty()) {
+            if (email != null && !email.trim().isEmpty() && uuid == null) {
                 currentRegistrationKey = GuestSignUpFragment.emailToKey(
                         email.trim().toLowerCase(Locale.US));
             } else {
@@ -278,9 +286,12 @@ public class EventDetailsFragment extends Fragment {
                 currentRegistrationKey = uuid;
             }
 
-            btnJoinWaitlist.setEnabled(true);
-            btnLeaveWaitlist.setEnabled(true);
-            checkWaitlistStatus();
+            // Re-check now that IDs are resolved — co-organizer needs Edit not Join
+            if (canEditCurrentEvent()) {
+                showJoinButton(); // showJoinButton checks canEditCurrentEvent and shows "Edit"
+            } else {
+                checkWaitlistStatus();
+            }
         });
 
         btnJoinWaitlist.setOnClickListener(v -> {
@@ -291,6 +302,8 @@ public class EventDetailsFragment extends Fragment {
             }
         });
         btnLeaveWaitlist.setOnClickListener(v -> showLeaveConfirmationDialog());
+        btnAccept.setOnClickListener(v -> acceptInvitation());
+        btnDecline.setOnClickListener(v -> showDeclineConfirmationDialog());
     }
 
     /**
@@ -302,11 +315,30 @@ public class EventDetailsFragment extends Fragment {
         if (currentEventId == null || currentRegistrationKey == null) return;
         registrationRepository.isOnWaitlist(currentRegistrationKey, currentEventId, isOn -> {
             if (isOn) {
-                showLeaveButton();
+                registrationRepository.getUserEntry(currentRegistrationKey, currentEventId, entry -> {
+                    // show correct button/text depending on waitlist status
+                    switch (entry.getStatus()) {
+                        case WaitlistEntry.STATUS_WAITLISTED:
+                            showLeaveButton();
+                            break;
+                        case WaitlistEntry.STATUS_INVITED:
+                            showAcceptDeclineButtons();
+                            break;
+                        case WaitlistEntry.STATUS_ACCEPTED:
+                            showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
+                            break;
+                        case WaitlistEntry.STATUS_DECLINED:
+                            showStatusMessage(WaitlistEntry.STATUS_DECLINED);
+                            break;
+                        case WaitlistEntry.STATUS_CANCELLED:
+                            showStatusMessage(WaitlistEntry.STATUS_CANCELLED);
+                            break;
+                    }
+                });
             } else {
                 showJoinButton();
                 // Auto-join: fire immediately, no extra tap needed
-                if (autoJoin) handleJoinFlow();
+                if (autoJoin && btnJoinWaitlist.getVisibility() == View.VISIBLE) handleJoinFlow();
             }
         });
     }
@@ -409,11 +441,10 @@ public class EventDetailsFragment extends Fragment {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
+                    // Re-apply join button visibility based on loaded event privacy
+                    if (currentUserId != null) checkWaitlistStatus();
+
                     // Organizer name — direct Firestore read used here intentionally.
-                    // UserRepository only exposes getProfile() which fetches the CURRENT
-                    // user by their locally stored UUID. There is no getUserById(id) method
-                    // to look up an arbitrary user by ID. Until UserRepository is extended
-                    // to support that, this lookup stays as a direct Firestore call.
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -440,8 +471,6 @@ public class EventDetailsFragment extends Fragment {
             if (tvWaitlistCount == null || event == null) return;
             int count        = event.getWaitlistCount() != null ? event.getWaitlistCount() : 0;
             Integer capacity = event.getWaitlistCapacity();
-            // BUG FIX from part3: Disables button and changes text to EVENT FULL when spotsLeft
-            // is 0, only when the join button is currently showing (so the user isn't on the waitlist)
             if (capacity == null) {
                 tvWaitlistCount.setText(count + " on waiting list");
             } else {
@@ -565,25 +594,76 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    private void showDeclineConfirmationDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Decline Invitation?")
+                .setMessage("Are you sure you want to decline your invitation to this event? Once you do, you cannot change your mind.")
+                .setPositiveButton("YES",  (dialog, which) -> declineInvitation())
+                .setNegativeButton("NO", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private void declineInvitation() {
+        if (currentRegistrationKey == null || currentEventId == null) return;
+        registrationRepository.declineInvitation(currentRegistrationKey, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "Declined.", Toast.LENGTH_SHORT).show();
+            showStatusMessage(WaitlistEntry.STATUS_DECLINED);
+            loadWaitlistCount();
+        });
+    }
+
+    private void acceptInvitation() {
+        if (currentRegistrationKey == null || currentEventId == null) return;
+        registrationRepository.acceptInvitation(currentRegistrationKey, currentEventId, error -> {
+            if (error != null) {
+                Toast.makeText(requireContext(),
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(requireContext(),
+                    "Accepted.", Toast.LENGTH_SHORT).show();
+            showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
+            loadWaitlistCount();
+        });
+    }
+
     // ── Button visibility ─────────────────────────────────────────────────────
 
     private void showJoinButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
 
         if (canEditCurrentEvent()) {
             if (btnJoinWaitlist != null) {
                 btnJoinWaitlist.setEnabled(true);
                 btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
             }
-        } else {
-            if (btnJoinWaitlist != null) {
-                boolean isEnded = loadedEvent != null
-                        && loadedEvent.getRegistrationEnd() != null
-                        && loadedEvent.getRegistrationEnd().toDate().before(new Date());
-                btnJoinWaitlist.setEnabled(currentUserId != null && !isEnded);
-                btnJoinWaitlist.setText(isEnded ? "Registration Ended" : "Join Waiting List");
-            }
+            return;
+        }
+
+        // US: Private events are invite-only. If not already on waitlist/invited, hide join button.
+        if (loadedEvent != null && loadedEvent.isPrivate()) {
+            if (btnJoinWaitlist != null) btnJoinWaitlist.setVisibility(View.GONE);
+            return;
+        }
+
+        if (btnJoinWaitlist != null) {
+            boolean isEnded = loadedEvent != null
+                    && loadedEvent.getRegistrationEnd() != null
+                    && loadedEvent.getRegistrationEnd().toDate().before(new Date());
+            btnJoinWaitlist.setEnabled(currentUserId != null && !isEnded);
+            btnJoinWaitlist.setText(isEnded ? "Registration Ended" : "Join Waiting List");
         }
     }
 
@@ -591,7 +671,45 @@ public class EventDetailsFragment extends Fragment {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
     }
+
+    private void showAcceptDeclineButtons() {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.VISIBLE);
+        if (btnDecline != null) btnDecline.setVisibility(View.VISIBLE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setEnabled(true);
+        if (btnDecline != null) btnDecline.setEnabled(true);
+    }
+
+    private void showStatusMessage(String status) {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.VISIBLE);
+
+        switch (status) {
+            case WaitlistEntry.STATUS_ACCEPTED:
+                tvStatusMessage.setText("Congratulations! You are going to this event.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
+                break;
+            case WaitlistEntry.STATUS_DECLINED:
+                tvStatusMessage.setText("You have declined your invitation to this event.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
+                break;
+            case WaitlistEntry.STATUS_CANCELLED:
+                tvStatusMessage.setText("Sorry, your invitation to this event has been cancelled.");
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
+                break;
+        }
+    }
+
+    // ── Edit mode (organizer) ─────────────────────────────────────────────────
 
     private boolean canEditCurrentEvent() {
         if (loadedEvent == null || getActivity() == null) return false;
@@ -600,22 +718,28 @@ public class EventDetailsFragment extends Fragment {
         String role = ((MainActivity) getActivity()).getEffectiveRole();
         boolean hasOrganizerRole = "organizer".equals(role) || "admin".equals(role);
 
-        // Check both device UUID and Firebase UID for ownership
         boolean ownsEvent = false;
         if (currentUserId != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
             ownsEvent = true;
         } else {
-            // Also check Firebase UID (events are created with Firebase UID as organizerId)
             com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             if (firebaseUser != null && firebaseUser.getUid().equals(loadedEvent.getOrganizerId())) {
                 ownsEvent = true;
             }
         }
 
-        return hasOrganizerRole && ownsEvent;
-    }
+        // Co-organizer check — coOrganizers stores Firebase UID
+        boolean isCoOrganizer = false;
+        if (loadedEvent.getCoOrganizers() != null) {
+            com.google.firebase.auth.FirebaseUser fbUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (fbUser != null && loadedEvent.getCoOrganizers().contains(fbUser.getUid())) {
+                isCoOrganizer = true;
+            }
+        }
 
-    // ── Edit mode (organizer) ─────────────────────────────────────────────────
+        return (hasOrganizerRole && ownsEvent) || isCoOrganizer;
+    }
 
     private void toggleEditMode() {
         if (loadedEvent == null) return;
@@ -668,19 +792,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
 
-    /**
-     * Performs a soft delete of the current event by setting isDeleted=true in
-     * Firestore. The real-time snapshot listener in MainActivity will automatically
-     * remove the event from the browse list on next update.
-     *
-     * Note: Firestore queries that don't filter on isDeleted will still return
-     * this document. MainActivity's loadEventsFromFirestore() should either use
-     * .whereEqualTo("isDeleted", false) or skip documents where isDeleted is true
-     * during the snapshot loop.
-     *
-     * On success, navigates back (popping the back stack or returning home),
-     * mirroring the pattern used after saving organizer edits.
-     */
     private void softDeleteFromDetails() {
         if (currentEventId == null) return;
         FirebaseFirestore.getInstance()
@@ -690,7 +801,6 @@ public class EventDetailsFragment extends Fragment {
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(requireContext(),
                             "Event deleted.", Toast.LENGTH_SHORT).show();
-                    // Return to previous screen — same pattern as organizer save
                     if (!Navigation.findNavController(requireView()).popBackStack()) {
                         ((MainActivity) requireActivity()).showHome();
                     }
