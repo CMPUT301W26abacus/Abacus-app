@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -8,9 +9,18 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Choose Recipient Category"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
-        android:layout_marginBottom="16dp"/>
+        android:text="Recipient Category"
+        android:textAppearance="?attr/textAppearanceHeadlineSmall"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Choose who you want to send a message to"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:layout_marginBottom="24dp"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_category_waitlist"
@@ -18,7 +28,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Waitlisted"
-        android:layout_marginBottom="8dp"/>
+        android:textAlignment="viewStart"
+        android:paddingVertical="12dp"
+        app:icon="@drawable/ic_calendar"
+        android:layout_marginBottom="12dp"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_category_selected"
@@ -26,13 +39,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Selected"
-        android:layout_marginBottom="8dp"/>
+        android:textAlignment="viewStart"
+        android:paddingVertical="12dp"
+        app:icon="@drawable/ic_create"
+        android:layout_marginBottom="12dp"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_category_cancelled"
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Cancelled/Declined"/>
+        android:text="Cancelled / Declined"
+        android:textAlignment="viewStart"
+        android:paddingVertical="12dp"
+        app:icon="@drawable/ic_cancel"/>
 
 </LinearLayout>
