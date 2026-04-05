@@ -199,27 +199,6 @@ public class EventDetailsFragment extends Fragment {
             });
         }
 
-        // ── Delete button ─────────────────────────────────────────────────────────
-        // Shown to: admins (any event) or organizers (their own events)
-        boolean isAdmin = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
-        boolean isOrganizerOfThisEvent = canEditCurrentEvent();
-
-        if (isAdmin || isOrganizerOfThisEvent) {
-            btnLeaveWaitlist.setVisibility(View.GONE);
-            btnJoinWaitlist.setEnabled(true);
-            btnJoinWaitlist.setText("Delete");
-            btnJoinWaitlist.setBackgroundTintList(
-                    ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_red)));
-            btnJoinWaitlist.setOnClickListener(v ->
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle("Delete Event")
-                            .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
-                            .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
-                            .setNegativeButton("Cancel", null)
-                            .show());
-            return; // skip all waitlist setup below
-        }
-
         if (isGuest) {
             setupGuestWaitlist(view);
         } else {
@@ -441,9 +420,30 @@ public class EventDetailsFragment extends Fragment {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
-                    // Re-apply join button visibility based on loaded event privacy
-                    if (currentUserId != null) checkWaitlistStatus();
+                    // Re-evaluate admin/organizer delete button now that event is loaded
+                    boolean isAdminRole = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
+                    boolean isOrganizerOfThis = canEditCurrentEvent();
 
+                    if (isAdminRole || isOrganizerOfThis) {
+                        btnLeaveWaitlist.setVisibility(View.GONE);
+                        btnAccept.setVisibility(View.GONE);
+                        btnDecline.setVisibility(View.GONE);
+                        tvStatusMessage.setVisibility(View.GONE);
+                        btnJoinWaitlist.setVisibility(View.VISIBLE);
+                        btnJoinWaitlist.setEnabled(true);
+                        btnJoinWaitlist.setText("Delete Event");
+                        btnJoinWaitlist.setBackgroundTintList(
+                                ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_red)));
+                        btnJoinWaitlist.setOnClickListener(v ->
+                                new AlertDialog.Builder(requireContext())
+                                        .setTitle("Delete Event")
+                                        .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
+                                        .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
+                                        .setNegativeButton("Cancel", null)
+                                        .show());
+                    } else if (currentUserId != null) {
+                        checkWaitlistStatus();
+                    }
                     // Organizer name — direct Firestore read used here intentionally.
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {

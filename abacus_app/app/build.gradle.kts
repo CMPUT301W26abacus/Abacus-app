@@ -1,14 +1,6 @@
 import java.util.Properties
 
 
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-
-if (localPropertiesFile.exists()) {
-    localProperties.load(localPropertiesFile.inputStream())
-}
-
-val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: ""
 
 plugins {
     alias(libs.plugins.android.application)
@@ -17,6 +9,7 @@ plugins {
     id("com.google.gms.google-services")
 
 }
+
 
 
 android {
@@ -31,6 +24,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+
+        if (localPropertiesFile.exists()) {
+            localProperties.load(localPropertiesFile.inputStream())
+        }
+
+        val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: "placeholder"
+
         // Load local.properties for API keys
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
