@@ -69,6 +69,7 @@ public class OrganizerManageFragment extends Fragment {
     private Mode currentMode = Mode.EVENT_LIST;
     private String selectedEventId;
     private Event selectedEvent;
+    private int selectedEventWaitlistSize;
     private boolean isDirectAccess = false; // Flag for co-organizer direct access
 
     @Nullable
@@ -275,10 +276,10 @@ public class OrganizerManageFragment extends Fragment {
                                 .setNegativeButton("Cancel", null)
                                 .show();
                     },
-                    true, // isAdmin (to show delete button)
-            true,
+                    true,  // isAdmin
+                    false, // canManageEvents
                     uuid,
-                    false
+                    false  // isGuest
             ));
         });
 
@@ -288,7 +289,8 @@ public class OrganizerManageFragment extends Fragment {
 
             allEntries.clear();
             allEntries.addAll(newEntries);
-            tvCount.setText("Total Entrants: " + allEntries.size());
+            selectedEventWaitlistSize = allEntries.size();
+            tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
 
             long countInvitedAccepted = allEntries.stream()
                     .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())

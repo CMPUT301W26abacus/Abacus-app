@@ -18,6 +18,10 @@ public class EventRemoteDataSource {
     private final FirebaseFirestore db;
     private final CollectionReference eventsRef;
 
+    public interface EventCallback {
+        void onCallback(Event event);
+    }
+
     public EventRemoteDataSource() {
         db = FirebaseFirestore.getInstance();
         eventsRef = db.collection("events");
@@ -35,6 +39,18 @@ public class EventRemoteDataSource {
             return doc.toObject(Event.class);
         }
         return null;
+    }
+
+    public void getEventByIdAsync(String eventId, EventCallback callback) {
+        eventsRef.document(eventId).get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        callback.onCallback(doc.toObject(Event.class));
+                    } else {
+                        callback.onCallback(null);
+                    }
+                })
+                .addOnFailureListener(e -> callback.onCallback(null));
     }
 
     public Task<QuerySnapshot> getAllEvents() {

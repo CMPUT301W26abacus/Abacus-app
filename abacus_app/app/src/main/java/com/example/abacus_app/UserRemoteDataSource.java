@@ -57,11 +57,39 @@ public class UserRemoteDataSource {
     }
 
     /**
+     * Reads the {@code users/{uuid}} document asynchronously.
+     * Returns {@code null} via callback if the document does not exist or is soft-deleted.
+     *
+     * @param uuid     the document ID to look up
+     * @param callback receives the parsed {@link User}, or {@code null}
+     */
+    public void getUser(String uuid, UserCallback callback) {
+        db.collection(COLLECTION).document(uuid).get()
+                .addOnSuccessListener(snap -> {
+                    if (!snap.exists()) {
+                        callback.onCallback(null);
+                        return;
+                    }
+                    User user = parseUser(snap);
+                    if (user != null && user.isDeleted()) {
+                        callback.onCallback(null); // Treat deleted as non-existent
+                    } else {
+                        callback.onCallback(user);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting user: " + uuid, e);
+                    callback.onCallback(null);
+                });
+    }
+
+    /**
      * Reads the {@code users/{uuid}} document synchronously (blocking).
      * Must be called on a background thread.
+     * Returns {@code null} if the document does not exist or is soft-deleted.
      *
      * @param uuid the document ID to look up
-     * @return the parsed {@link User}, or {@code null} if the document does not exist
+     * @return the parsed {@link User}, or {@code null} if not found or deleted
      * @throws Exception if the Firestore read fails
      */
     public User getUserSync(String uuid) throws Exception {
@@ -70,12 +98,22 @@ public class UserRemoteDataSource {
 
         if (!snap.exists()) return null;
 
-        return parseUser(snap);
+        User user = parseUser(snap);
+
+        if (user != null && user.isDeleted()) {
+            return null;
+        }
+        return user;
     }
 
     /**
      * Reads a user document by email (first match) for flows where foreign docs
      * are keyed by a normalized email rather than UUID.
+     * Must be called on a background thread.
+     *
+     * @param email the email address to search for
+     * @return the parsed {@link User}, or {@code null} if not found
+     * @throws Exception if the Firestore read fails
      */
     public User getUserByEmailSync(String email) throws Exception {
         if (email == null || email.trim().isEmpty()) return null;
@@ -180,7 +218,7 @@ public class UserRemoteDataSource {
     /**
      * Hard-deletes all documents in the flat {@code registrations/} collection
      * where {@code userId} equals the supplied value, using a write batch for
-     * atomicity.  Called as part of the full profile deletion flow.
+     * atomicity. Called as part of the full profile deletion flow.
      *
      * @param userId the user whose registration records should be removed
      * @throws Exception if the query or batch delete fails
