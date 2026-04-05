@@ -126,11 +126,25 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
-     * Sets the notifications enabled state.
+     * Sets the notifications enabled state locally.
      * @param enabled Boolean indicating whether notifications are enabled
      */
     public void setNotificationsEnabled(boolean enabled) {
         _notificationsEnabled.setValue(enabled);
+    }
+
+    /**
+     * Saves the notification preference to Firestore immediately.
+     */
+    public void saveNotificationPreference(boolean enabled) {
+        if (userRepository == null) return;
+        Map<String, Object> data = new HashMap<>();
+        data.put("notificationsEnabled", enabled);
+        userRepository.saveProfileAsync(data, error -> {
+            if (error != null) {
+                _toastMessage.postValue("Failed to update notification preference");
+            }
+        });
     }
 
     /**
