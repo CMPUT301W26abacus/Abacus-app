@@ -15,6 +15,7 @@ public class Notification {
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
     public static final String STATUS_DECLINED = "DECLINED";
+    public static final String TYPE_CANCELED = "CANCELED";
 
     private String userId;      // The entrant ID
     private String userEmail;   // Added for stable identity

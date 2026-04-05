@@ -167,7 +167,7 @@ public class NotificationRepository {
                             user.getEmail(),
                             organizerId,
                             eventId,
-                            "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
+                            "Congratulations! You have been selected as a replacement for " + (event != null ? event.getTitle() : "the event") + ".",
                             Notification.TYPE_SELECTED
                     );
                     remote.saveNotification(notification);
@@ -197,7 +197,7 @@ public class NotificationRepository {
                             organizerId,
                             eventId,
                             "Your invitation to " + (event != null ? event.getTitle() : "the event") + " has expired.",
-                            Notification.TYPE_NOT_SELECTED
+                            Notification.TYPE_CANCELED
                     );
                     remote.saveNotification(notification);
                 }
