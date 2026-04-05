@@ -1,18 +1,21 @@
 import java.util.Properties
 
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
+val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: ""
+
 plugins {
     alias(libs.plugins.android.application)
 
     // Add the dependency for the Google services Gradle plugin
     id("com.google.gms.google-services")
 
-}
-
-// Load local.properties for API keys
-val mapsApiKey: String by lazy {
-    val props = Properties()
-    rootProject.file("local.properties").inputStream().use { stream -> props.load(stream) }
-    props.getProperty("MAPS_API_KEY") ?: ""
 }
 
 
