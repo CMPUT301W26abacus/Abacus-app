@@ -111,8 +111,14 @@ public class RegistrationHistoryFragment extends Fragment {
             Bundle args = new Bundle();
             args.putString(EventDetailsFragment.ARG_EVENT_ID,    eventId);
             args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
-            Navigation.findNavController(requireView())
-                    .navigate(R.id.action_nav_history_to_eventDetailsFragment, args);
+
+            // show event details page with no nav-bar
+            ((MainActivity) requireActivity())
+                    .showFragment(
+                            R.id.eventDetailsFragment,
+                            false,
+                            args
+                    );
         });
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);
@@ -319,7 +325,7 @@ public class RegistrationHistoryFragment extends Fragment {
         public int getItemCount() { return items.size(); }
 
         static class ViewHolder extends RecyclerView.ViewHolder {
-            private final TextView titleView, dateTimeView, locationView;
+            private final TextView titleView, dateTimeView, descriptionView;
             private final com.google.android.material.button.MaterialButton statusButton;
             private final ImageView posterView;
             private final OnEventClickListener clickListener;
@@ -329,7 +335,7 @@ public class RegistrationHistoryFragment extends Fragment {
                 this.clickListener = clickListener;
                 titleView    = itemView.findViewById(R.id.tv_event_title);
                 dateTimeView = itemView.findViewById(R.id.tv_event_datetime);
-                locationView = itemView.findViewById(R.id.tv_event_location);
+                descriptionView = itemView.findViewById(R.id.tv_event_description);
                 statusButton = itemView.findViewById(R.id.btn_join_status);
                 posterView   = itemView.findViewById(R.id.iv_event_poster);
             }
@@ -337,7 +343,7 @@ public class RegistrationHistoryFragment extends Fragment {
             void bind(RegistrationHistoryViewModel.RegistrationHistoryItem item) {
                 titleView.setText(item.getEventTitle());
                 dateTimeView.setText(item.getStatusLabel());
-                locationView.setText("Registered " + new SimpleDateFormat(
+                descriptionView.setText("Registered " + new SimpleDateFormat(
                         "MMM dd, yyyy", Locale.getDefault())
                         .format(new Date(item.getTimestamp())));
 
@@ -367,6 +373,8 @@ public class RegistrationHistoryFragment extends Fragment {
                     if (clickListener != null)
                         clickListener.onEventClick(item.getEventId(), item.getEventTitle());
                 });
+                itemView.findViewById(R.id.imageButton2).setVisibility(View.GONE);
+                itemView.findViewById(R.id.btn_admin_delete).setVisibility(View.GONE);
             }
 
             private int statusColor(String status) {

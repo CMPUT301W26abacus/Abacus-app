@@ -37,6 +37,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -63,7 +64,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
@@ -89,8 +93,13 @@ public class MainActivity extends AppCompatActivity {
     private String userRole      = "entrant";
     private String bottomNavRole = null; // tracks which role the bottom nav was last built for
 
-    private String activeKeyword = "";
-    private String activeDate    = "";
+    // ── Filter state ──────────────────────────────────────────────────────────
+    private String activeKeyword    = "";    // search bar — applied on every keystroke
+    private String activeFilterTags = "";    // filter sheet chip selections — comma-separated, applied on Apply
+    private String activeDate       = "";    // filter sheet date picker — matches against eventStart/eventEnd
+    private boolean filterOpenOnly  = false; // filter sheet "Open for registration only"
+    private boolean filterHasSpots  = false; // filter sheet "Has spots left"
+
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
@@ -335,8 +344,6 @@ public class MainActivity extends AppCompatActivity {
             if (guestEmail != null) {
                 resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
             }
-            // applyFilters will be called by loadEventsFromFirestore when data arrives;
-            // if events are already loaded, re-apply now so button states update.
             if (!allEvents.isEmpty()) applyFilters();
         } else {
             FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -348,7 +355,6 @@ public class MainActivity extends AppCompatActivity {
                     resolvedUserKey = GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US));
                     if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
                 } else {
-                    // Fallback for edge-cases where Firebase email is missing.
                     resolvedUserKey = uuid;
                     if (!allEvents.isEmpty()) runOnUiThread(this::applyFilters);
                 }
@@ -357,7 +363,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupBottomNav() {
-        // Avoid clearing and re-inflating the menu when the role group hasn't changed
         String roleGroup = ("organizer".equals(userRole) || "admin".equals(userRole))
                 ? "organizer" : "entrant";
         if (roleGroup.equals(bottomNavRole)) return;
@@ -439,7 +444,6 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             Event event = doc.toObject(Event.class);
                             if (event != null) {
-                                // Only add if isDeleted is NOT true (handles false and null)
                                 if (!Boolean.TRUE.equals(event.getIsDeleted())) {
                                     if (event.getEventId() == null || event.getEventId().isEmpty()) {
                                         event.setEventId(doc.getId());
@@ -459,20 +463,28 @@ public class MainActivity extends AppCompatActivity {
     // ── Filter & Adapter ──────────────────────────────────────────────────────
 
     /**
-     * Filters allEvents by the active keyword, date, and expiry, then binds
-     * the result to the RecyclerView via EventAdapter.
+     * Filters allEvents by the active keyword, tags, date, availability, and expiry,
+     * then binds the result to the RecyclerView via EventAdapter.
      *
-     * The resolved userKey and isGuest flag are passed into the adapter so each
-     * card can independently check its own join status from Firestore.
+     * - activeKeyword:    search bar, matches title + description, applied on keystroke
+     * - activeFilterTags: comma-separated chip selections, matches event.tags then text
+     * - activeDate:       checked against eventStart/eventEnd (the actual event dates,
+     *                     not the registration window — more intuitive for entrants)
+     * - filterOpenOnly:   excludes events whose registration window has not yet started
+     * - filterHasSpots:   excludes events where waitlistCount >= waitlistCapacity
      */
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Date now = new Date();
 
+        String[] selectedCategories = activeFilterTags.isEmpty()
+                ? new String[0]
+                : activeFilterTags.split(",");
+
         for (Event event : allEvents) {
             // EXCLUDE co-organized events from the browse screen
-            if (resolvedUserKey != null && event.getCoOrganizers() != null 
+            if (resolvedUserKey != null && event.getCoOrganizers() != null
                     && event.getCoOrganizers().contains(resolvedUserKey)) {
                 continue;
             }
@@ -480,52 +492,110 @@ public class MainActivity extends AppCompatActivity {
             String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
-            boolean keywordMatch = activeKeyword.isEmpty()
+            // ── Search bar match (title + description) ────────────────────────
+            boolean searchMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || description.contains(activeKeyword);
 
-            // Project pt3 bug fix: checks if the date you picked falls within the event's registration
-            // window instead of only matching the exact start date.
+            // ── Filter sheet: category chip match ─────────────────────────────
+            boolean tagMatch = true;
+            if (selectedCategories.length > 0) {
+                tagMatch = false;
+                List<String> eventTags = event.getTags();
+                for (String category : selectedCategories) {
+                    String cat = category.trim().toLowerCase();
+                    boolean hitTag = eventTags != null && !eventTags.isEmpty()
+                            && eventTags.stream().anyMatch(t -> t.toLowerCase().contains(cat));
+                    boolean hitText = title.contains(cat) || description.contains(cat);
+                    if (hitTag || hitText) {
+                        tagMatch = true;
+                        break;
+                    }
+                }
+            }
+
+            // ── Filter sheet: date — checked against eventStart/eventEnd ──────
+            // Entrants filter by when the event happens, not when registration opens.
+            // Falls back to registration dates for older events that have no eventStart set.
             boolean dateMatch = true;
             if (!activeDate.isEmpty()) {
                 try {
                     Date picked = sdf.parse(activeDate);
-                    if (picked != null && event.getRegistrationStart() != null) {
-                        Date start = event.getRegistrationStart().toDate();
-                        Date end   = event.getRegistrationEnd() != null
-                                ? event.getRegistrationEnd().toDate() : start;
-                        // normalize all to midnight for date-only comparison
-                        dateMatch = !picked.before(start) && !picked.after(end);
+                    if (picked != null) {
+                        if (event.getEventStart() != null) {
+                            // Use event dates when available
+                            Date start = event.getEventStart().toDate();
+                            Date end   = event.getEventEnd() != null
+                                    ? event.getEventEnd().toDate() : start;
+                            dateMatch = !picked.before(start) && !picked.after(end);
+                        } else if (event.getRegistrationStart() != null) {
+                            // Fallback for events created before event dates were added
+                            Date start = event.getRegistrationStart().toDate();
+                            Date end   = event.getRegistrationEnd() != null
+                                    ? event.getRegistrationEnd().toDate() : start;
+                            dateMatch = !picked.before(start) && !picked.after(end);
+                        }
                     }
                 } catch (Exception e) {
                     dateMatch = true;
                 }
             }
 
+            // ── Filter sheet: open for registration only ──────────────────────
+            boolean openMatch = true;
+            if (filterOpenOnly) {
+                openMatch = event.getRegistrationStart() != null
+                        && !now.before(event.getRegistrationStart().toDate());
+            }
+
+            // ── Filter sheet: has spots left ──────────────────────────────────
+            boolean spotsMatch = true;
+            if (filterHasSpots) {
+                Integer capacity = event.getWaitlistCapacity();
+                Integer count    = event.getWaitlistCount();
+                if (capacity != null) {
+                    spotsMatch = count == null || count < capacity;
+                }
+            }
+
+            // ── Expiry check (unchanged) ──────────────────────────────────────
             boolean notExpired = true;
             if (event.getRegistrationEnd() != null) {
                 notExpired = event.getRegistrationEnd().toDate().after(now);
             }
 
-            // US: Private events visible only to their organizer; public events visible to all
+            // ── Visibility: private events only shown to their organizer ──────
             boolean isPublic = !event.isPrivate();
             boolean isOrganizerOfPrivate = false;
-
             if (!isPublic) {
-                // Check both device UUID and Firebase UID for organizer match
                 String organizerId = event.getOrganizerId();
                 boolean isOrganizerByUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
                 boolean isOrganizerByFirebaseUID = false;
-
                 if (!isOrganizerByUUID) {
-                    com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                    isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
+                    com.google.firebase.auth.FirebaseUser firebaseUser =
+                            com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                    isOrganizerByFirebaseUID = (firebaseUser != null
+                            && firebaseUser.getUid().equals(organizerId));
                 }
-
                 isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
             }
 
-            if (keywordMatch && dateMatch && notExpired && (isPublic || isOrganizerOfPrivate)) filtered.add(event);
+            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch
+                    && notExpired && (isPublic || isOrganizerOfPrivate)) {
+                filtered.add(event);
+            }
+        }
+
+        // ── Update filter button tint to show active state ────────────────────
+        ImageButton btnFilter = findViewById(R.id.btn_filter);
+        if (btnFilter != null) {
+            boolean filtersActive = !activeFilterTags.isEmpty()
+                    || !activeDate.isEmpty()
+                    || filterOpenOnly
+                    || filterHasSpots;
+            btnFilter.setColorFilter(filtersActive
+                    ? ContextCompat.getColor(this, R.color.orange)
+                    : ContextCompat.getColor(this, R.color.grey));
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────
@@ -552,15 +622,14 @@ public class MainActivity extends AppCompatActivity {
             tvForYouLabel.setText("All Events");
         }
 
-    boolean isAdminUser = "admin".equals(userRole);
-    boolean canManageEvents = !isGuest
-        && ("organizer".equals(userRole) || "admin".equals(userRole));
+        boolean isAdminUser = "admin".equals(userRole);
+        boolean canManageEvents = !isGuest
+                && ("organizer".equals(userRole) || "admin".equals(userRole));
         final List<Event> finalFiltered = filtered;
 
         recyclerView.setAdapter(new EventAdapter(
                 finalFiltered,
                 (eventTitle, autoJoin) -> {
-                    // Resolve eventId from filtered list
                     String eventId = "";
                     for (Event e : finalFiltered) {
                         if (e.getTitle() != null && e.getTitle().equals(eventTitle)) {
@@ -576,7 +645,6 @@ public class MainActivity extends AppCompatActivity {
                 },
                 isAdminUser ? this::confirmDeleteEvent : null,
                 event -> {
-                    // Handle co-organizer Manage click
                     Bundle args = new Bundle();
                     args.putString("EVENT_ID", event.getEventId());
                     args.putString("EVENT_TITLE", event.getTitle());
@@ -584,7 +652,7 @@ public class MainActivity extends AppCompatActivity {
                 },
                 isAdminUser,
                 canManageEvents,
-                resolvedUserKey,   // null until resolved — adapter handles gracefully
+                resolvedUserKey,
                 isGuest
         ));
 
@@ -597,7 +665,11 @@ public class MainActivity extends AppCompatActivity {
                 if (hasPreferences) {
                     tvEmpty.setText("No events match your preferences");
                 } else {
-                    boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                    boolean hasFilters = !activeKeyword.isEmpty()
+                            || !activeFilterTags.isEmpty()
+                            || !activeDate.isEmpty()
+                            || filterOpenOnly
+                            || filterHasSpots;
                     tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
                 }
             }
@@ -627,10 +699,6 @@ public class MainActivity extends AppCompatActivity {
         return !((java.util.List<?>) raw).isEmpty();
     }
 
-    /**
-     * Filters events to only those matching at least one preferred category
-     * (checked against title + description). Non-matching events are removed.
-     */
     private List<Event> applyPreferenceFilter(List<Event> events,
                                               java.util.Map<String, Object> prefs) {
         Object categoriesRaw = prefs.get("categories");
@@ -658,23 +726,13 @@ public class MainActivity extends AppCompatActivity {
 
     // ── onResume ──────────────────────────────────────────────────────────────
 
-    /**
-     * Called when the user navigates back to the home screen (e.g. after
-     * joining or leaving a waitlist in EventDetailsFragment). Re-applies
-     * filters so all card join buttons reflect the latest Firestore state.
-     *
-     * For guests, also re-reads the stored email in case they just joined
-     * for the first time and the key wasn't available on first load.
-     */
     @Override
     protected void onResume() {
         super.onResume();
 
-        // Quick security check: reuse the repository logic
         if (!isGuest) {
             userRepository.getProfile(user -> {
                 if (user == null) {
-                    // Repository found isDeleted = true and already signed us out.
                     Intent intent = new Intent(this, LoginActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
@@ -683,12 +741,10 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // If the user disabled one-handed mode in Accessibility settings while it was active, restore position
         if (isOneHandedActive && !new AccessibilityHelper(this).isOneHandedMode()) {
             deactivateOneHanded();
         }
         if (isGuest && resolvedUserKey == null) {
-            // Guest may have just completed sign-up — try resolving again
             String guestEmail = getSharedPreferences(
                     GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
                     .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
@@ -696,7 +752,6 @@ public class MainActivity extends AppCompatActivity {
                 resolvedUserKey = GuestSignUpFragment.emailToKey(guestEmail);
             }
         }
-        // Rebuild adapter so join buttons re-query Firestore with latest state
         if (!allEvents.isEmpty()) applyFilters();
     }
 
@@ -728,16 +783,39 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Bottom sheet filter ───────────────────────────────────────────────────
 
+    /**
+     * Shows the filter bottom sheet.
+     *
+     * 1. Category chips  → activeFilterTags
+     * 2. Date picker     → activeDate (matches against eventStart/eventEnd)
+     * 3. Availability    → filterOpenOnly, filterHasSpots
+     */
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
 
-        TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
-        Button btnPickDate          = dialog.findViewById(R.id.btn_pick_date);
-        Button btnApply             = dialog.findViewById(R.id.btn_apply_filters);
-        Button btnClear             = dialog.findViewById(R.id.btn_clear_filters);
+        ChipGroup chipGroupFilter  = dialog.findViewById(R.id.chip_group_filter);
+        Button btnPickDate         = dialog.findViewById(R.id.btn_pick_date);
+        MaterialSwitch switchOpen  = dialog.findViewById(R.id.switch_open_only);
+        MaterialSwitch switchSpots = dialog.findViewById(R.id.switch_has_spots);
+        Button btnApply            = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear            = dialog.findViewById(R.id.btn_clear_filters);
 
-        if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
+        if (switchOpen  != null) switchOpen.setChecked(filterOpenOnly);
+        if (switchSpots != null) switchSpots.setChecked(filterHasSpots);
+
+        if (chipGroupFilter != null && !activeFilterTags.isEmpty()) {
+            String[] active = activeFilterTags.split(",");
+            for (int i = 0; i < chipGroupFilter.getChildCount(); i++) {
+                Chip chip = (Chip) chipGroupFilter.getChildAt(i);
+                for (String tag : active) {
+                    if (chip.getText().toString().equalsIgnoreCase(tag.trim())) {
+                        chip.setChecked(true);
+                        break;
+                    }
+                }
+            }
+        }
 
         final String[] pickedDate = {activeDate};
         if (btnPickDate != null && !activeDate.isEmpty()) btnPickDate.setText(activeDate);
@@ -745,7 +823,7 @@ public class MainActivity extends AppCompatActivity {
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
-                new DatePickerDialog(this,(view, year, month, day) -> {
+                new DatePickerDialog(this, (view, year, month, day) -> {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
@@ -757,9 +835,17 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnApply != null) {
             btnApply.setOnClickListener(v -> {
-                activeKeyword = etKeyword != null && etKeyword.getText() != null
-                        ? etKeyword.getText().toString().trim().toLowerCase() : "";
-                activeDate = pickedDate[0];
+                List<String> selected = new ArrayList<>();
+                if (chipGroupFilter != null) {
+                    for (int i = 0; i < chipGroupFilter.getChildCount(); i++) {
+                        Chip chip = (Chip) chipGroupFilter.getChildAt(i);
+                        if (chip.isChecked()) selected.add(chip.getText().toString());
+                    }
+                }
+                activeFilterTags = String.join(",", selected);
+                activeDate       = pickedDate[0];
+                filterOpenOnly   = switchOpen  != null && switchOpen.isChecked();
+                filterHasSpots   = switchSpots != null && switchSpots.isChecked();
                 applyFilters();
                 dialog.dismiss();
             });
@@ -767,8 +853,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnClear != null) {
             btnClear.setOnClickListener(v -> {
-                activeKeyword = "";
-                activeDate    = "";
+                activeFilterTags = "";
+                activeDate       = "";
+                filterOpenOnly   = false;
+                filterHasSpots   = false;
                 applyFilters();
                 dialog.dismiss();
             });
@@ -786,14 +874,13 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    private static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
+    public static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
             .setEnterAnim(R.anim.nav_slide_in_right)
             .setExitAnim(R.anim.nav_slide_out_left)
             .setPopEnterAnim(R.anim.nav_slide_in_left)
             .setPopExitAnim(R.anim.nav_slide_out_right)
             .build();
 
-    // No animation for bottom nav tab switches — avoids the swipe glitch
     private static final NavOptions NAV_OPTS_TAB = new NavOptions.Builder()
             .setEnterAnim(0)
             .setExitAnim(0)
@@ -805,15 +892,28 @@ public class MainActivity extends AppCompatActivity {
         showFragment(destinationId, showBottomNav, null);
     }
 
+    /**
+     * Navigates to a destination inside the {@link androidx.navigation.NavController} and
+     * manages the visibility of the home screen vs. the nav host.
+     *
+     * <p>When {@code showBottomNav} is {@code true} (top-level tab switch), the back stack is
+     * cleared first so that pressing Back from any tab returns the user to the home screen.
+     * When transitioning from the home screen to any fragment, the back stack is also cleared
+     * so that Back skips the nav-graph start destination and goes straight to home.
+     *
+     * @param destinationId Nav-graph resource ID of the destination fragment.
+     * @param showBottomNav {@code true} for top-level tab navigations (bottom nav visible);
+     *                      {@code false} for sub-page navigations (bottom nav hidden).
+     * @param args          Optional arguments {@link Bundle} passed to the destination, or null.
+     */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
-        // Only wipe the back stack when switching top-level tabs (showBottomNav=true).
-        // Sub-page navigations (showBottomNav=false) keep the parent on the stack so that
-        // popBackStack() — used by both the system back button and the swipe gesture — can
-        // correctly return to the parent instead of falling through to showHome().
+        // Clear back stack for top-level tabs to ensure clean navigation between tabs
         if (showBottomNav) clearBackStack();
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         if (navHostFragment.getVisibility() != View.VISIBLE) {
-            // Transitioning from home — cross-fade the containers
+            // Transitioning from home to NavHost — clear back stack so pressing back
+            // naturally returns to home without landing on start destination
+            clearBackStack();
             navHostFragment.setAlpha(0f);
             navHostFragment.setVisibility(View.VISIBLE);
             navHostFragment.animate().alpha(1f).setDuration(180).start();
@@ -827,14 +927,24 @@ public class MainActivity extends AppCompatActivity {
             homeContent.setVisibility(View.GONE);
             appBar.setVisibility(View.GONE);
         }
-        // Bottom nav tabs use instant switch; sub-pages use slide animation
         NavOptions opts = showBottomNav ? NAV_OPTS_TAB : NAV_OPTS_FORWARD;
         navController.navigate(destinationId, args, opts);
     }
 
+    /**
+     * Returns the UI to the home screen (the scrollable event carousel).
+     *
+     * <p>Clears the NavController back stack, hides the nav host fragment, and cross-fades
+     * the home content in. The Home item in the bottom navigation bar is checked without
+     * triggering the item-selected listener (which would otherwise cause infinite recursion).
+     */
     public void showHome() {
         clearBackStack();
         bottomNav.setVisibility(View.VISIBLE);
+        // Update the visual highlight without firing the item-selected listener
+        // (setSelectedItemId would trigger showHome() recursively → StackOverflowError)
+        MenuItem homeItem = bottomNav.getMenu().findItem(R.id.nav_home);
+        if (homeItem != null) homeItem.setChecked(true);
         if (homeContent.getVisibility() != View.VISIBLE) {
             homeContent.setAlpha(0f);
             homeContent.setVisibility(View.VISIBLE);
@@ -851,14 +961,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Removes all entries from the NavController back stack, including the start destination.
+     *
+     * <p>Attempts {@code popBackStack(startId, inclusive=true)} first as an O(1) fast path.
+     * If the start destination is no longer on the stack (e.g. it was already popped by a
+     * previous call), the stack is drained manually one entry at a time to avoid leaving
+     * stale fragments.
+     */
     private void clearBackStack() {
-        // popBackStack(startId, true) silently fails when the start destination was already
-        // popped in a previous clearBackStack() call, leaving stale fragments on the stack.
-        // Instead, try the fast path first and fall back to draining the stack one entry at a time.
         int startId = navController.getGraph().getStartDestinationId();
         if (navController.getCurrentBackStackEntry() == null) return;
         if (!navController.popBackStack(startId, true)) {
-            // Start destination is no longer on the stack — drain manually.
             while (navController.getCurrentBackStackEntry() != null) {
                 if (!navController.popBackStack()) break;
             }
@@ -867,19 +981,10 @@ public class MainActivity extends AppCompatActivity {
 
     // ── One-handed mode ───────────────────────────────────────────────────────
 
-    /**
-     * Sets up the one-handed mode.
-     * Gesture detection is handled in dispatchTouchEvent() using raw coordinates
-     * so it works reliably on emulators (no GestureDetector velocity dependency).
-     *
-     * The bottom nav touch listener only exists to prevent vertical swipes from
-     * leaking into SwipeRefreshLayout — it no longer drives gesture detection.
-     */
     private void setupOneHandedMode() {
         View rootView = findViewById(R.id.main);
         View handle   = findViewById(R.id.oneHandedHandle);
 
-        // Consume vertical movement on the nav bar so SwipeRefreshLayout never sees it
         bottomNav.setOnTouchListener(new View.OnTouchListener() {
             private float startY = 0f;
             private boolean consumingSwipe = false;
@@ -890,7 +995,7 @@ public class MainActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_DOWN:
                         startY = event.getY();
                         consumingSwipe = false;
-                        return false; // pass through so item clicks still work
+                        return false;
                     case MotionEvent.ACTION_MOVE:
                         if (Math.abs(event.getY() - startY) > 8) consumingSwipe = true;
                         return consumingSwipe;
@@ -944,7 +1049,6 @@ public class MainActivity extends AppCompatActivity {
                     .withEndAction(() -> {
                         h.setVisibility(View.GONE);
                         h.setAlpha(1f);
-                        // Reset individual chevron alphas for next activation
                         if (h instanceof LinearLayout) {
                             float[] rest = {1.0f, 0.6f, 0.3f, 0.1f};
                             LinearLayout ll = (LinearLayout) h;
@@ -955,16 +1059,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Convenience overload used by onResume when we don't have the local refs
     private void deactivateOneHanded() {
         deactivateOneHanded(findViewById(R.id.main), findViewById(R.id.oneHandedHandle));
     }
 
-    /**
-     * Looping cascade: a brightness wave travels from the bottom chevron (index 3)
-     * up to the top (index 0), pauses 350 ms, then repeats — matching the multi-
-     * chevron upward-flow design reference.
-     */
     private void startChevronAnimation(View handle) {
         if (!(handle instanceof LinearLayout)) return;
         LinearLayout group = (LinearLayout) handle;
@@ -972,14 +1070,12 @@ public class MainActivity extends AppCompatActivity {
 
         stopChevronAnimation();
 
-        // Resting alpha: index 0 = top (brightest) … index 3 = bottom (dimmest)
         final float[] rest = {1.0f, 0.6f, 0.3f, 0.1f};
 
         Runnable[] loop = new Runnable[1];
         loop[0] = () -> {
             if (!handle.isAttachedToWindow() || handle.getVisibility() != View.VISIBLE) return;
 
-            // Wave goes BOTTOM → TOP: child[3] first, then [2], [1], [0]
             ObjectAnimator[] anims = new ObjectAnimator[4];
             int[] waveOrder = {3, 2, 1, 0};
             for (int k = 0; k < 4; k++) {
@@ -994,7 +1090,7 @@ public class MainActivity extends AppCompatActivity {
             pass.playTogether(anims[0], anims[1], anims[2], anims[3]);
             pass.addListener(new AnimatorListenerAdapter() {
                 @Override public void onAnimationEnd(Animator a) {
-                    handle.postDelayed(loop[0], 350); // pause then repeat
+                    handle.postDelayed(loop[0], 350);
                 }
             });
 
@@ -1010,7 +1106,6 @@ public class MainActivity extends AppCompatActivity {
             chevronAnimator.cancel();
             chevronAnimator = null;
         }
-        // Remove any pending loop callbacks
         View handle = findViewById(R.id.oneHandedHandle);
         if (handle != null && handle.getHandler() != null)
             handle.getHandler().removeCallbacksAndMessages(null);
@@ -1020,9 +1115,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Left-edge → swipe RIGHT  : go back (pop NavController stack, or return home).
-     * Right-edge → swipe LEFT  : go forward (shift to next bottom-nav tab).
      *
-     * Edge zone is 64 dp from each side so horizontal RecyclerViews in the
+     * Edge zone is 64 dp from the left side so horizontal RecyclerViews in the
      * centre of the screen are never accidentally triggered.
      * Swipes starting inside the bottom-nav bar are ignored (handled by the
      * one-handed detector instead).
@@ -1034,16 +1128,14 @@ public class MainActivity extends AppCompatActivity {
                 new GestureDetector.SimpleOnGestureListener() {
                     @Override
                     public boolean onFling(MotionEvent e1, MotionEvent e2,
-                                          float velocityX, float velocityY) {
+                                           float velocityX, float velocityY) {
                         if (e1 == null || e2 == null) return false;
                         float dx = e2.getX() - e1.getX();
                         float dy = e2.getY() - e1.getY();
 
-                        // Must be primarily horizontal
                         if (Math.abs(dy) > Math.abs(dx) * 0.75f) return false;
                         if (Math.abs(velocityX) < 300 || Math.abs(dx) < 60) return false;
 
-                        // Ignore if the gesture started inside the bottom nav bar
                         if (bottomNav.getVisibility() == View.VISIBLE) {
                             int[] loc = new int[2];
                             bottomNav.getLocationOnScreen(loc);
@@ -1053,21 +1145,12 @@ public class MainActivity extends AppCompatActivity {
                         float startX = e1.getRawX();
                         float screenW = getResources().getDisplayMetrics().widthPixels;
 
-                        // LEFT EDGE → swipe RIGHT = back
                         if (dx > 0 && startX <= edgePx) {
                             if (navHostFragment.getVisibility() == View.VISIBLE) {
-                                // Delegate to the same dispatcher as the system back button so
-                                // both paths share identical stack-pop + showHome() logic.
                                 getOnBackPressedDispatcher().onBackPressed();
                             } else {
-                                shiftTab(-1); // on home screen, go to previous tab
+                                shiftTab(-1);
                             }
-                            return true;
-                        }
-
-                        // RIGHT EDGE → swipe LEFT = forward (next tab)
-                        if (dx < 0 && startX >= screenW - edgePx) {
-                            shiftTab(+1);
                             return true;
                         }
 
@@ -1076,10 +1159,6 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    /**
-     * Cycles the bottom nav selection by {@code delta} positions (+1 = forward, -1 = back).
-     * No-ops if already at the first or last tab.
-     */
     private void shiftTab(int delta) {
         android.view.Menu menu = bottomNav.getMenu();
         int count = menu.size();
@@ -1094,24 +1173,12 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setSelectedItemId(menu.getItem(newIndex).getItemId());
     }
 
-    /**
-     * Central touch dispatcher.
-     *
-     * 1. Feeds the horizontal nav-swipe detector (back / tab-forward).
-     * 2. Tracks a raw swipe for one-handed mode using simple coordinate maths —
-     *    no GestureDetector velocity, so it works reliably on emulators too.
-     *
-     * One-handed detection zone: bottom 28 % of the screen (covers the nav bar
-     * and a comfortable thumb-drag area above it).
-     *   • Swipe UP  (dy ≤ −40 px, more vertical than horizontal, ≤ 700 ms) → activate
-     *   • Swipe DOWN (dy ≥  40 px, same criteria, active)                   → deactivate
-     */
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (navSwipeDetector != null) navSwipeDetector.onTouchEvent(ev);
 
         int screenH = getResources().getDisplayMetrics().heightPixels;
-        float bottomZone = screenH * 0.28f; // bottom 28 % of screen
+        float bottomZone = screenH * 0.28f;
 
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN:
@@ -1120,7 +1187,7 @@ public class MainActivity extends AppCompatActivity {
                     ohTouchStartY  = ev.getRawY();
                     ohTouchStartMs = System.currentTimeMillis();
                 } else {
-                    ohTouchStartY = -1f; // started outside zone — ignore
+                    ohTouchStartY = -1f;
                 }
                 break;
 
@@ -1136,12 +1203,10 @@ public class MainActivity extends AppCompatActivity {
                     if (primarilyVertical && withinTime) {
                         if (dy >= 40 && !isOneHandedActive
                                 && new AccessibilityHelper(this).isOneHandedMode()) {
-                            // Swipe DOWN on nav bar → activate (pull UI into thumb reach)
                             activateOneHanded(
                                     findViewById(R.id.main),
                                     findViewById(R.id.oneHandedHandle));
                         } else if (dy <= -40 && isOneHandedActive) {
-                            // Swipe UP on nav bar → deactivate
                             deactivateOneHanded();
                         }
                     }
@@ -1190,7 +1255,6 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Called by ProfileFragment when an admin switches their view mode.
      * Updates the bottom nav and event adapter to reflect the chosen role.
-     * Has no effect for non-admin users (they cannot reach this code path).
      *
      * @param role "entrant" | "organizer" | "admin"
      */
@@ -1202,29 +1266,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Need this for accessing user role in admin mode in other Fragments.
-     *
-     * @return current role of user
-     */
-    public String getEffectiveRole() {
-        return userRole;
-    }
+    public String getEffectiveRole() { return userRole; }
 
-    /** Returns whether the current session is a guest (unauthenticated) session. */
     public boolean isGuestSession() { return isGuest; }
 
     /**
      * Called by ProfileFragment when the user signs out.
-     * Resets role and guest state and rebuilds the bottom nav as entrant.
      */
     public void onUserLoggedOut() {
         userRole = "entrant";
         isGuest = true;
-        bottomNavRole = null;    // force nav rebuild even if already "entrant"
-        resolvedUserKey = null;  // clear so event cards revert to "Join" instead of "On Waitlist"
+        bottomNavRole = null;
+        resolvedUserKey = null;
 
-        // Prevent stale guest waitlist identity from being reused after logout.
         getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, MODE_PRIVATE)
                 .edit()
                 .remove(GuestSignUpFragment.PREF_GUEST_EMAIL)
@@ -1232,7 +1286,7 @@ public class MainActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             setupBottomNav();
-            if (!allEvents.isEmpty()) applyFilters(); // rebuild adapter with null userKey
+            if (!allEvents.isEmpty()) applyFilters();
             showHome();
         });
     }

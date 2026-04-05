@@ -13,7 +13,7 @@ import static org.junit.Assert.*;
 
 /**
  * Unit tests for the {@link AccessibilityHelper} class.
- * Tests accessibility features including motion preferences and text scaling.
+ * Tests accessibility features including text scaling and one-handed mode.
  */
 @RunWith(RobolectricTestRunner.class)
 public class AccessibilityHelperTest {
@@ -33,42 +33,62 @@ public class AccessibilityHelperTest {
     }
 
     @Test
-    public void testIsReduceMotionMethod() {
-        // Test that isReduceMotion returns a boolean
-        boolean reduceMotion = accessibilityHelper.isReduceMotion();
-        assertTrue("isReduceMotion should return a boolean value", reduceMotion || !reduceMotion);
+    public void testGetTextScaleDefault() {
+        float defaultScale = accessibilityHelper.getTextScale();
+        assertEquals("Default text scale should be 1.0f", 1.0f, defaultScale, 0.01f);
     }
 
     @Test
-    public void testBuildConfigWithContext() {
-        // Test that buildConfig returns a non-null Context
-        Context configuredContext = AccessibilityHelper.buildConfig(context);
-        assertNotNull("buildConfig should return a non-null context", configuredContext);
+    public void testSetAndGetTextScale() {
+        float testScale = 1.5f;
+        accessibilityHelper.setTextScale(testScale);
+        float retrievedScale = accessibilityHelper.getTextScale();
+        assertEquals("Text scale should be persisted and retrieved", testScale, retrievedScale, 0.01f);
     }
 
     @Test
-    public void testBuildConfigAppliesConfiguration() {
-        // Test that buildConfig applies accessibility configuration
-        Context configuredContext = AccessibilityHelper.buildConfig(context);
-        Configuration config = configuredContext.getResources().getConfiguration();
-        assertNotNull("Configuration should be applied", config);
+    public void testBuildConfigReturnsConfiguration() {
+        // buildConfig requires both context and float textScale
+        Configuration config = AccessibilityHelper.buildConfig(context, 1.0f);
+        assertNotNull("buildConfig should return a non-null Configuration", config);
     }
 
     @Test
-    public void testAccessibilityHelperWithNullContext() {
-        // Test that buildConfig handles context properly even with edge cases
-        Context configuredContext = AccessibilityHelper.buildConfig(context);
-        assertNotNull("buildConfig should handle context safely", configuredContext);
+    public void testBuildConfigAppliesTextScale() {
+        float testScale = 1.5f;
+        Configuration config = AccessibilityHelper.buildConfig(context, testScale);
+        assertEquals("Configuration should apply the specified text scale", testScale, config.fontScale, 0.01f);
     }
 
     @Test
-    public void testTextScalingApplication() {
-        // Verify that buildConfig applies text scaling from system preferences
-        Context originalContext = context;
-        Context configuredContext = AccessibilityHelper.buildConfig(originalContext);
+    public void testBuildConfigWithDifferentScales() {
+        float[] testScales = {0.8f, 1.0f, 1.6f};
+        for (float scale : testScales) {
+            Configuration config = AccessibilityHelper.buildConfig(context, scale);
+            assertEquals("fontScale should match the provided scale", scale, config.fontScale, 0.01f);
+        }
+    }
 
-        // Configuration should reflect accessibility settings
-        Configuration config = configuredContext.getResources().getConfiguration();
-        assertTrue("fontScale should be a valid value", config.fontScale > 0);
+    @Test
+    public void testGetOneHandedModeDefault() {
+        boolean oneHandedMode = accessibilityHelper.isOneHandedMode();
+        assertFalse("One-handed mode should be disabled by default", oneHandedMode);
+    }
+
+    @Test
+    public void testSetAndGetOneHandedMode() {
+        accessibilityHelper.setOneHandedMode(true);
+        assertTrue("One-handed mode should be enabled after setting", accessibilityHelper.isOneHandedMode());
+        accessibilityHelper.setOneHandedMode(false);
+        assertFalse("One-handed mode should be disabled after setting", accessibilityHelper.isOneHandedMode());
+    }
+
+    @Test
+    public void testReturnToAccessibilityFlag() {
+        assertFalse("Return flag should be false by default", accessibilityHelper.shouldReturnToAccessibility());
+        accessibilityHelper.setReturnToAccessibility(true);
+        assertTrue("Return flag should be true after setting", accessibilityHelper.shouldReturnToAccessibility());
+        accessibilityHelper.clearReturnToAccessibility();
+        assertFalse("Return flag should be false after clearing", accessibilityHelper.shouldReturnToAccessibility());
     }
 }

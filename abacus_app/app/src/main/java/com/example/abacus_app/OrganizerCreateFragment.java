@@ -210,12 +210,10 @@ public class OrganizerCreateFragment extends Fragment {
             return;
         }
         String organizerId = currentUser.getUid();
-        String organizerEmail = currentUser.getEmail();
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
         event.setPrivate(switchPrivate.isChecked());
-        event.setOrganizerEmail(organizerEmail);
 
         viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
     }

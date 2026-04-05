@@ -616,7 +616,7 @@ public class EventDetailsFragment extends Fragment {
             }
             Toast.makeText(requireContext(),
                     "Declined.", Toast.LENGTH_SHORT).show();
-            
+
             // Notify organizer that entrant declined
             notificationRepository.notifyOrganizerDecline(currentEventId, currentRegistrationKey);
 

@@ -7,9 +7,9 @@ import java.util.List;
 
 /**
  * Entity class representing an Event in the system.
- * Contains information about the event details, registration period, 
+ * Contains information about the event details, registration period,
  * capacity limits, and organizer settings.
- * 
+ *
  * @author Himesh
  * @version 1.0
  */
@@ -21,6 +21,8 @@ public class Event implements Serializable {
     private String organizerEmail;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
+    private Timestamp eventStart;
+    private Timestamp eventEnd;
     private Integer waitlistCapacity;
     private Integer eventCapacity;
     private Integer waitlistCount;    // Current number of people on waitlist
@@ -31,6 +33,7 @@ public class Event implements Serializable {
     private String qrCodeUrl;
     private List<String> coOrganizers = new ArrayList<>();
     private Boolean isDeleted;
+    private List<String> tags = new ArrayList<>();
 
     public Event() {}
 
@@ -47,8 +50,8 @@ public class Event implements Serializable {
      * @param geoRequired       Whether entrants must provide geolocation.
      * @param lotteryDrawn      Whether the lottery has been run.
      */
-    public Event(String eventId, String title, String description, String organizerId, 
-                 Timestamp registrationStart, Timestamp registrationEnd, 
+    public Event(String eventId, String title, String description, String organizerId,
+                 Timestamp registrationStart, Timestamp registrationEnd,
                  Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired, boolean lotteryDrawn) {
         this.eventId = eventId;
         this.title = title;
@@ -127,14 +130,15 @@ public class Event implements Serializable {
      */
     public void setRegistrationEnd(Timestamp registrationEnd) { this.registrationEnd = registrationEnd; }
 
-    /**
-     * @return max waitlist size (null if no limit).
-     */
+    /** When the event itself starts (shown to entrants). */
+    public Timestamp getEventStart() { return eventStart; }
+    public void setEventStart(Timestamp eventStart) { this.eventStart = eventStart; }
+
+    /** When the event itself ends (shown to entrants). */
+    public Timestamp getEventEnd() { return eventEnd; }
+    public void setEventEnd(Timestamp eventEnd) { this.eventEnd = eventEnd; }
+
     public Integer getWaitlistCapacity() { return waitlistCapacity; }
-    
-    /**
-     * @param waitlistCapacity sets waitlist size limit.
-     */
     public void setWaitlistCapacity(Integer waitlistCapacity) { this.waitlistCapacity = waitlistCapacity; }
 
     public Integer getEventCapacity() { return eventCapacity; }
@@ -144,50 +148,26 @@ public class Event implements Serializable {
     public void setWaitlistCount(Integer waitlistCount) { this.waitlistCount = waitlistCount; }
 
     public boolean isGeoRequired() { return geoRequired; }
-    
-    /**
-     * @param geoRequired sets geolocation requirement.
-     */
     public void setGeoRequired(boolean geoRequired) { this.geoRequired = geoRequired; }
 
     public boolean isLotteryDrawn() { return lotteryDrawn; }
-
-    /**
-     * @param lotteryDrawn sets lottery status
-     */
     public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
 
     public boolean isPrivate() { return isPrivate; }
     public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
-    /**
-     * @return public URL of the poster image.
-     */
     public String getPosterImageUrl() { return posterImageUrl; }
-    
-    /**
-     * @param posterImageUrl sets the poster image URL.
-     */
     public void setPosterImageUrl(String posterImageUrl) { this.posterImageUrl = posterImageUrl; }
 
-    /**
-     * @return public URL of the promotional QR code.
-     */
     public String getQrCodeUrl() { return qrCodeUrl; }
-    
-    /**
-     * @param qrCodeUrl sets the promotional QR code URL.
-     */
     public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }
 
     public List<String> getCoOrganizers() { return coOrganizers; }
     public void setCoOrganizers(List<String> coOrganizers) { this.coOrganizers = coOrganizers; }
 
-    public Boolean getIsDeleted() {
-        return isDeleted;
-    }
+    public Boolean getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Boolean isDeleted) { this.isDeleted = isDeleted; }
 
-    public void setIsDeleted(Boolean isDeleted) {
-        this.isDeleted = isDeleted;
-    }
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

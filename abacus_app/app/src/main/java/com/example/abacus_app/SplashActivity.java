@@ -58,15 +58,13 @@ public class SplashActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.splash_activity);
 
-        //Start animation (skip if Reduce Motion is enabled)
+        // Start animation
         ImageView img = findViewById(R.id.splashAbacus);
         AccessibilityHelper a11y = new AccessibilityHelper(this);
-        if (!a11y.isReduceMotion()) {
-            AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
-            if (avd != null) {
-                img.setImageDrawable(avd);
-                avd.start();
-            }
+        AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
+        if (avd != null) {
+            img.setImageDrawable(avd);
+            avd.start();
         }
 
         Button btnGetStarted = findViewById(R.id.btnGetStarted);
@@ -117,18 +115,16 @@ public class SplashActivity extends AppCompatActivity {
                 // Returning logged-in user — go straight to main
                 String role = (user.getRole() != null && !user.getRole().isEmpty())
             ? normalizeAppRole(user.getRole()) : "entrant";
-                long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                 new Handler(Looper.getMainLooper()).postDelayed(
                         () -> goToMain(false, role),
-                        delay
+                        ANIMATION_DELAY_MS
                 );
             } else {
                 // UUID exists but no active Firebase session (guest or expired).
                 // Auto-navigate as guest — they can log in from the profile screen.
-                long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
                 new Handler(Looper.getMainLooper()).postDelayed(
                         () -> goToMain(true, "entrant"),
-                        delay
+                        ANIMATION_DELAY_MS
                 );
             }
         });

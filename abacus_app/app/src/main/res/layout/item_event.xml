@@ -49,37 +49,35 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginTop="2dp"
-            android:drawablePadding="4dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Category • 1.2 miles away"
+            android:text=""
             android:textAppearance="?attr/textAppearanceBodySmall"
             app:layout_constraintEnd_toStartOf="@id/imageButton2"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_title" />
 
-        <!-- Location -->
+        <!-- Description -->
         <TextView
-            android:id="@+id/tv_event_location"
+            android:id="@+id/tv_event_description"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginTop="2dp"
-            android:drawablePadding="4dp"
             android:ellipsize="end"
-            android:maxLines="1"
-            android:text="Supporting line text lorem ipsum..."
+            android:maxLines="2"
+            android:text=""
             android:textAppearance="?attr/textAppearanceBodySmall"
             app:layout_constraintBottom_toBottomOf="@id/iv_event_poster"
             app:layout_constraintEnd_toStartOf="@id/imageButton2"
             app:layout_constraintStart_toEndOf="@id/iv_event_poster"
             app:layout_constraintTop_toBottomOf="@id/tv_event_datetime" />
 
-        <!-- Favourite button -->
         <ImageButton
             android:id="@+id/imageButton2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="21dp"
+            android:layout_height="21dp"
+            android:scaleType="fitCenter"
             android:background="#00FFFFFF"
             app:tint="@color/black"
             app:layout_constraintEnd_toEndOf="parent"

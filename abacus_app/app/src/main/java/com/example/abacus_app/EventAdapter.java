@@ -2,7 +2,6 @@ package com.example.abacus_app;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,7 +46,9 @@ import java.util.List;
  * Heart button:
  * - On bind, checks users/{uid}/saved/{eventId} to set filled/outlined state.
  * - Tapping toggles saved state in Firestore and updates the icon.
- * - Hidden for guests and admins.
+ * - Both authenticated and guest users can save events (guests are identified by device UUID).
+ * - Hidden for admins, organizers, or when explicitly suppressed via setHideFavourite(true).
+ * - Always uses ic_favourit drawable; grey tint when unsaved, orange tint when saved.
  */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
@@ -73,6 +74,13 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     @Nullable
     private final String userKey;
     private final boolean isGuest;
+
+    /**
+     * When true, the favourite/heart button is hidden regardless of user state.
+     * Use setHideFavourite(true) for contexts like the Saved screen where the
+     * heart is redundant.
+     */
+    private boolean hideFavourite = false;
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -108,6 +116,16 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         this(events, clickListener, null, false, false, null, false);
     }
 
+    /**
+     * When set to true, hides the favourite/heart button on all cards.
+     * Useful for contexts like the Saved screen where the button is redundant.
+     *
+     * @param hide true to hide the heart button
+     */
+    public void setHideFavourite(boolean hide) {
+        this.hideFavourite = hide;
+    }
+
     // ── RecyclerView overrides ────────────────────────────────────────────────
 
     @NonNull
@@ -124,6 +142,26 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
         holder.tvTitle.setText(event.getTitle() != null ? event.getTitle() : "");
 
+        // ── Description ────────────────────────────────────────────────────────
+        if (event.getDescription() != null && !event.getDescription().isEmpty()) {
+            holder.tvDescription.setText(event.getDescription());
+            holder.tvDescription.setVisibility(View.VISIBLE);
+        } else {
+            holder.tvDescription.setVisibility(View.GONE);
+        }
+
+        // ── Start date/time ────────────────────────────────────────────────────
+        if (event.getRegistrationStart() != null) {
+            java.util.Date date = event.getRegistrationStart().toDate();
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(
+                    "MMM dd, yyyy h:mm a", java.util.Locale.getDefault());
+            holder.tvDatetime.setText("Start: " + sdf.format(date));
+            holder.tvDatetime.setVisibility(View.VISIBLE);
+        } else {
+            holder.tvDatetime.setVisibility(View.GONE);
+        }
+
+        // ── Poster image ───────────────────────────────────────────────────────
         if (event.getPosterImageUrl() != null && !event.getPosterImageUrl().isEmpty()) {
             Glide.with(holder.itemView.getContext())
                     .load(event.getPosterImageUrl())
@@ -152,7 +190,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         holder.btnJoinStatus.setVisibility(View.VISIBLE);
 
         // ── Heart / saved button ───────────────────────────────────────────────
-        if (isGuest || event.getEventId() == null) {
+        // Hidden when explicitly suppressed (e.g. Saved screen) or no event ID.
+        // Both guests and authenticated users can save events.
+        if (hideFavourite || event.getEventId() == null) {
             holder.btnFavourite.setVisibility(View.GONE);
         } else {
             holder.btnFavourite.setVisibility(View.VISIBLE);
@@ -164,7 +204,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
         });
 
-        // Check if current user is the organizer of this event
+        // ── Organizer check ────────────────────────────────────────────────────
         String organizerId = event.getOrganizerId();
         boolean isOrganizerByUUID = userKey != null && userKey.equals(organizerId);
         boolean isOrganizerByFirebaseUID = false;
@@ -176,8 +216,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         }
 
         if (canManageEvents && (isOrganizerByUUID || isOrganizerByFirebaseUID)) {
-            // Organizer mode: show "Edit" instead of "Join"
+            // Organizer mode: show "Edit" instead of "Join", hide heart
             applyEditButtonState(holder, holder.itemView.getContext());
+            holder.btnFavourite.setVisibility(View.GONE);
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (clickListener != null) {
                     clickListener.onEventClick(event.getTitle(), false);
@@ -214,9 +255,11 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             return;
         }
 
-        // Organizers cannot join other people's events — only edit/manage their own
+        // Organizers cannot join other people's events — only edit/manage their own.
+        // Heart also hidden here since organizers don't participate in events.
         if (canManageEvents) {
             holder.btnJoinStatus.setVisibility(View.GONE);
+            holder.btnFavourite.setVisibility(View.GONE);
             return;
         }
 
@@ -237,7 +280,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                     if (!eventId.equals(events.get(pos).getEventId())) return;
 
                     boolean joined = snapshot.exists();
-                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN, holder.itemView.getContext());
+                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN,
+                            holder.itemView.getContext());
 
                     if (joined) {
                         // Already joined — tap opens details so they can leave from there
@@ -259,21 +303,29 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     /**
      * Checks Firestore to set the correct heart icon, then wires up toggle on tap.
-     * Saved state stored at: users/{uid}/saved/{eventId}
+     * Saved state stored at: users/{uid}/saved/{eventId} for authenticated users.
+     * Both guests (identified by device UUID via userKey) and authenticated users
+     * can save events.
+     *
+     * Always uses ic_favourite drawable — grey tint when unsaved, orange tint when saved.
+     * This ensures consistent icon sizing regardless of saved state.
      */
     private void setupSaveButton(@NonNull EventViewHolder holder, @NonNull Event event) {
+        // Use Firebase UID if available, otherwise fall back to device UUID (guest)
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
+        String uid = currentUser != null ? currentUser.getUid() : userKey;
+
+        if (uid == null) {
             holder.btnFavourite.setVisibility(View.GONE);
             return;
         }
 
-        String uid     = currentUser.getUid();
         String eventId = event.getEventId();
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        // Reset to outlined heart while we check
-        holder.btnFavourite.setImageResource(R.drawable.ic_heart);
+        // Reset to unsaved state while async check runs
+        holder.btnFavourite.setImageResource(R.drawable.ic_favourite);
+        holder.btnFavourite.setColorFilter(android.graphics.Color.GRAY);
 
         db.collection("users").document(uid)
                 .collection("saved").document(eventId)
@@ -285,7 +337,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                     boolean isSaved = snapshot.exists();
                     setSaveIcon(holder, isSaved);
 
-                    holder.btnFavourite.setOnClickListener(v -> toggleSaved(holder, db, uid, eventId, event, isSaved));
+                    holder.btnFavourite.setOnClickListener(v ->
+                            toggleSaved(holder, db, uid, eventId, event, isSaved));
                 });
     }
 
@@ -308,9 +361,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         } else {
             // Save — store minimal event info so SavedFragment can display it
             java.util.Map<String, Object> data = new java.util.HashMap<>();
-            data.put("eventId",    eventId);
-            data.put("title",      event.getTitle());
-            data.put("savedAt",    System.currentTimeMillis());
+            data.put("eventId", eventId);
+            data.put("title",   event.getTitle());
+            data.put("savedAt", System.currentTimeMillis());
             db.collection("users").document(uid)
                     .collection("saved").document(eventId)
                     .set(data)
@@ -321,12 +374,20 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                     });
         }
     }
-//SAVED ICON COLOUR CHANGE HERE.
+
+    /**
+     * Sets the save icon appearance. Always uses ic_favourite for consistent sizing.
+     * Grey tint when unsaved, orange tint when saved.
+     */
     private void setSaveIcon(@NonNull EventViewHolder holder, boolean saved) {
-        holder.btnFavourite.setImageResource(
-                saved ? R.drawable.ic_favourite : R.drawable.ic_heart);
-        holder.btnFavourite.setColorFilter(
-                saved ? android.graphics.Color.RED : android.graphics.Color.GRAY);
+        if (saved) {
+            holder.btnFavourite.setImageResource(R.drawable.ic_saved);
+            holder.btnFavourite.setColorFilter(
+                    ContextCompat.getColor(holder.itemView.getContext(), R.color.orange));
+        } else {
+            holder.btnFavourite.setImageResource(R.drawable.ic_favourite);
+            holder.btnFavourite.setColorFilter(android.graphics.Color.GRAY);
+        }
     }
 
     // ── Button appearance ─────────────────────────────────────────────────────
@@ -341,7 +402,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             case JOINED:
                 btn.setText("Joined");
                 btn.setTextColor(ContextCompat.getColor(context, R.color.grey));
-                btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)));
+                btn.setBackgroundTintList(ColorStateList.valueOf(
+                        ContextCompat.getColor(context, R.color.white)));
                 btn.setStrokeColor(ColorStateList.valueOf(
                         ContextCompat.getColor(context, R.color.grey)));
                 btn.setStrokeWidth(2);
@@ -369,7 +431,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         MaterialButton btn = holder.btnJoinStatus;
         btn.setText("Edit");
         btn.setTextColor(ContextCompat.getColor(context, R.color.orange));
-        btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)));
+        btn.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(context, R.color.white)));
         btn.setStrokeColor(ColorStateList.valueOf(
                 ContextCompat.getColor(context, R.color.orange)));
         btn.setStrokeWidth(2);
@@ -383,6 +446,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     static class EventViewHolder extends RecyclerView.ViewHolder {
         ImageView      ivPoster;
         TextView       tvTitle;
+        TextView       tvDescription;
+        TextView       tvDatetime;
         MaterialButton btnJoinStatus;
         MaterialButton btnDelete;
         ImageButton    btnFavourite;
@@ -391,6 +456,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             super(itemView);
             ivPoster      = itemView.findViewById(R.id.iv_event_poster);
             tvTitle       = itemView.findViewById(R.id.tv_event_title);
+            tvDescription = itemView.findViewById(R.id.tv_event_description);
+            tvDatetime    = itemView.findViewById(R.id.tv_event_datetime);
             btnJoinStatus = itemView.findViewById(R.id.btn_join_status);
             btnDelete     = itemView.findViewById(R.id.btn_admin_delete);
             btnFavourite  = itemView.findViewById(R.id.imageButton2);

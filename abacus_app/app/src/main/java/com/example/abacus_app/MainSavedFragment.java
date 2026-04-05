@@ -24,6 +24,20 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fragment that shows an authenticated user's personally saved events and the events
+ * they co-organize.
+ *
+ * <p>Two view modes are available, toggled via on-screen buttons:
+ * <ul>
+ *   <li>{@link ViewMode#SAVED} — events saved by the current Firebase user.</li>
+ *   <li>{@link ViewMode#CO_ORGANIZED} — events where the user appears in the
+ *       {@code coOrganizers} array.</li>
+ * </ul>
+ *
+ * <p>Both lists are read directly from Firestore. Guest users (no Firebase UID) see an
+ * empty state for both modes. Default view mode on launch is {@link ViewMode#SAVED}.
+ */
 public class MainSavedFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -81,11 +95,18 @@ public class MainSavedFragment extends Fragment {
         });
 
         // Default view
-        switchMode(ViewMode.CO_ORGANIZED);
+        switchMode(ViewMode.SAVED);
 
         return view;
     }
 
+    /**
+     * Switches the displayed list to {@code mode}, updates button highlight styles,
+     * and triggers the appropriate Firestore load.
+     *
+     * @param mode The view mode to activate ({@link ViewMode#SAVED} or
+     *             {@link ViewMode#CO_ORGANIZED}).
+     */
     private void switchMode(ViewMode mode) {
         currentMode = mode;
         updateButtonStyles();
@@ -97,6 +118,7 @@ public class MainSavedFragment extends Fragment {
         }
     }
 
+    /** Updates the stroke/text colour of the toggle buttons to reflect {@link #currentMode}. */
     private void updateButtonStyles() {
         int activeColor = ContextCompat.getColor(requireContext(), R.color.orange);
         int inactiveColor = ContextCompat.getColor(requireContext(), R.color.grey);
@@ -116,6 +138,13 @@ public class MainSavedFragment extends Fragment {
 
     // ── Saved Events ──────────────────────────────────────────────────────────
 
+    /**
+     * Queries the current user's {@code saved} sub-collection in Firestore and loads the
+     * corresponding event documents into {@link #displayList}.
+     *
+     * <p>Returns immediately with an empty list if the user is not authenticated
+     * ({@link #userUid} is null).
+     */
     private void loadSavedEvents() {
         if (userUid == null) {
             displayList.clear();
@@ -186,6 +215,14 @@ public class MainSavedFragment extends Fragment {
 
     // ── Co-Organized Events ───────────────────────────────────────────────────
 
+    /**
+     * Queries Firestore for events where {@link #userUid} appears in the {@code coOrganizers}
+     * array and loads them into {@link #displayList}.
+     *
+     * <p>Returns immediately without loading if {@link #userUid} is null (guest users).
+     * The {@code coOrganizers} field is populated by
+     * {@link ManageEventViewModel#addCoOrganizer(String, String)} using Firebase UIDs.
+     */
     private void loadCoOrganizedEvents() {
         // coOrganizers stores Firebase UID (set by addCoOrganizer in ManageEventViewModel)
         if (userUid == null) return;
@@ -261,6 +298,9 @@ public class MainSavedFragment extends Fragment {
             );
 
             recyclerView.setAdapter(adapter);
+            if (currentMode == ViewMode.SAVED) {
+                adapter.setHideFavourite(true);
+            }
         }
     }
 }
