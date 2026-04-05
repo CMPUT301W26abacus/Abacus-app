@@ -259,6 +259,9 @@ public class OrganizerManageFragment extends Fragment {
 
             UserLocalDataSource local = new UserLocalDataSource(requireContext());
             String uuid = local.getUUIDSync();
+            String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid()
+                    : null;
 
             recyclerView.setAdapter(new EventAdapter(
                     eventList,
@@ -277,7 +280,7 @@ public class OrganizerManageFragment extends Fragment {
                                 .setTitle("Delete Event")
                                 .setMessage("Are you sure you want to delete this event? This cannot be undone.")
                                 .setPositiveButton("Delete", (dialog, which) -> {
-                                    viewModel.deleteEvent(event.getEventId(), uuid);
+                                    viewModel.deleteEvent(event.getEventId(), uuid, firebaseUid);
                                 })
                                 .setNegativeButton("Cancel", null)
                                 .show();

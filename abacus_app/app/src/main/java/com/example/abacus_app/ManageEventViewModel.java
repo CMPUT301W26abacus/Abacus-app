@@ -110,11 +110,11 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
-    public void deleteEvent(String eventId, String organizerId) {
+    public void deleteEvent(String eventId, String deviceUuid, String firebaseUid) {
         isLoading.setValue(true);
         eventRepository.deleteEvent(eventId).addOnSuccessListener(aVoid -> {
             eventDeleted.setValue(true);
-            loadOrganizerEvents(organizerId); // Refresh list
+            loadOrganizerEvents(deviceUuid, firebaseUid); // Refresh list with both UUIDs
         }).addOnFailureListener(e -> {
             error.setValue("Failed to delete event: " + e.getMessage());
             isLoading.setValue(false);

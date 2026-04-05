@@ -926,14 +926,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
-        // Only wipe the back stack when switching top-level tabs (showBottomNav=true).
-        // Sub-page navigations (showBottomNav=false) keep the parent on the stack so that
-        // popBackStack() — used by both the system back button and the swipe gesture — can
-        // correctly return to the parent instead of falling through to showHome().
+        // Clear back stack for top-level tabs to ensure clean navigation between tabs
         if (showBottomNav) clearBackStack();
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         if (navHostFragment.getVisibility() != View.VISIBLE) {
-            // Transitioning from home — clear back stack to ensure pressing back returns to home
+            // Transitioning from home to NavHost — clear back stack so pressing back
+            // naturally returns to home without landing on start destination
             clearBackStack();
             // Cross-fade the containers
             navHostFragment.setAlpha(0f);
@@ -957,6 +955,8 @@ public class MainActivity extends AppCompatActivity {
     public void showHome() {
         clearBackStack();
         bottomNav.setVisibility(View.VISIBLE);
+        // Select nav_home to indicate we're on the home page
+        bottomNav.setSelectedItemId(R.id.nav_home);
         if (homeContent.getVisibility() != View.VISIBLE) {
             homeContent.setAlpha(0f);
             homeContent.setVisibility(View.VISIBLE);
