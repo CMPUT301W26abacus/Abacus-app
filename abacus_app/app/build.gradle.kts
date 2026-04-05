@@ -114,6 +114,9 @@ dependencies {
     // Protobuf used by Firestore
     implementation("com.google.protobuf:protobuf-javalite:3.23.4")
 
+    // Cloudinary for image storage (Spark plan workaround)
+    implementation("com.cloudinary:cloudinary-android:3.1.2")
+
 
     // Testing
     testImplementation(libs.junit)

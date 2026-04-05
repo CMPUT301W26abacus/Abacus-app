@@ -11,15 +11,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * CreateEventViewModel.java
+ *
  * Manages UI state and business logic for the event creation process.
- * Handles event persistence and optional poster URL or Gallery image association.
+ * Handles event persistence and image upload to Cloudinary.
  * 
- * US 02.01.04: Set a registration period.
- * US 02.03.01: Optionally limit the number of entrants.
- * US 02.04.01: Upload event poster (handled via URL patching or Firebase Storage).
+ * US 02.04.01: Upload event poster.
  * 
  * @author Himesh
- * @version 1.1
+ * @version 1.4
  */
 public class CreateEventViewModel extends ViewModel {
 
@@ -30,37 +30,15 @@ public class CreateEventViewModel extends ViewModel {
     private final MutableLiveData<String>  error        = new MutableLiveData<>();
     private final MutableLiveData<Boolean> eventCreated = new MutableLiveData<>(false);
 
-    /**
-     * Constructs a new CreateEventViewModel and initializes repositories.
-     */
     public CreateEventViewModel() {
         this.eventRepository = new EventRepository();
         this.storageRepository = new StorageRepository();
     }
 
-    /**
-     * @return Observable status of whether a save operation is in progress.
-     */
     public LiveData<Boolean> getIsSaving()     { return isSaving; }
-
-    /**
-     * @return Observable error messages to be displayed in the UI.
-     */
     public LiveData<String>  getError()        { return error; }
-
-    /**
-     * @return Observable trigger for successful event creation.
-     */
     public LiveData<Boolean> getEventCreated() { return eventCreated; }
 
-    /**
-     * Creates an event in Firestore. If a poster URL or URI is provided, it is
-     * associated with the document after creation.
-     *
-     * @param event      The {@link Event} object to create.
-     * @param posterUrl  External image URL string (optional).
-     * @param posterUri  Local Uri for gallery image (optional).
-     */
     public void createEvent(Event event, String posterUrl, Uri posterUri) {
         isSaving.setValue(true);
 
@@ -83,28 +61,25 @@ public class CreateEventViewModel extends ViewModel {
                 });
     }
 
+    /**
+     * Uploads the poster to Cloudinary and retrieves the secure URL to 
+     * patch into the Firestore event document.
+     */
     private void uploadPosterAndPatch(String eventId, Uri posterUri) {
-        storageRepository.uploadPoster(eventId, posterUri)
-                .addOnSuccessListener(taskSnapshot -> 
-                    storageRepository.getPosterUrl(eventId)
-                        .addOnSuccessListener(uri -> patchPosterUrl(eventId, uri.toString()))
-                        .addOnFailureListener(e -> {
-                            isSaving.setValue(false);
-                            error.setValue("Failed to get download URL: " + e.getMessage());
-                        })
-                )
-                .addOnFailureListener(e -> {
-                    isSaving.setValue(false);
-                    error.setValue("Failed to upload poster: " + e.getMessage());
-                });
+        storageRepository.uploadImage(posterUri, new StorageRepository.CloudinaryCallback() {
+            @Override
+            public void onSuccess(String url) {
+                patchPosterUrl(eventId, url);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                isSaving.setValue(false);
+                error.setValue("Failed to upload poster: " + errorMessage);
+            }
+        });
     }
 
-    /**
-     * Patches only the posterImageUrl into Firestore using a Map to avoid overwriting other fields.
-     * 
-     * @param eventId   The ID of the event to update.
-     * @param posterUrl The URL of the poster image.
-     */
     private void patchPosterUrl(String eventId, String posterUrl) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("posterImageUrl", posterUrl);
@@ -119,7 +94,7 @@ public class CreateEventViewModel extends ViewModel {
                 })
                 .addOnFailureListener(e -> {
                     isSaving.setValue(false);
-                    error.setValue("Failed to save poster URL: " + e.getMessage());
+                    error.setValue("Failed to save poster URL to Firestore: " + e.getMessage());
                 });
     }
 }

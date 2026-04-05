@@ -279,7 +279,7 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
-     * Uploads a profile photo to Firebase Storage and updates the profilePhotoUrl in Firestore.
+     * Uploads a profile photo to Cloudinary and updates the profilePhotoUrl in Firestore.
      */
     public void uploadProfilePhoto(android.net.Uri photoUri, StorageRepository storageRepo) {
         if (userRepository == null || photoUri == null) return;
@@ -287,24 +287,26 @@ public class ProfileViewModel extends ViewModel {
         userRepository.getCurrentUserIdAsync(uuid -> {
             if (uuid == null) return;
 
-            storageRepo.uploadProfilePhoto(uuid, photoUri)
-                    .addOnSuccessListener(taskSnapshot ->
-                        storageRepo.getProfilePhotoUrl(uuid)
-                                .addOnSuccessListener(downloadUri -> {
-                                    String url = downloadUri.toString();
-                                    _profilePhotoUrl.postValue(url);
-                                    Map<String, Object> data = new HashMap<>();
-                                    data.put("profilePhotoUrl", url);
-                                    userRepository.saveProfileAsync(data, error -> {
-                                        if (error == null) {
-                                            _toastMessage.postValue("Photo updated!");
-                                        } else {
-                                            _toastMessage.postValue("Failed to save photo URL");
-                                        }
-                                    });
-                                })
-                    )
-                    .addOnFailureListener(e -> _toastMessage.postValue("Photo upload failed: " + e.getMessage()));
+            storageRepo.uploadImage(photoUri, new StorageRepository.CloudinaryCallback() {
+                @Override
+                public void onSuccess(String url) {
+                    _profilePhotoUrl.postValue(url);
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("profilePhotoUrl", url);
+                    userRepository.saveProfileAsync(data, error -> {
+                        if (error == null) {
+                            _toastMessage.postValue("Photo updated!");
+                        } else {
+                            _toastMessage.postValue("Failed to save photo URL");
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    _toastMessage.postValue("Photo upload failed: " + errorMessage);
+                }
+            });
         });
     }
 }
