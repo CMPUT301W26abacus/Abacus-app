@@ -184,6 +184,62 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Event date & time -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="EVENT DATE &amp; TIME"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="@color/grey"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="4dp" />
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="4dp">
+
+                    <Button
+                        android:id="@+id/btn_set_event_start"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="start|center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:text="Set Event Start Date / Time"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginHorizontal="16dp"
+                        android:background="@color/grey" />
+
+                    <Button
+                        android:id="@+id/btn_set_event_end"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="start|center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:text="Set Event End Date / Time"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/black" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Registration period -->
             <TextView
                 android:layout_width="match_parent"
