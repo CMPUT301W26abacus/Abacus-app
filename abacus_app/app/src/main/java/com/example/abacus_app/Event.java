@@ -9,7 +9,7 @@ import java.util.List;
  * Entity class representing an Event in the system.
  * Contains information about the event details, registration period, 
  * capacity limits, and organizer settings.
- * 
+ *
  * @author Himesh
  * @version 1.0
  */
@@ -30,6 +30,7 @@ public class Event implements Serializable {
     private String qrCodeUrl;
     private List<String> coOrganizers = new ArrayList<>();
     private Boolean isDeleted;
+    private List<String> tags = new ArrayList<>();
 
     public Event() {}
 
@@ -46,8 +47,8 @@ public class Event implements Serializable {
      * @param geoRequired       Whether entrants must provide geolocation.
      * @param lotteryDrawn      Whether the lottery has been run.
      */
-    public Event(String eventId, String title, String description, String organizerId, 
-                 Timestamp registrationStart, Timestamp registrationEnd, 
+    public Event(String eventId, String title, String description, String organizerId,
+                 Timestamp registrationStart, Timestamp registrationEnd,
                  Integer waitlistCapacity, Integer eventCapacity, boolean geoRequired, boolean lotteryDrawn) {
         this.eventId = eventId;
         this.title = title;
@@ -87,7 +88,7 @@ public class Event implements Serializable {
      * @return the event description.
      */
     public String getDescription() { return description; }
-    
+
     /**
      * @param description sets the event description.
      */
@@ -97,7 +98,7 @@ public class Event implements Serializable {
      * @return the organizer's ID.
      */
     public String getOrganizerId() { return organizerId; }
-    
+
     /**
      * @param organizerId sets the organizer's ID.
      */
@@ -107,7 +108,7 @@ public class Event implements Serializable {
      * @return start of registration period.
      */
     public Timestamp getRegistrationStart() { return registrationStart; }
-    
+
     /**
      * @param registrationStart sets registration start time.
      */
@@ -117,7 +118,7 @@ public class Event implements Serializable {
      * @return end of registration period.
      */
     public Timestamp getRegistrationEnd() { return registrationEnd; }
-    
+
     /**
      * @param registrationEnd sets registration end time.
      */
@@ -127,7 +128,7 @@ public class Event implements Serializable {
      * @return max waitlist size (null if no limit).
      */
     public Integer getWaitlistCapacity() { return waitlistCapacity; }
-    
+
     /**
      * @param waitlistCapacity sets waitlist size limit.
      */
@@ -140,7 +141,7 @@ public class Event implements Serializable {
     public void setWaitlistCount(Integer waitlistCount) { this.waitlistCount = waitlistCount; }
 
     public boolean isGeoRequired() { return geoRequired; }
-    
+
     /**
      * @param geoRequired sets geolocation requirement.
      */
@@ -160,7 +161,7 @@ public class Event implements Serializable {
      * @return public URL of the poster image.
      */
     public String getPosterImageUrl() { return posterImageUrl; }
-    
+
     /**
      * @param posterImageUrl sets the poster image URL.
      */
@@ -170,7 +171,7 @@ public class Event implements Serializable {
      * @return public URL of the promotional QR code.
      */
     public String getQrCodeUrl() { return qrCodeUrl; }
-    
+
     /**
      * @param qrCodeUrl sets the promotional QR code URL.
      */
@@ -186,4 +187,7 @@ public class Event implements Serializable {
     public void setIsDeleted(Boolean isDeleted) {
         this.isDeleted = isDeleted;
     }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

@@ -23,6 +23,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.timepicker.MaterialTimePicker;
@@ -31,8 +33,10 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -49,6 +53,7 @@ public class OrganizerCreateFragment extends Fragment {
     private MaterialSwitch switchGeo, switchPrivate;
     private CheckBox cbLimit;
     private ImageView ivPosterPreview;
+    private ChipGroup chipGroupTags;
 
     private Timestamp startTimestamp, endTimestamp;
     private Uri selectedImageUri;
@@ -82,6 +87,7 @@ public class OrganizerCreateFragment extends Fragment {
         switchGeo       = view.findViewById(R.id.switch_geo);
         switchPrivate   = view.findViewById(R.id.switch_private);
         cbLimit         = view.findViewById(R.id.cb_limit_waitlist);
+        chipGroupTags   = view.findViewById(R.id.chip_group_tags);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
@@ -202,6 +208,15 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
+        // Collect selected category tags from chip group
+        List<String> selectedTags = new ArrayList<>();
+        for (int i = 0; i < chipGroupTags.getChildCount(); i++) {
+            Chip chip = (Chip) chipGroupTags.getChildAt(i);
+            if (chip.isChecked()) {
+                selectedTags.add(chip.getText().toString());
+            }
+        }
+
         // Use Firebase UID (authenticated account) as organizerId, not device UUID
         // This ensures each account can only manage their own created events
         com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -214,6 +229,7 @@ public class OrganizerCreateFragment extends Fragment {
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
         event.setPrivate(switchPrivate.isChecked());
+        event.setTags(selectedTags);
 
         viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
     }

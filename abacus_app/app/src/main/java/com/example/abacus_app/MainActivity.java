@@ -63,7 +63,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
@@ -89,8 +92,13 @@ public class MainActivity extends AppCompatActivity {
     private String userRole      = "entrant";
     private String bottomNavRole = null; // tracks which role the bottom nav was last built for
 
-    private String activeKeyword = "";
-    private String activeDate    = "";
+    // ── Filter state ──────────────────────────────────────────────────────────
+    private String activeKeyword    = "";    // search bar — applied on every keystroke
+    private String activeFilterTags = "";    // filter sheet chip selections — comma-separated, applied on Apply
+    private String activeDate       = "";    // filter sheet date picker
+    private boolean filterOpenOnly  = false; // filter sheet "Open for registration only"
+    private boolean filterHasSpots  = false; // filter sheet "Has spots left"
+
     private RecyclerView recyclerView;
     private LinearLayout layoutEmptyState;
 
@@ -464,15 +472,27 @@ public class MainActivity extends AppCompatActivity {
      *
      * The resolved userKey and isGuest flag are passed into the adapter so each
      * card can independently check its own join status from Firestore.
+     *
+     * - activeKeyword:    search bar, matches title + description, applied on keystroke
+     * - activeFilterTags: comma-separated chip selections from the filter sheet,
+     *                     matches against event.tags first, falls back to title + description
+     * - activeDate:       registration window overlap check
+     * - filterOpenOnly:   excludes events whose registration window has not yet started
+     * - filterHasSpots:   excludes events where waitlistCount >= waitlistCapacity
      */
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Date now = new Date();
 
+        // Pre-split the tag filter once outside the loop
+        String[] selectedCategories = activeFilterTags.isEmpty()
+                ? new String[0]
+                : activeFilterTags.split(",");
+
         for (Event event : allEvents) {
             // EXCLUDE co-organized events from the browse screen
-            if (resolvedUserKey != null && event.getCoOrganizers() != null 
+            if (resolvedUserKey != null && event.getCoOrganizers() != null
                     && event.getCoOrganizers().contains(resolvedUserKey)) {
                 continue;
             }
@@ -480,9 +500,30 @@ public class MainActivity extends AppCompatActivity {
             String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
-            boolean keywordMatch = activeKeyword.isEmpty()
+            // ── Search bar match (title + description) ────────────────────────
+            boolean searchMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
                     || description.contains(activeKeyword);
+
+            // ── Filter sheet: category chip match ─────────────────────────────
+            // Each selected category is OR-ed: event must match at least one.
+            // Tag list is checked first; falls back to title/description for
+            // events created before tags were introduced.
+            boolean tagMatch = true;
+            if (selectedCategories.length > 0) {
+                tagMatch = false;
+                List<String> eventTags = event.getTags();
+                for (String category : selectedCategories) {
+                    String cat = category.trim().toLowerCase();
+                    boolean hitTag = eventTags != null && !eventTags.isEmpty()
+                            && eventTags.stream().anyMatch(t -> t.toLowerCase().contains(cat));
+                    boolean hitText = title.contains(cat) || description.contains(cat);
+                    if (hitTag || hitText) {
+                        tagMatch = true;
+                        break;
+                    }
+                }
+            }
 
             // Project pt3 bug fix: checks if the date you picked falls within the event's registration
             // window instead of only matching the exact start date.
@@ -499,6 +540,25 @@ public class MainActivity extends AppCompatActivity {
                     }
                 } catch (Exception e) {
                     dateMatch = true;
+                }
+            }
+
+            // ── Filter sheet: open for registration only ──────────────────────
+            boolean openMatch = true;
+            if (filterOpenOnly) {
+                openMatch = event.getRegistrationStart() != null
+                        && !now.before(event.getRegistrationStart().toDate());
+            }
+
+            // ── Filter sheet: has spots left ──────────────────────────────────
+            boolean spotsMatch = true;
+            if (filterHasSpots) {
+                Integer capacity = event.getWaitlistCapacity();
+                Integer count    = event.getWaitlistCount();
+                // Unlimited waitlist (null capacity) always has spots.
+                // Otherwise, spots remain when count is null or below capacity.
+                if (capacity != null) {
+                    spotsMatch = count == null || count < capacity;
                 }
             }
 
@@ -525,7 +585,22 @@ public class MainActivity extends AppCompatActivity {
                 isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
             }
 
-            if (keywordMatch && dateMatch && notExpired && (isPublic || isOrganizerOfPrivate)) filtered.add(event);
+            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch
+                    && notExpired && (isPublic || isOrganizerOfPrivate)) {
+                filtered.add(event);
+            }
+        }
+
+        // ── Update filter button tint to show active state ────────────────────
+        ImageButton btnFilter = findViewById(R.id.btn_filter);
+        if (btnFilter != null) {
+            boolean filtersActive = !activeFilterTags.isEmpty()
+                    || !activeDate.isEmpty()
+                    || filterOpenOnly
+                    || filterHasSpots;
+            btnFilter.setColorFilter(filtersActive
+                    ? ContextCompat.getColor(this, R.color.orange)
+                    : ContextCompat.getColor(this, R.color.grey));
         }
 
         // ── Update carousel with up to 5 soonest events ───────────────────────
@@ -552,9 +627,9 @@ public class MainActivity extends AppCompatActivity {
             tvForYouLabel.setText("All Events");
         }
 
-    boolean isAdminUser = "admin".equals(userRole);
-    boolean canManageEvents = !isGuest
-        && ("organizer".equals(userRole) || "admin".equals(userRole));
+        boolean isAdminUser = "admin".equals(userRole);
+        boolean canManageEvents = !isGuest
+                && ("organizer".equals(userRole) || "admin".equals(userRole));
         final List<Event> finalFiltered = filtered;
 
         recyclerView.setAdapter(new EventAdapter(
@@ -597,7 +672,11 @@ public class MainActivity extends AppCompatActivity {
                 if (hasPreferences) {
                     tvEmpty.setText("No events match your preferences");
                 } else {
-                    boolean hasFilters = !activeKeyword.isEmpty() || !activeDate.isEmpty();
+                    boolean hasFilters = !activeKeyword.isEmpty()
+                            || !activeFilterTags.isEmpty()
+                            || !activeDate.isEmpty()
+                            || filterOpenOnly
+                            || filterHasSpots;
                     tvEmpty.setText(hasFilters ? "No matching events found" : "No events available");
                 }
             }
@@ -728,24 +807,54 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Bottom sheet filter ───────────────────────────────────────────────────
 
+    /**
+     * Shows the filter bottom sheet.
+     *
+     * The sheet manages three distinct filter dimensions, all separate from the search bar:
+     *   1. Category chips  → activeFilterTags  (comma-separated, OR logic per category)
+     *   2. Date picker     → activeDate
+     *   3. Availability    → filterOpenOnly, filterHasSpots
+     *
+     * On Apply: all fields are updated and applyFilters() is called.
+     * On Clear: all fields are reset to empty/false and applyFilters() is called.
+     */
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(R.layout.fragment_filter_bottom_sheet);
 
-        TextInputEditText etKeyword = dialog.findViewById(R.id.et_keyword);
-        Button btnPickDate          = dialog.findViewById(R.id.btn_pick_date);
-        Button btnApply             = dialog.findViewById(R.id.btn_apply_filters);
-        Button btnClear             = dialog.findViewById(R.id.btn_clear_filters);
+        ChipGroup chipGroupFilter  = dialog.findViewById(R.id.chip_group_filter);
+        Button btnPickDate         = dialog.findViewById(R.id.btn_pick_date);
+        MaterialSwitch switchOpen  = dialog.findViewById(R.id.switch_open_only);
+        MaterialSwitch switchSpots = dialog.findViewById(R.id.switch_has_spots);
+        Button btnApply            = dialog.findViewById(R.id.btn_apply_filters);
+        Button btnClear            = dialog.findViewById(R.id.btn_clear_filters);
 
-        if (etKeyword != null && !activeKeyword.isEmpty()) etKeyword.setText(activeKeyword);
+        // ── Restore current filter state into the sheet ───────────────────────
+        if (switchOpen  != null) switchOpen.setChecked(filterOpenOnly);
+        if (switchSpots != null) switchSpots.setChecked(filterHasSpots);
 
+        // Pre-check chips that match the current active filter tags
+        if (chipGroupFilter != null && !activeFilterTags.isEmpty()) {
+            String[] active = activeFilterTags.split(",");
+            for (int i = 0; i < chipGroupFilter.getChildCount(); i++) {
+                Chip chip = (Chip) chipGroupFilter.getChildAt(i);
+                for (String tag : active) {
+                    if (chip.getText().toString().equalsIgnoreCase(tag.trim())) {
+                        chip.setChecked(true);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Pre-fill date button label
         final String[] pickedDate = {activeDate};
         if (btnPickDate != null && !activeDate.isEmpty()) btnPickDate.setText(activeDate);
 
         if (btnPickDate != null) {
             btnPickDate.setOnClickListener(v -> {
                 Calendar cal = Calendar.getInstance();
-                new DatePickerDialog(this,(view, year, month, day) -> {
+                new DatePickerDialog(this, (view, year, month, day) -> {
                     pickedDate[0] = String.format(Locale.getDefault(),
                             "%04d-%02d-%02d", year, month + 1, day);
                     btnPickDate.setText(pickedDate[0]);
@@ -757,9 +866,18 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnApply != null) {
             btnApply.setOnClickListener(v -> {
-                activeKeyword = etKeyword != null && etKeyword.getText() != null
-                        ? etKeyword.getText().toString().trim().toLowerCase() : "";
-                activeDate = pickedDate[0];
+                // Collect checked chip labels → comma-separated string
+                List<String> selected = new ArrayList<>();
+                if (chipGroupFilter != null) {
+                    for (int i = 0; i < chipGroupFilter.getChildCount(); i++) {
+                        Chip chip = (Chip) chipGroupFilter.getChildAt(i);
+                        if (chip.isChecked()) selected.add(chip.getText().toString());
+                    }
+                }
+                activeFilterTags = String.join(",", selected);
+                activeDate       = pickedDate[0];
+                filterOpenOnly   = switchOpen  != null && switchOpen.isChecked();
+                filterHasSpots   = switchSpots != null && switchSpots.isChecked();
                 applyFilters();
                 dialog.dismiss();
             });
@@ -767,8 +885,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnClear != null) {
             btnClear.setOnClickListener(v -> {
-                activeKeyword = "";
-                activeDate    = "";
+                activeFilterTags = "";
+                activeDate       = "";
+                filterOpenOnly   = false;
+                filterHasSpots   = false;
                 applyFilters();
                 dialog.dismiss();
             });
@@ -1034,7 +1154,7 @@ public class MainActivity extends AppCompatActivity {
                 new GestureDetector.SimpleOnGestureListener() {
                     @Override
                     public boolean onFling(MotionEvent e1, MotionEvent e2,
-                                          float velocityX, float velocityY) {
+                                           float velocityX, float velocityY) {
                         if (e1 == null || e2 == null) return false;
                         float dx = e2.getX() - e1.getX();
                         float dy = e2.getY() - e1.getY();
