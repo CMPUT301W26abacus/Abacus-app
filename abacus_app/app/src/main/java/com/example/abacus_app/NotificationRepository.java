@@ -126,16 +126,18 @@ public class NotificationRepository {
                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
-                               eventId,
                                entryUser.getEmail(),
+                               event.getOrganizerId(),
+                               eventId,
                                "Congratulations! You have been invited to " + event.getTitle(),
                                Notification.TYPE_SELECTED
                        ));
                    } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
                        notifications.add(new Notification(
                                entry.getUserId(),
-                               eventId,
                                entryUser.getEmail(),
+                               event.getOrganizerId(),
+                               eventId,
                                "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
                                Notification.TYPE_NOT_SELECTED
                        ));
@@ -166,9 +168,10 @@ public class NotificationRepository {
 
                 Notification notification = (new Notification(
                         userId,
-                        eventId,
                         entryUser.getEmail(),
-                        "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
+                        event.getOrganizerId(),
+                        eventId,
+                        "Congratulations! You have been selected as a replacement for " + event.getTitle() + ".",
                         Notification.TYPE_SELECTED
                 ));
 
@@ -196,8 +199,9 @@ public class NotificationRepository {
 
                 Notification notification = (new Notification(
                         userId,
-                        eventId,
                         entryUser.getEmail(),
+                        event.getOrganizerId(),
+                        eventId,
                         "Your invitation to " + event.getTitle() + " has expired.",
                         Notification.TYPE_CANCELED
                 ));
