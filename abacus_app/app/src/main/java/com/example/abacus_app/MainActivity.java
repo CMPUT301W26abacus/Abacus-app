@@ -933,7 +933,9 @@ public class MainActivity extends AppCompatActivity {
         if (showBottomNav) clearBackStack();
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         if (navHostFragment.getVisibility() != View.VISIBLE) {
-            // Transitioning from home — cross-fade the containers
+            // Transitioning from home — clear back stack to ensure pressing back returns to home
+            clearBackStack();
+            // Cross-fade the containers
             navHostFragment.setAlpha(0f);
             navHostFragment.setVisibility(View.VISIBLE);
             navHostFragment.animate().alpha(1f).setDuration(180).start();
