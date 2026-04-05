@@ -45,6 +45,7 @@ public class OrganizerManageFragment extends Fragment {
     private TextView tvEventName, tvCount;
     private Button btnDrawLottery;
     private Button btnDrawReplacement;
+    private MaterialButton btnExportCsv;
     private View filterContainer;
     private ChipGroup chipGroupFilter;
 
@@ -83,6 +84,7 @@ public class OrganizerManageFragment extends Fragment {
         filterContainer = view.findViewById(R.id.filter_scroll);
         chipGroupFilter = view.findViewById(R.id.chip_group_filter);
         btnDrawReplacement = view.findViewById(R.id.btn_draw_replacement);
+        btnExportCsv = view.findViewById(R.id.btn_export_csv);
 
         // Co-organizer UI binding
         layoutCoOrganizers = view.findViewById(R.id.layout_co_organizers);
@@ -145,6 +147,12 @@ public class OrganizerManageFragment extends Fragment {
                 if (currentMode == Mode.WAITLIST && selectedEventId != null) {
                     viewModel.drawReplacement(selectedEventId);
                 }
+            }
+        });
+
+        btnExportCsv.setOnClickListener(v -> {
+            if (currentMode == Mode.WAITLIST && selectedEventId != null) {
+                exportEnrolledListToCsv();
             }
         });
 
@@ -219,14 +227,19 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText("My Events");
         tvCount.setText("");
         btnDrawLottery.setVisibility(View.GONE);
+        btnExportCsv.setVisibility(View.GONE);
         filterContainer.setVisibility(View.GONE);
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid = local.getUUIDSync();
-        if (uuid != null) {
-            viewModel.loadOrganizerEvents(uuid);
+        String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        if (uuid != null || firebaseUid != null) {
+            viewModel.loadOrganizerEvents(uuid, firebaseUid);
         } else {
             tvCount.setText("Could not load events");
         }
@@ -370,6 +383,7 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
         btnDrawLottery.setVisibility(View.VISIBLE);
+        btnExportCsv.setVisibility(View.VISIBLE);
         filterContainer.setVisibility(View.VISIBLE);
         chipGroupFilter.check(R.id.chip_all);
         layoutCoOrganizers.setVisibility(View.VISIBLE);
@@ -422,6 +436,74 @@ public class OrganizerManageFragment extends Fragment {
         args.putString("EVENT_TITLE", eventTitle);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    // ── CSV Export ────────────────────────────────────────────────────────────
+
+    private void exportEnrolledListToCsv() {
+        // Filter for accepted/invited entries only
+        List<WaitlistEntry> enrolledEntries = allEntries.stream()
+                .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
+                        || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
+                .collect(Collectors.toList());
+
+        if (enrolledEntries.isEmpty()) {
+            Toast.makeText(getContext(), "No enrolled entrants to export", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Build CSV content
+        StringBuilder csvContent = new StringBuilder();
+        csvContent.append("Name,Email,Status,Registration Time\n");
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault());
+
+        for (WaitlistEntry entry : enrolledEntries) {
+            String name = entry.getUserName() != null ? entry.getUserName() : "Guest";
+            String email = entry.getUserEmail() != null ? entry.getUserEmail() : "";
+            String status = entry.getStatus() != null ? entry.getStatus() : "";
+            String joinTime = entry.getTimestamp() != null
+                    ? sdf.format(new java.util.Date(entry.getTimestamp()))
+                    : "Unknown";
+
+            csvContent.append("\"").append(escapeQuotes(name)).append("\",")
+                    .append("\"").append(escapeQuotes(email)).append("\",")
+                    .append("\"").append(escapeQuotes(status)).append("\",")
+                    .append("\"").append(escapeQuotes(joinTime)).append("\"\n");
+        }
+
+        // Save CSV to file
+        String fileName = (selectedEvent != null ? selectedEvent.getTitle() : "entrants")
+                + "_" + System.currentTimeMillis() + ".csv";
+
+        try {
+            java.io.File file = new java.io.File(getContext().getCacheDir(), fileName);
+            java.io.FileWriter writer = new java.io.FileWriter(file);
+            writer.write(csvContent.toString());
+            writer.close();
+
+            // Share the file
+            android.net.Uri fileUri = androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(),
+                    requireContext().getPackageName() + ".fileprovider",
+                    file);
+
+            android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
+            shareIntent.setType("text/csv");
+            shareIntent.putExtra(android.content.Intent.EXTRA_STREAM, fileUri);
+            shareIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Enrolled Entrants - " + fileName);
+            shareIntent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            startActivity(android.content.Intent.createChooser(shareIntent, "Export CSV"));
+        } catch (Exception e) {
+            Log.e(TAG, "Error exporting CSV", e);
+            Toast.makeText(getContext(), "Error exporting CSV: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String escapeQuotes(String value) {
+        if (value == null) return "";
+        return value.replace("\"", "\"\"");
     }
 
     // ── Button visibility ─────────────────────────────────────────────────────

@@ -81,8 +81,22 @@ public class ManageEventViewModel extends ViewModel {
     }
 
     public void loadOrganizerEvents(String organizerId) {
+        loadOrganizerEvents(organizerId, null);
+    }
+
+    public void loadOrganizerEvents(String deviceUuid, String firebaseUid) {
         isLoading.setValue(true);
-        eventRepository.getEventsByOrganizer(organizerId).addOnSuccessListener(queryDocumentSnapshots -> {
+        java.util.ArrayList<String> organizerIds = new java.util.ArrayList<>();
+        if (deviceUuid != null) organizerIds.add(deviceUuid);
+        if (firebaseUid != null) organizerIds.add(firebaseUid);
+
+        if (organizerIds.isEmpty()) {
+            error.setValue("No organizer ID found");
+            isLoading.setValue(false);
+            return;
+        }
+
+        eventRepository.getEventsByOrganizerIds(organizerIds).addOnSuccessListener(queryDocumentSnapshots -> {
             List<Event> allEvents = queryDocumentSnapshots.toObjects(Event.class);
             // Filter out deleted events
             List<Event> activeEvents = allEvents.stream()
