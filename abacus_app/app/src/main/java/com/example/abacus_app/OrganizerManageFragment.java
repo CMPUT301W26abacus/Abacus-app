@@ -31,6 +31,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -382,7 +383,7 @@ public class OrganizerManageFragment extends Fragment {
 
     private void showNotifyCategoryDialog() {
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_notify_category, null);
-        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(dialogView).setTitle("Notify Recipients").setNegativeButton("Cancel", null).create();
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(dialogView).create();
         dialogView.findViewById(R.id.btn_category_waitlist).setOnClickListener(v -> {
             dialog.dismiss();
             showSelectionDialog("Waitlisted", allEntries.stream().filter(e -> WaitlistEntry.STATUS_WAITLISTED.equals(e.getStatus())).collect(Collectors.toList()));
@@ -421,24 +422,32 @@ public class OrganizerManageFragment extends Fragment {
             if (isChecked) list.forEach(e -> selectedIds.add(e.getUserID())); else selectedIds.clear();
             adapterWrapper[0].updateSelection(selectedIds);
         });
-        new AlertDialog.Builder(requireContext()).setView(view).setTitle("Select Entrants").setPositiveButton("Next", (d, w) -> {
+        new AlertDialog.Builder(requireContext()).setView(view).setPositiveButton("Next", (d, w) -> {
             if (selectedIds.isEmpty()) Toast.makeText(getContext(), "None selected", Toast.LENGTH_SHORT).show();
             else showMessageDialog(new ArrayList<>(selectedIds));
         }).setNegativeButton("Back", (d, w) -> showNotifyCategoryDialog()).show();
     }
 
     private void showMessageDialog(List<String> userIds) {
-        EditText et = new EditText(requireContext());
-        et.setHint("Type message...");
-        et.setMinLines(3);
-        new AlertDialog.Builder(requireContext()).setTitle("Compose Message").setView(et).setPositiveButton("Send", (d, w) -> {
-            String msg = et.getText().toString().trim();
-            if (msg.isEmpty()) Toast.makeText(getContext(), "Empty message", Toast.LENGTH_SHORT).show();
-            else {
-                viewModel.sendManualNotifications(selectedEventId, userIds, msg);
-                Toast.makeText(getContext(), "Notifications sent!", Toast.LENGTH_SHORT).show();
-            }
-        }).setNegativeButton("Cancel", null).show();
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_compose_message, null);
+        TextView tvCountLabel = view.findViewById(R.id.tv_recipient_count);
+        tvCountLabel.setText("Sending to " + userIds.size() + " recipient" + (userIds.size() == 1 ? "" : "s"));
+        
+        TextInputEditText etMessage = view.findViewById(R.id.et_message);
+
+        new AlertDialog.Builder(requireContext())
+                .setView(view)
+                .setPositiveButton("Send Now", (d, w) -> {
+                    String msg = etMessage.getText().toString().trim();
+                    if (msg.isEmpty()) {
+                        Toast.makeText(getContext(), "Please type a message", Toast.LENGTH_SHORT).show();
+                    } else {
+                        viewModel.sendManualNotifications(selectedEventId, userIds, msg);
+                        Toast.makeText(getContext(), "Notifications queued for sending", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Back", (d, w) -> showSelectionDialog("Recipients", new ArrayList<>())) // Simplified back logic
+                .show();
     }
 
     private static class EntrantSelectionAdapter extends RecyclerView.Adapter<EntrantSelectionAdapter.VH> {

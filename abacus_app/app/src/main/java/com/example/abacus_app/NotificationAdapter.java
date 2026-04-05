@@ -11,6 +11,7 @@ import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
     private List<Notification> notifications = new ArrayList<>();
     private Map<String, String> organizerEmails = new HashMap<>();
+    private Map<String, String> eventTitles = new HashMap<>();
     private OnNotificationActionListener actionListener;
     private boolean isReadOnly = false;
 
@@ -93,16 +95,37 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             String senderDisplay = (email != null) ? email : (orgId != null ? orgId : "System/Unknown");
             
             logHolder.tvSender.setText("From: " + senderDisplay);
-            logHolder.tvType.setText(notification.getType());
-            logHolder.statusTextView.setText("Status: " + notification.getStatus());
-            
-            if (Notification.STATUS_ACCEPTED.equals(notification.getStatus())) {
-                logHolder.statusTextView.setTextColor(Color.parseColor("#4CAF50"));
-            } else if (Notification.STATUS_DECLINED.equals(notification.getStatus())) {
-                logHolder.statusTextView.setTextColor(Color.parseColor("#F44336"));
+
+            // Fetch and show Event Title instead of Type
+            String eventId = notification.getEventId();
+            if (eventId != null && !eventId.isEmpty()) {
+                if (eventTitles.containsKey(eventId)) {
+                    logHolder.tvType.setText(eventTitles.get(eventId));
+                } else {
+                    logHolder.tvType.setText("Loading event...");
+                    FirebaseFirestore.getInstance().collection("events").document(eventId)
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String title = documentSnapshot.getString("title");
+                                if (title != null) {
+                                    eventTitles.put(eventId, title);
+                                    notifyItemChanged(position);
+                                } else {
+                                    eventTitles.put(eventId, "Unknown Event");
+                                    logHolder.tvType.setText("Unknown Event");
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                eventTitles.put(eventId, "Error loading title");
+                                logHolder.tvType.setText("Error loading title");
+                            });
+                }
             } else {
-                logHolder.statusTextView.setTextColor(Color.GRAY);
+                logHolder.tvType.setText("System Notification");
             }
+
+            // Hide status as requested
+            logHolder.statusTextView.setVisibility(View.GONE);
 
         } else if (holder instanceof NotificationViewHolder) {
             NotificationViewHolder normalHolder = (NotificationViewHolder) holder;
