@@ -17,6 +17,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.List;
@@ -39,8 +41,13 @@ import java.util.List;
  * Visual states:
  * - "Join"   — orange background, white text
  * - "Joined" — white background, grey stroke, grey text
- * - "Edit"   — white background, blue stroke, blue text (for organizers)
- * - "Manage" — blue background, white text
+ * - "Edit"   — white background, orange stroke, orange text (for organizers)
+ * - "Manage" — orange background, white text (for co-organizers)
+ *
+ * Heart button:
+ * - On bind, checks users/{uid}/saved/{eventId} to set filled/outlined state.
+ * - Tapping toggles saved state in Firestore and updates the icon.
+ * - Hidden for guests and admins.
  */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
@@ -76,13 +83,13 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                         boolean canManageEvents,
                         @Nullable String userKey,
                         boolean isGuest) {
-        this.events         = events;
-        this.clickListener  = clickListener;
-        this.deleteListener = deleteListener;
-        this.isAdmin        = isAdmin;
+        this.events          = events;
+        this.clickListener   = clickListener;
+        this.deleteListener  = deleteListener;
+        this.isAdmin         = isAdmin;
         this.canManageEvents = canManageEvents;
-        this.userKey        = userKey;
-        this.isGuest        = isGuest;
+        this.userKey         = userKey;
+        this.isGuest         = isGuest;
     }
 
     public EventAdapter(List<Event> events,
@@ -143,7 +150,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         // ── Normal mode ────────────────────────────────────────────────────────
         holder.btnDelete.setVisibility(View.GONE);
         holder.btnJoinStatus.setVisibility(View.VISIBLE);
-        holder.btnFavourite.setVisibility(View.VISIBLE);
+
+        // ── Heart / saved button ───────────────────────────────────────────────
+        if (isGuest || event.getEventId() == null) {
+            holder.btnFavourite.setVisibility(View.GONE);
+        } else {
+            holder.btnFavourite.setVisibility(View.VISIBLE);
+            setupSaveButton(holder, event);
+        }
 
         // Card tap — open details, no auto-join
         holder.itemView.setOnClickListener(v -> {
@@ -157,7 +171,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
         if (!isOrganizerByUUID && canManageEvents) {
             // Also check Firebase UID (organizers are created with Firebase UID as organizerId)
-            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
             isOrganizerByFirebaseUID = (firebaseUser != null && firebaseUser.getUid().equals(organizerId));
         }
 
@@ -166,7 +180,6 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             applyEditButtonState(holder, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (clickListener != null) {
-                    // Navigate to event details, which will then allow editing
                     clickListener.onEventClick(event.getTitle(), false);
                 }
             });
@@ -178,7 +191,6 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
         if (userKey == null || eventId == null || eventId.isEmpty()) {
             applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
-            // Join button tap with no user key — open details without auto-join
             holder.btnJoinStatus.setOnClickListener(v -> {
                 if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
             });
@@ -186,8 +198,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         }
 
         // Check if user is a co-organizer — coOrganizers stores Firebase UID
-        com.google.firebase.auth.FirebaseUser fbUser =
-                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
         String firebaseUid = fbUser != null ? fbUser.getUid() : null;
         boolean isCoOrganizer = event.getCoOrganizers() != null
                 && ((firebaseUid != null && event.getCoOrganizers().contains(firebaseUid))
@@ -263,6 +274,80 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                 });
     }
 
+    // ── Save / heart button ───────────────────────────────────────────────────
+
+    /**
+     * Checks Firestore to set the correct heart icon, then wires up toggle on tap.
+     * Saved state stored at: users/{uid}/saved/{eventId}
+     */
+    private void setupSaveButton(@NonNull EventViewHolder holder, @NonNull Event event) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            holder.btnFavourite.setVisibility(View.GONE);
+            return;
+        }
+
+        String uid     = currentUser.getUid();
+        String eventId = event.getEventId();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // Reset to outlined heart while we check
+        holder.btnFavourite.setImageResource(R.drawable.ic_heart);
+
+        db.collection("users").document(uid)
+                .collection("saved").document(eventId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    int pos = holder.getBindingAdapterPosition();
+                    if (pos == RecyclerView.NO_POSITION) return;
+
+                    boolean isSaved = snapshot.exists();
+                    setSaveIcon(holder, isSaved);
+
+                    holder.btnFavourite.setOnClickListener(v -> toggleSaved(holder, db, uid, eventId, event, isSaved));
+                });
+    }
+
+    private void toggleSaved(@NonNull EventViewHolder holder,
+                             @NonNull FirebaseFirestore db,
+                             @NonNull String uid,
+                             @NonNull String eventId,
+                             @NonNull Event event,
+                             boolean currentlySaved) {
+        if (currentlySaved) {
+            // Unsave
+            db.collection("users").document(uid)
+                    .collection("saved").document(eventId)
+                    .delete()
+                    .addOnSuccessListener(unused -> {
+                        setSaveIcon(holder, false);
+                        holder.btnFavourite.setOnClickListener(v ->
+                                toggleSaved(holder, db, uid, eventId, event, false));
+                    });
+        } else {
+            // Save — store minimal event info so SavedFragment can display it
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("eventId",    eventId);
+            data.put("title",      event.getTitle());
+            data.put("savedAt",    System.currentTimeMillis());
+            db.collection("users").document(uid)
+                    .collection("saved").document(eventId)
+                    .set(data)
+                    .addOnSuccessListener(unused -> {
+                        setSaveIcon(holder, true);
+                        holder.btnFavourite.setOnClickListener(v ->
+                                toggleSaved(holder, db, uid, eventId, event, true));
+                    });
+        }
+    }
+//SAVED ICON COLOUR CHANGE HERE.
+    private void setSaveIcon(@NonNull EventViewHolder holder, boolean saved) {
+        holder.btnFavourite.setImageResource(
+                saved ? R.drawable.ic_favourite : R.drawable.ic_heart);
+        holder.btnFavourite.setColorFilter(
+                saved ? android.graphics.Color.RED : android.graphics.Color.GRAY);
+    }
+
     // ── Button appearance ─────────────────────────────────────────────────────
 
     private enum ButtonState { JOIN, JOINED, MANAGE }
@@ -275,16 +360,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             case JOINED:
                 btn.setText("Joined");
                 btn.setTextColor(ContextCompat.getColor(context, R.color.grey));
-                btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)
-                ));
+                btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white)));
                 btn.setStrokeColor(ColorStateList.valueOf(
                         ContextCompat.getColor(context, R.color.grey)));
                 btn.setStrokeWidth(2);
                 break;
             case MANAGE:
                 btn.setText("Manage");
-                btn.setTextColor(ContextCompat.getColor(context, R.color.white)
-                );
+                btn.setTextColor(ContextCompat.getColor(context, R.color.white));
                 btn.setBackgroundTintList(ColorStateList.valueOf(
                         ContextCompat.getColor(context, R.color.orange)));
                 btn.setStrokeWidth(0);
