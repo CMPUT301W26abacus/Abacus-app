@@ -226,8 +226,6 @@ public class EventDetailsFragment extends Fragment {
             setupAuthenticatedWaitlist();
         }
 
-
-
         loadWaitlistCount();
     }
 
@@ -419,14 +417,31 @@ public class EventDetailsFragment extends Fragment {
                     if (tvDescription != null && event.getDescription() != null)
                         tvDescription.setText(event.getDescription());
 
-                    TextView tvDateTime = getView() != null
+                    SimpleDateFormat sdfDate = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+                    SimpleDateFormat sdfDateTime = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+
+                    // ── Event date row (entrant-facing) ───────────────────────
+                    TextView tvEventDateTime = getView() != null
+                            ? getView().findViewById(R.id.tv_event_date_time) : null;
+                    if (tvEventDateTime != null) {
+                        if (event.getEventStart() != null) {
+                            String start = sdfDateTime.format(event.getEventStart().toDate());
+                            String text  = event.getEventEnd() != null
+                                    ? start + " – " + sdfDateTime.format(event.getEventEnd().toDate())
+                                    : start;
+                            tvEventDateTime.setText(text);
+                        } else {
+                            tvEventDateTime.setText("Not set");
+                        }
+                    }
+
+                    // ── Registration period row ───────────────────────────────
+                    TextView tvRegDateTime = getView() != null
                             ? getView().findViewById(R.id.tv_date_time) : null;
-                    if (tvDateTime != null && event.getRegistrationStart() != null) {
-                        SimpleDateFormat sdf =
-                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-                        String start = sdf.format(event.getRegistrationStart().toDate());
-                        tvDateTime.setText(event.getRegistrationEnd() != null
-                                ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
+                    if (tvRegDateTime != null && event.getRegistrationStart() != null) {
+                        String start = sdfDate.format(event.getRegistrationStart().toDate());
+                        tvRegDateTime.setText(event.getRegistrationEnd() != null
+                                ? start + " – " + sdfDate.format(event.getRegistrationEnd().toDate())
                                 : start);
                     }
 
@@ -788,19 +803,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
 
-    /**
-     * Performs a soft delete of the current event by setting isDeleted=true in
-     * Firestore. The real-time snapshot listener in MainActivity will automatically
-     * remove the event from the browse list on next update.
-     *
-     * Note: Firestore queries that don't filter on isDeleted will still return
-     * this document. MainActivity's loadEventsFromFirestore() should either use
-     * .whereEqualTo("isDeleted", false) or skip documents where isDeleted is true
-     * during the snapshot loop.
-     *
-     * On success, navigates back (popping the back stack or returning home),
-     * mirroring the pattern used after saving organizer edits.
-     */
     private void softDeleteFromDetails() {
         if (currentEventId == null) return;
         FirebaseFirestore.getInstance()
@@ -810,7 +812,6 @@ public class EventDetailsFragment extends Fragment {
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(requireContext(),
                             "Event deleted.", Toast.LENGTH_SHORT).show();
-                    // Return to previous screen — same pattern as organizer save
                     if (!Navigation.findNavController(requireView()).popBackStack()) {
                         ((MainActivity) requireActivity()).showHome();
                     }
