@@ -18,6 +18,7 @@ public class Event implements Serializable {
     private String title;
     private String description;
     private String organizerId;
+    private String organizerEmail;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
     private Integer waitlistCapacity;
@@ -102,6 +103,9 @@ public class Event implements Serializable {
      * @param organizerId sets the organizer's ID.
      */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
+
+    public String getOrganizerEmail() { return organizerEmail; }
+    public void setOrganizerEmail(String organizerEmail) { this.organizerEmail = organizerEmail; }
 
     /**
      * @return start of registration period.
