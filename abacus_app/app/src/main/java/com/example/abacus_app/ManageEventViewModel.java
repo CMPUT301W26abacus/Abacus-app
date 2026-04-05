@@ -7,6 +7,8 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -314,9 +316,13 @@ public class ManageEventViewModel extends ViewModel {
             if (e != null) {
                 error.setValue("Failed to invite: " + e.getMessage());
             } else {
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                String organizerId = currentUser != null ? currentUser.getUid() : null;
+
                 Notification notification = new Notification(
                         user.getUid(),
                         user.getEmail(),
+                        organizerId,
                         eventId,
                         "You have been invited to the private event: " + eventTitle,
                         Notification.TYPE_SELECTED
