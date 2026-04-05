@@ -134,8 +134,14 @@ public class OrganizerLogsFragment extends Fragment {
     }
 
     private void showPrivateEventPicker(User user) {
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String organizerId = local.getUUIDSync();
+        // Use Firebase UID (authenticated account) not device UUID
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance()
+                .getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String organizerId = currentUser.getUid();
 
         manageEventViewModel.getEvents().observe(getViewLifecycleOwner(), events -> {
             if (events == null || events.isEmpty()) {

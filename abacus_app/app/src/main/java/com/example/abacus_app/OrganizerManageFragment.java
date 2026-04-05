@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
  * UI Controller for the active event management screen.
  * Shows the organizer's events, then the waitlist for a selected event.
  * Owner: Himesh
+ *
+ * @author Himesh, Kaylee
  */
 public class OrganizerManageFragment extends Fragment {
 
@@ -195,6 +197,11 @@ public class OrganizerManageFragment extends Fragment {
                             } else {
                                 showEventList();
                             }
+                        } else if (currentMode == Mode.EVENT_LIST) {
+                            // Return to Tools/Organizer home
+                            if (getActivity() instanceof MainActivity) {
+                                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                            }
                         }
                     }
                 });
@@ -223,10 +230,10 @@ public class OrganizerManageFragment extends Fragment {
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
 
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String uuid = local.getUUIDSync();
-        if (uuid != null) {
-            viewModel.loadOrganizerEvents(uuid);
+        // Load events by Firebase UID (organizers use Firebase UID as organizerId)
+        com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            viewModel.loadOrganizerEvents(firebaseUser.getUid());
         } else {
             tvCount.setText("Could not load events");
         }
@@ -269,35 +276,42 @@ public class OrganizerManageFragment extends Fragment {
                                 .setNegativeButton("Cancel", null)
                                 .show();
                     },
-                    true, // isAdmin (to show delete button)
+                    true,  // isAdmin
+                    false, // canManageEvents
                     uuid,
-                    false
+                    false  // isGuest
             ));
         });
 
         // Waitlist mode
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
-            if (currentMode == Mode.WAITLIST && newEntries != null) {
-                allEntries.clear();
-                allEntries.addAll(newEntries);
-                selectedEventWaitlistSize = allEntries.size();
-                tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
+            if (currentMode != Mode.WAITLIST || newEntries == null) return;
 
-                long countInvitedAccepted = allEntries.stream()
-                        .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
-                                || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
-                        .count();
+            allEntries.clear();
+            allEntries.addAll(newEntries);
+            selectedEventWaitlistSize = allEntries.size();
+            tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
 
-                if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                    if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
-                        btnDrawReplacement.setEnabled(true);
-                    } else {
-                        btnDrawReplacement.setEnabled(false);
-                    }
+            long countInvitedAccepted = allEntries.stream()
+                    .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
+                            || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
+                    .count();
+            long countWaitlisted = allEntries.stream()
+                    .filter(entry -> WaitlistEntry.STATUS_WAITLISTED.equals(entry.getStatus()))
+                    .count();
+
+            if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
+                Log.d(TAG, "countInvitedAccepted: " + countInvitedAccepted);
+                Log.d(TAG, "cap: " + selectedEvent.getEventCapacity());
+                Log.d(TAG, "waitlist size: " + countWaitlisted);
+                if (countInvitedAccepted < selectedEvent.getEventCapacity() && countWaitlisted > 0) {
+                    btnDrawReplacement.setEnabled(true);
+                } else {
+                    btnDrawReplacement.setEnabled(false);
                 }
-
-                applyFilter();
             }
+
+            applyFilter();
         });
 
         // Search results

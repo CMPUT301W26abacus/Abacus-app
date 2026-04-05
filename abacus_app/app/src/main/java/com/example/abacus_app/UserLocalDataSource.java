@@ -3,6 +3,10 @@ package com.example.abacus_app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.provider.Settings;
+import android.util.Log;
+
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 
 /**
  * The only class that directly reads and writes to {@link SharedPreferences}
@@ -12,6 +16,11 @@ import android.provider.Settings;
  * survives app restarts. Returns {@code null} from {@link #getDeviceId()} when
  * no UUID has been saved yet (first launch or after {@link #clearDeviceId()}).
  *
+ * <p>Storage is backed by {@link EncryptedSharedPreferences} (AES-256-GCM keys,
+ * AES-256-SIV values) to satisfy OWASP M2 — Insecure Data Storage. If the
+ * Android Keystore is unavailable (e.g., certain emulators), the constructor
+ * falls back to plain {@code SharedPreferences} so the app does not crash.
+ *
  * <p>Architecture layer: Local Data Source<br>
  * Used by: {@link UserRepository}
  *
@@ -20,16 +29,39 @@ import android.provider.Settings;
  */
 public class UserLocalDataSource {
 
-    static final String PREFS_NAME = "user_prefs";
-    static final String KEY_UUID   = "device_uuid";
+    private static final String TAG        = "UserLocalDataSource";
+    static final String         PREFS_NAME = "user_prefs";
+    static final String         KEY_UUID   = "device_uuid";
 
     private final SharedPreferences prefs;
-
     private final Context context;
 
     public UserLocalDataSource(Context context) {
-        this.context = context.getApplicationContext(); // safe for long-lived use
-        this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        this.context = context.getApplicationContext();
+        this.prefs = createEncryptedPrefs(this.context);
+    }
+
+    /**
+     * Creates an {@link EncryptedSharedPreferences} instance backed by the
+     * Android Keystore (AES-256-GCM master key). Falls back to plain
+     * {@link SharedPreferences} if the Keystore is unavailable.
+     */
+    private static SharedPreferences createEncryptedPrefs(Context ctx) {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(ctx)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            return EncryptedSharedPreferences.create(
+                    ctx,
+                    PREFS_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+        } catch (Exception e) {
+            Log.w(TAG, "EncryptedSharedPreferences unavailable, falling back to plain prefs", e);
+            return ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        }
     }
 
     /**
@@ -77,14 +109,10 @@ public class UserLocalDataSource {
     }
 
     /**
-     * Returns a stable device ID that persists across app reinstalls.
-     * Only used if no UUID has been saved yet.
+     * Returns a stable device ID (ANDROID_ID) that persists across app reinstalls.
+     * May return null on some emulators — callers should fall back to a random UUID.
      */
     public String getStableDeviceID() {
-        return Settings.Secure.getString(
-                context.getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
+        return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
     }
-
 }

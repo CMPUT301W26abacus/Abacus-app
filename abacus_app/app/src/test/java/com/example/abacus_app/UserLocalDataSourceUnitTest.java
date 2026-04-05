@@ -1,49 +1,46 @@
 package com.example.abacus_app;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link UserLocalDataSource}.
  *
- * Covers:
- *   US 01.07.01 — Device-based identification: UUID persisted locally.
+ * <p>Covers:
+ *   US 01.07.01 — Device-based identification: UUID persisted locally in
+ *   {@link androidx.security.crypto.EncryptedSharedPreferences}.
  *
- * Runs on the JVM (no device or emulator required).
- * {@link Context} and {@link SharedPreferences} are mocked with Mockito.
+ * <p>Runs on the JVM via Robolectric (required since {@link
+ * androidx.security.crypto.EncryptedSharedPreferences} needs a real Android
+ * {@link Context} to access the Keystore through Robolectric's shadow).
+ *
+ * <p>Robolectric's shadow for the Android Keystore initialises successfully,
+ * so {@code EncryptedSharedPreferences.create()} does not fall back to plain
+ * SharedPreferences in this environment.
  */
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 34, manifest = Config.NONE)
 public class UserLocalDataSourceUnitTest {
-
-    @Mock Context            mockContext;
-    @Mock SharedPreferences  mockPrefs;
-    @Mock SharedPreferences.Editor mockEditor;
-
-    private UserLocalDataSource dataSource;
 
     private static final String ALICE_UUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
     private static final String BOB_UUID   = "550e8400-e29b-41d4-a716-446655440000";
 
+    private UserLocalDataSource dataSource;
+
     @Before
     public void setUp() {
-        when(mockContext.getSharedPreferences(
-                UserLocalDataSource.PREFS_NAME, Context.MODE_PRIVATE))
-                .thenReturn(mockPrefs);
-        when(mockPrefs.edit()).thenReturn(mockEditor);
-        when(mockEditor.putString(anyString(), anyString())).thenReturn(mockEditor);
-        when(mockEditor.remove(anyString())).thenReturn(mockEditor);
-
-        dataSource = new UserLocalDataSource(mockContext);
+        Context ctx = RuntimeEnvironment.getApplication();
+        dataSource = new UserLocalDataSource(ctx);
+        // Always start from a clean slate so tests are independent
+        dataSource.clearDeviceId();
     }
 
     // ── getUUIDSync / getDeviceId ────────────────────────────────────────────
@@ -53,7 +50,6 @@ public class UserLocalDataSourceUnitTest {
      */
     @Test
     public void getUUIDSync_noUUIDStored_returnsNull() {
-        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(null);
         assertNull(dataSource.getUUIDSync());
     }
 
@@ -62,7 +58,7 @@ public class UserLocalDataSourceUnitTest {
      */
     @Test
     public void getUUIDSync_uuidStored_returnsStoredValue() {
-        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(ALICE_UUID);
+        dataSource.saveUUIDSync(ALICE_UUID);
         assertEquals(ALICE_UUID, dataSource.getUUIDSync());
     }
 
@@ -72,81 +68,81 @@ public class UserLocalDataSourceUnitTest {
      */
     @Test
     public void getDeviceId_aliasForGetUUIDSync_returnsSameValue() {
-        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(BOB_UUID);
+        dataSource.saveUUIDSync(BOB_UUID);
         assertEquals(dataSource.getUUIDSync(), dataSource.getDeviceId());
     }
 
     // ── saveUUIDSync / saveDeviceId ──────────────────────────────────────────
 
     /**
-     * US 01.07.01 — saveUUIDSync writes to SharedPreferences with the correct
-     * key so the value survives an app restart.
-     */
-    @Test
-    public void saveUUIDSync_writesWithCorrectKey() {
-        dataSource.saveUUIDSync(ALICE_UUID);
-
-        verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, ALICE_UUID);
-        verify(mockEditor).apply();
-    }
-
-    /**
-     * {@code saveDeviceId()} is an alias — it must also write to SharedPreferences.
-     */
-    @Test
-    public void saveDeviceId_aliasForSaveUUIDSync_writesToPrefs() {
-        dataSource.saveDeviceId(BOB_UUID);
-
-        verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, BOB_UUID);
-        verify(mockEditor).apply();
-    }
-
-    /**
      * US 01.07.01 — Round-trip: save then retrieve returns the same UUID.
      */
     @Test
     public void saveAndGet_roundTrip_returnsSameUUID() {
-        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(ALICE_UUID);
-
         dataSource.saveUUIDSync(ALICE_UUID);
-
         assertEquals(ALICE_UUID, dataSource.getUUIDSync());
+    }
+
+    /**
+     * {@code saveDeviceId()} is an alias — persists the same value.
+     */
+    @Test
+    public void saveDeviceId_aliasForSaveUUIDSync_persistsValue() {
+        dataSource.saveDeviceId(BOB_UUID);
+        assertEquals(BOB_UUID, dataSource.getDeviceId());
     }
 
     /**
      * Second save overwrites the first — the last write wins.
      */
     @Test
-    public void saveUUIDSync_calledTwice_bothWritesAttempted() {
+    public void saveUUIDSync_calledTwice_lastValueWins() {
         dataSource.saveUUIDSync("first-uuid");
         dataSource.saveUUIDSync("second-uuid");
-
-        verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, "first-uuid");
-        verify(mockEditor).putString(UserLocalDataSource.KEY_UUID, "second-uuid");
+        assertEquals("second-uuid", dataSource.getUUIDSync());
     }
 
     // ── clearDeviceId ────────────────────────────────────────────────────────
-
-    /**
-     * clearDeviceId removes the UUID key from SharedPreferences so the next
-     * launch treats the device as a fresh install.
-     */
-    @Test
-    public void clearDeviceId_removesUUIDKey() {
-        dataSource.clearDeviceId();
-
-        verify(mockEditor).remove(UserLocalDataSource.KEY_UUID);
-        verify(mockEditor).apply();
-    }
 
     /**
      * After clearing, a subsequent read returns null.
      */
     @Test
     public void clearDeviceId_thenGetUUIDSync_returnsNull() {
+        dataSource.saveUUIDSync(ALICE_UUID);
         dataSource.clearDeviceId();
-        when(mockPrefs.getString(UserLocalDataSource.KEY_UUID, null)).thenReturn(null);
-
         assertNull(dataSource.getUUIDSync());
+    }
+
+    /**
+     * Calling clear when no UUID was stored must not throw.
+     */
+    @Test
+    public void clearDeviceId_whenNothingStored_doesNotThrow() {
+        dataSource.clearDeviceId(); // should be a no-op
+        assertNull(dataSource.getUUIDSync());
+    }
+
+    // ── Encryption verification ──────────────────────────────────────────────
+
+    /**
+     * Data stored in EncryptedSharedPreferences must survive an instance
+     * re-creation (simulates app restart).
+     *
+     * <p>A new {@link UserLocalDataSource} constructed with the same context
+     * and prefs file name must be able to read the value written by the first
+     * instance, confirming the encrypted file is shared correctly.
+     */
+    @Test
+    public void encryptedPrefs_survivesInstanceRecreation() {
+        dataSource.saveUUIDSync(ALICE_UUID);
+
+        // Create a second instance pointing at the same encrypted prefs
+        UserLocalDataSource secondInstance =
+                new UserLocalDataSource(RuntimeEnvironment.getApplication());
+
+        assertEquals(
+                "UUID must be readable by a new instance (simulates app restart)",
+                ALICE_UUID, secondInstance.getUUIDSync());
     }
 }

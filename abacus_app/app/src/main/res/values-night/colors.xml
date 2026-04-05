@@ -17,4 +17,13 @@
     <!-- From Farhan -->
     <color name="card_stroke">#333333</color>
 
+    <!-- Guest banner -->
+    <color name="color_guest_banner_bg">#FFF8F0</color>
+
+    <!-- Waitlist status indicators -->
+    <color name="color_status_waitlisted_orange">#C96A3A</color>
+    <color name="color_status_invited_blue">#3B82F6</color>
+    <color name="color_status_accepted_green">#10B981</color>
+    <color name="color_status_declined_red">#EF4444</color>
+    <color name="color_status_canceled_black">#374151</color>
 </resources>

@@ -23,6 +23,25 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * RegisterActivity - Handles new user registration
+ *
+ * Creates new user accounts in Firebase Auth and Firestore.
+ *
+ * What it does:
+ * - Takes name, email, password, and role (entrant/organizer)
+ * - If organizer, also takes organization name
+ * - Validates email format and password strength
+ * - Creates Firebase Auth account
+ * - Saves user profile to Firestore with role and timestamps
+ * - Shows error messages for duplicate emails, weak passwords, etc
+ * - Links back to login for existing users
+ *
+ * Theme Switching:
+ * - onResume() detects dark mode changes and recreates activity with new colors
+ *
+ * @author Dyna
+ */
 public class RegisterActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private UserRepository userRepository;
@@ -30,12 +49,19 @@ public class RegisterActivity extends AppCompatActivity {
     private RadioButton rbOrganizer;
     private EditText etOrganizationName;
     private TextView labelOrgName;
+    private int lastNightMode = -1;  // Track theme changes for auto-recreation
+
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.registerpage);
-
         mAuth = FirebaseAuth.getInstance();
 
         // Initialize UserRepository
@@ -142,7 +168,7 @@ public class RegisterActivity extends AppCompatActivity {
         String createdAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
-        
+
         String lastLoginAt = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
         ).format(new Date());
@@ -162,10 +188,10 @@ public class RegisterActivity extends AppCompatActivity {
         userRepository.saveProfileAsync(updates, error -> {
             btnRegister.setEnabled(true);
             btnRegister.setText("Register");
-            
+
             if (error == null) {
                 Toast.makeText(this, "Account created!", Toast.LENGTH_SHORT).show();
-                goToMain();
+                goToMain(role);
             } else {
                 Toast.makeText(this,
                         "Error saving profile: " + error.getMessage(),
@@ -174,11 +200,25 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
-    private void goToMain() {
+    private void goToMain(String role) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("isGuest", false);
+        intent.putExtra("userRole", role);
+        intent.putExtra("role", role);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Detect theme changes and trigger activity recreation
+        int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (lastNightMode != -1 && lastNightMode != currentNightMode) {
+            // Theme changed, recreate the activity to apply new theme colors
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::recreate);
+        }
+        lastNightMode = currentNightMode;
     }
 }

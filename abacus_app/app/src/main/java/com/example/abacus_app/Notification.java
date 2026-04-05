@@ -25,6 +25,7 @@ public class Notification {
     private String status = STATUS_PENDING; // Default status
     private long timestamp;
 
+    // No-argument constructor required by Firestore deserialization
     public Notification() {}
 
     /**

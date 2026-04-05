@@ -44,11 +44,11 @@ public class MainInboxFragment extends Fragment {
     private TextView tvEmptyInbox;
     private RecyclerView recyclerView;
     private MaterialButtonToggleGroup toggleGroupAdmin;
+    private User currentUser;
     private String currentUserId;
     private FirebaseFirestore db;
     private String currentUserEmail;
     private ManageEventViewModel manageEventViewModel;
-    private User currentUser;
 
     private boolean showAllLogs = false;
     private ListenerRegistration registrationListener;
@@ -82,9 +82,21 @@ public class MainInboxFragment extends Fragment {
         setupNotificationActions();
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        currentUserId = local.getUUIDSync();
+        UserRemoteDataSource userRemoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(local, userRemoteDataSource);
 
-        loadUserAndStart();
+        userRepository.getProfile(user -> {
+            if (user == null) {
+                // Guest user — no inbox notifications
+                return;
+            }
+            currentUser = user;
+            currentUserId = user.getUid();
+            currentUserEmail = user.getEmail();
+
+            Log.d(TAG, "Loading notifications for UID: " + currentUserId);
+            loadUserAndStart();
+        });
 
         swipeRefresh.setOnRefreshListener(() -> {
             loadUserAndStart();
@@ -109,13 +121,13 @@ public class MainInboxFragment extends Fragment {
                 if (user != null) {
                     currentUser = user;
                     currentUserEmail = user.getEmail();
-                    
+
                     if ("admin".equals(user.getRole())) {
                         toggleGroupAdmin.setVisibility(View.VISIBLE);
                     } else {
                         toggleGroupAdmin.setVisibility(View.GONE);
                     }
-                    
+
                     stopListening();
                     startListening();
                 }
@@ -161,12 +173,47 @@ public class MainInboxFragment extends Fragment {
 
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
-        manageEventViewModel.addCoOrganizer(n.getEventId(), currentUserId);
-        db.collection("notifications").document(docId)
-                .update("status", Notification.STATUS_ACCEPTED)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
-                });
+
+        String eventId = n.getEventId();
+        String notificationType = n.getType();
+
+        // Determine if this is a co-organizer invitation or private event enrollment
+        boolean isCoOrganizerInvite = "CO_ORGANIZER_INVITE".equals(notificationType);
+
+        db.collection("events").document(eventId).get().addOnSuccessListener(eventDoc -> {
+            if (eventDoc.exists()) {
+                boolean isPrivate = Boolean.TRUE.equals(eventDoc.getBoolean("isPrivate"));
+
+                if (isCoOrganizerInvite) {
+                    // Co-organizer invitation: add as co-organizer
+                    manageEventViewModel.addCoOrganizer(eventId, currentUserId);
+                } else if (isPrivate && currentUserId != null) {
+                    // Private event enrollment: auto-enroll as participant (no lottery needed)
+                    WaitlistEntry entry = new WaitlistEntry(
+                            currentUserId,
+                            eventId,
+                            WaitlistEntry.STATUS_INVITED,  // Auto-invited for private events
+                            0,  // no lottery number
+                            System.currentTimeMillis()
+                    );
+                    // Add to waitlist directly (join without lottery for private)
+                    db.collection("events")
+                            .document(eventId)
+                            .collection("waitlist")
+                            .document(currentUserId)
+                            .set(entry)
+                            .addOnFailureListener(e -> Log.e("Inbox", "Failed to enroll in private event", e));
+                }
+            }
+
+            // Remove notification from Firestore
+            db.collection("notifications").document(docId).delete()
+                    .addOnSuccessListener(aVoid -> {
+                        myNotifications.remove("MSG_" + docId);
+                        updateUI();
+                        Toast.makeText(getContext(), "Invitation accepted", Toast.LENGTH_SHORT).show();
+                    });
+        });
     }
 
     private void declineInvite(String docId) {
@@ -257,8 +304,6 @@ public class MainInboxFragment extends Fragment {
         }
 
         if (!newOrganizerIds.isEmpty()) {
-            // Firestore limit is 10 for whereIn, but for this project's scale we'll assume it's small or fetch in chunks
-            // For robust handling, fetch one by one if the list is large
             for (String orgId : newOrganizerIds) {
                 db.collection("users").document(orgId).get().addOnSuccessListener(userDoc -> {
                     if (userDoc.exists()) {

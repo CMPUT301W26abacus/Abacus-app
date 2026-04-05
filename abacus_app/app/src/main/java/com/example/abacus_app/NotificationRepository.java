@@ -101,7 +101,10 @@ public class NotificationRepository {
     // ── Lottery & Replacement Notifications ──────────────────────────────────
 
     /**
-     * Notify all users when lottery results are drawn for an event.
+     * Sends notifications to winners and losers when the lottery of an event is drawn.
+     *
+     * @param eventId  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
@@ -148,7 +151,11 @@ public class NotificationRepository {
     }
 
     /**
-     * Notify a user as a replacement for an event.
+     * Notifies a single user that they have been invited as a replacement for an event.
+     *
+     * @param eventId  the unique ID of the event in the database
+     * @param userId   the unique ID of the user who was drawn
+     * @param callback called when the operation completes
      */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
         eventRemote.getEventByIdAsync(eventId, event -> {
@@ -160,8 +167,37 @@ public class NotificationRepository {
                             user.getEmail(),
                             organizerId,
                             eventId,
-                            "Congratulations! You have been invited to the event",
+                            "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
                             Notification.TYPE_SELECTED
+                    );
+                    remote.saveNotification(notification);
+                }
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(null));
+                }
+            });
+        });
+    }
+
+    /**
+     * Notifies a single user that their invitation to an event has expired/been cancelled.
+     *
+     * @param eventId  the unique ID of the event in the database
+     * @param userId   the unique ID of the user who was cancelled
+     * @param callback called when the operation completes
+     */
+    public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            String organizerId = (event != null) ? event.getOrganizerId() : null;
+            userRemote.getUser(userId, user -> {
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(),
+                            organizerId,
+                            eventId,
+                            "Your invitation to " + (event != null ? event.getTitle() : "the event") + " has expired.",
+                            Notification.TYPE_NOT_SELECTED
                     );
                     remote.saveNotification(notification);
                 }
@@ -175,7 +211,15 @@ public class NotificationRepository {
     // ── Callback Interface ───────────────────────────────────────────────────
 
     /**
-     * Generic callback for void methods.
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
+    /**
+     * Callback interface for void methods.
      */
     public interface VoidCallback {
         void onComplete(Exception error);

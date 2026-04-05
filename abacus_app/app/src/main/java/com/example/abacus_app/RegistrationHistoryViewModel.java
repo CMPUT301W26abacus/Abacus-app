@@ -82,12 +82,11 @@ public class RegistrationHistoryViewModel extends ViewModel {
     private static String mapStatus(String status) {
         if (status == null) return "Unknown";
         switch (status.toLowerCase()) {
-            case "waitlisted": return "On Waitlist";
-            case "invited":    // Firestore status when user is drawn in lottery
-            case "selected":   return "Selected!";
-            case "accepted":   return "Enrolled";
-            case "declined":   return "Declined";
-            case "cancelled":  return "Cancelled";
+            case WaitlistEntry.STATUS_WAITLISTED: return "Waitlisted";
+            case WaitlistEntry.STATUS_INVITED:    return "Invited";
+            case WaitlistEntry.STATUS_ACCEPTED:   return "Accepted";
+            case WaitlistEntry.STATUS_DECLINED:   return "Declined";
+            case WaitlistEntry.STATUS_CANCELLED:  return "Cancelled";
             default:           return status;
         }
     }
