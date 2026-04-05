@@ -173,6 +173,21 @@ public class MainInboxFragment extends Fragment {
                 }
             }
         });
+
+        adapter.setOnItemClickListener(new NotificationAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(String eventId) {
+                Bundle args = new Bundle();
+                args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                // show event details page with no nav-bar
+                ((MainActivity) requireActivity())
+                        .showFragment(
+                                R.id.eventDetailsFragment,
+                                false,
+                                args
+                        );
+            }
+        });
     }
 
     private void acceptInvite(Notification n, String docId) {

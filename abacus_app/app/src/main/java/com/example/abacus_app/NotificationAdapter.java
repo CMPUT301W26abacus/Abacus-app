@@ -34,13 +34,22 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         void onDecline(Notification notification);
     }
 
+    public interface OnItemClickListener {
+        void onItemClick(String eventId);
+    }
+
     private List<Notification> notifications = new ArrayList<>();
     private Map<String, String> organizerEmails = new HashMap<>();
     private OnNotificationActionListener actionListener;
+    private OnItemClickListener itemClickListener;
     private boolean isReadOnly = false;
 
     public void setOnNotificationActionListener(OnNotificationActionListener listener) {
         this.actionListener = listener;
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.itemClickListener = listener;
     }
 
     public void setNotifications(List<Notification> notifications) {
@@ -138,9 +147,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             normalHolder.itemView.setOnClickListener(v -> {
                 String eventId = notification.getEventId();
                 if (eventId != null && !eventId.isEmpty()) {
-                    Bundle args = new Bundle();
-                    args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-                    Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
+                    itemClickListener.onItemClick(eventId);
                 }
             });
         }

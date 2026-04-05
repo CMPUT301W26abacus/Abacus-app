@@ -116,7 +116,7 @@ public class RegistrationHistoryFragment extends Fragment {
             ((MainActivity) requireActivity())
                     .showFragment(
                             R.id.eventDetailsFragment,
-                            false, // 👈 hide bottom nav
+                            false,
                             args
                     );
         });
