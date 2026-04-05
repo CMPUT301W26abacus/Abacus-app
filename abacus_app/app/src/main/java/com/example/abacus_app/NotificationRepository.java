@@ -90,6 +90,7 @@ public class NotificationRepository {
                 ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
                 Event event = eventRemote.getEventById(eventId);
                 String organizerId = (event != null) ? event.getOrganizerId() : null;
+                int selectedCount = 0;
 
                 for (WaitlistEntry entry : entries) {
                     String userId = entry.getUserId();
@@ -104,7 +105,29 @@ public class NotificationRepository {
                             remote.saveNotification(notification);
                         }
                     });
+                    if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                        selectedCount++;
+                    }
                 }
+
+                // Notify Organizer about lottery success
+                if (organizerId != null) {
+                    final int finalCount = selectedCount;
+                    userRemote.getUser(organizerId, organizer -> {
+                        if (organizer != null) {
+                            Notification orgNotification = new Notification(
+                                    organizerId,
+                                    organizer.getEmail(),
+                                    "SYSTEM", // System notification, won't show in admin logs if filtered by non-system sender
+                                    eventId,
+                                    "Lottery for " + (event != null ? event.getTitle() : "your event") + " was successful. " + finalCount + " entrants have been selected.",
+                                    "ORGANIZER_INFO"
+                            );
+                            remote.saveNotification(orgNotification);
+                        }
+                    });
+                }
+
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
@@ -141,6 +164,34 @@ public class NotificationRepository {
                     remote.saveNotification(notification);
                 }
                 if (callback != null) mainHandler.post(() -> callback.onComplete(null));
+            });
+        });
+    }
+
+    /**
+     * Notifies the organizer when an entrant declines an invitation.
+     */
+    public void notifyOrganizerDecline(String eventId, String entrantId) {
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            if (event == null) return;
+            String organizerId = event.getOrganizerId();
+            if (organizerId == null) return;
+
+            userRemote.getUser(entrantId, entrant -> {
+                String entrantName = (entrant != null) ? entrant.getName() : "An entrant";
+                userRemote.getUser(organizerId, organizer -> {
+                    if (organizer != null) {
+                        Notification notification = new Notification(
+                                organizerId,
+                                organizer.getEmail(),
+                                "SYSTEM",
+                                eventId,
+                                entrantName + " has declined the invitation for your event: " + event.getTitle(),
+                                "ORGANIZER_INFO"
+                        );
+                        remote.saveNotification(notification);
+                    }
+                });
             });
         });
     }

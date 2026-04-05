@@ -91,6 +91,7 @@ public class EventDetailsFragment extends Fragment {
 
     private EventRepository eventRepository;
     private RegistrationRepository registrationRepository;
+    private NotificationRepository notificationRepository;
 
     private EditText etTitle, etDescription, etPosterUrl;
     private TextView tvTitle, tvDescription;
@@ -119,6 +120,7 @@ public class EventDetailsFragment extends Fragment {
         db                     = FirebaseFirestore.getInstance();
         eventRepository        = new EventRepository();
         registrationRepository = new RegistrationRepository();
+        notificationRepository = new NotificationRepository();
 
         // ── Back ───────────────────────────────────────────────────────────────
         ImageButton btnBack = view.findViewById(R.id.btn_back);
@@ -614,6 +616,10 @@ public class EventDetailsFragment extends Fragment {
             }
             Toast.makeText(requireContext(),
                     "Declined.", Toast.LENGTH_SHORT).show();
+            
+            // Notify organizer that entrant declined
+            notificationRepository.notifyOrganizerDecline(currentEventId, currentRegistrationKey);
+
             showStatusMessage(WaitlistEntry.STATUS_DECLINED);
             loadWaitlistCount();
         });
