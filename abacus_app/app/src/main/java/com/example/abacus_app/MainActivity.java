@@ -37,6 +37,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -955,8 +956,10 @@ public class MainActivity extends AppCompatActivity {
     public void showHome() {
         clearBackStack();
         bottomNav.setVisibility(View.VISIBLE);
-        // Select nav_home to indicate we're on the home page
-        bottomNav.setSelectedItemId(R.id.nav_home);
+        // Update the visual highlight without firing the item-selected listener
+        // (setSelectedItemId would trigger showHome() recursively → StackOverflowError)
+        MenuItem homeItem = bottomNav.getMenu().findItem(R.id.nav_home);
+        if (homeItem != null) homeItem.setChecked(true);
         if (homeContent.getVisibility() != View.VISIBLE) {
             homeContent.setAlpha(0f);
             homeContent.setVisibility(View.VISIBLE);
