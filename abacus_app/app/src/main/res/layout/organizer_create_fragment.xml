@@ -326,9 +326,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
-                        android:text="Private Event (No QR)"
+                        android:text="Private Event (No QR &amp; Invite Only)"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="@color/black" />
+                        android:textColor="@color/black"
+                        app:thumbIconTint="@color/black" />
 
                     <View
                         android:layout_width="match_parent"
