@@ -710,7 +710,10 @@ public class EventDetailsFragment extends Fragment {
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
         if (btnAccept        != null) { btnAccept.setVisibility(View.VISIBLE); btnAccept.setEnabled(true); }
         if (btnDecline       != null) { btnDecline.setVisibility(View.VISIBLE); btnDecline.setEnabled(true); }
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.VISIBLE);
+        tvStatusMessage.setText("You have been invited to this event!");
+        tvStatusMessage.setTextColor(
+                ContextCompat.getColor(requireContext(), R.color.color_status_invited_blue));
     }
 
     private void showStatusMessage(String status) {

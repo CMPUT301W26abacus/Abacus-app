@@ -215,7 +215,7 @@ public class NotificationRepository {
                             user.getEmail(),
                             organizerId,
                             eventId,
-                            (event != null ? event.getTitle() : "the event") + " has been cancelled.",
+                            "Sorry, your invitation to" + (event != null ? event.getTitle() : "this event") + " has been cancelled.",
                             Notification.TYPE_CANCELED
                     );
                     remote.saveNotification(notification);
