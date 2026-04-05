@@ -61,6 +61,14 @@ public class EventRemoteDataSource {
         return eventsRef.whereEqualTo("organizerId", organizerId).get();
     }
 
+    public Task<QuerySnapshot> getEventsByOrganizerIds(java.util.List<String> organizerIds) {
+        if (organizerIds == null || organizerIds.isEmpty()) {
+            // Return empty query result
+            return eventsRef.limit(0).get();
+        }
+        return eventsRef.whereIn("organizerId", organizerIds).get();
+    }
+
     public void updateEvent(Event event) throws ExecutionException, InterruptedException {
         DocumentReference docRef = eventsRef.document(event.getEventId());
         Tasks.await(docRef.set(event));

@@ -44,6 +44,8 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<String>  _organizationName = new MutableLiveData<>("");
     private final MutableLiveData<Integer> _eventsCreated    = new MutableLiveData<>(0);
     private final MutableLiveData<Integer> _totalRegistrations = new MutableLiveData<>(0);
+    private final MutableLiveData<Integer> _eventsJoined    = new MutableLiveData<>(0);
+    private final MutableLiveData<Integer> _eventsWon       = new MutableLiveData<>(0);
 
     public LiveData<String>  getName()                 { return _name; }
     public LiveData<String>  getEmail()                { return _email; }
@@ -62,6 +64,8 @@ public class ProfileViewModel extends ViewModel {
     public LiveData<String>  getOrganizationName()     { return _organizationName; }
     public LiveData<Integer> getEventsCreated()        { return _eventsCreated; }
     public LiveData<Integer> getTotalRegistrations()   { return _totalRegistrations; }
+    public LiveData<Integer> getEventsJoined()         { return _eventsJoined; }
+    public LiveData<Integer> getEventsWon()            { return _eventsWon; }
 
     private UserRepository userRepository;
     private boolean profileLoaded = false;
@@ -290,6 +294,18 @@ public class ProfileViewModel extends ViewModel {
                     // so we post the count of events for now
                 })
                 .addOnFailureListener(e -> _eventsCreated.postValue(0));
+    }
+
+    /**
+     * Loads entrant-specific stats: events joined and events won counts.
+     * Events joined = count of registrations (excluding cancelled/declined)
+     * Events won = count of registrations with status "invited" or "accepted"
+     */
+    public void loadEntrantStats(String userId, RegistrationRepository registrationRepository) {
+        registrationRepository.getEntrantStats(userId, (eventsJoined, eventsWon) -> {
+            _eventsJoined.postValue(eventsJoined);
+            _eventsWon.postValue(eventsWon);
+        });
     }
 
     /**
