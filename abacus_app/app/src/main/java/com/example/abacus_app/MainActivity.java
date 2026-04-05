@@ -892,6 +892,20 @@ public class MainActivity extends AppCompatActivity {
         showFragment(destinationId, showBottomNav, null);
     }
 
+    /**
+     * Navigates to a destination inside the {@link androidx.navigation.NavController} and
+     * manages the visibility of the home screen vs. the nav host.
+     *
+     * <p>When {@code showBottomNav} is {@code true} (top-level tab switch), the back stack is
+     * cleared first so that pressing Back from any tab returns the user to the home screen.
+     * When transitioning from the home screen to any fragment, the back stack is also cleared
+     * so that Back skips the nav-graph start destination and goes straight to home.
+     *
+     * @param destinationId Nav-graph resource ID of the destination fragment.
+     * @param showBottomNav {@code true} for top-level tab navigations (bottom nav visible);
+     *                      {@code false} for sub-page navigations (bottom nav hidden).
+     * @param args          Optional arguments {@link Bundle} passed to the destination, or null.
+     */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         // Clear back stack for top-level tabs to ensure clean navigation between tabs
         if (showBottomNav) clearBackStack();
@@ -917,6 +931,13 @@ public class MainActivity extends AppCompatActivity {
         navController.navigate(destinationId, args, opts);
     }
 
+    /**
+     * Returns the UI to the home screen (the scrollable event carousel).
+     *
+     * <p>Clears the NavController back stack, hides the nav host fragment, and cross-fades
+     * the home content in. The Home item in the bottom navigation bar is checked without
+     * triggering the item-selected listener (which would otherwise cause infinite recursion).
+     */
     public void showHome() {
         clearBackStack();
         bottomNav.setVisibility(View.VISIBLE);
@@ -940,6 +961,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Removes all entries from the NavController back stack, including the start destination.
+     *
+     * <p>Attempts {@code popBackStack(startId, inclusive=true)} first as an O(1) fast path.
+     * If the start destination is no longer on the stack (e.g. it was already popped by a
+     * previous call), the stack is drained manually one entry at a time to avoid leaving
+     * stale fragments.
+     */
     private void clearBackStack() {
         int startId = navController.getGraph().getStartDestinationId();
         if (navController.getCurrentBackStackEntry() == null) return;
