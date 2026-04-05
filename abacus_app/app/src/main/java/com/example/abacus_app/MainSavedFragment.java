@@ -81,7 +81,7 @@ public class MainSavedFragment extends Fragment {
         });
 
         // Default view
-        switchMode(ViewMode.CO_ORGANIZED);
+        switchMode(ViewMode.SAVED);
 
         return view;
     }
