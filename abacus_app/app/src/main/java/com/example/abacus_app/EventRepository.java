@@ -6,6 +6,8 @@ import android.os.Looper;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,6 +35,10 @@ public class EventRepository {
 
     public Task<QuerySnapshot> getEventsByOrganizer(String organizerId) {
         return remoteDataSource.getEventsByOrganizer(organizerId);
+    }
+
+    public Task<QuerySnapshot> getEventsByOrganizerIds(List<String> organizerIds) {
+        return remoteDataSource.getEventsByOrganizerIds(organizerIds);
     }
 
     /** Async callback version — use from UI/ViewModel. */

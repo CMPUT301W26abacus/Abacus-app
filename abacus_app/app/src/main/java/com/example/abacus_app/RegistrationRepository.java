@@ -613,6 +613,45 @@ public class RegistrationRepository {
     }
 
     /**
+     * Loads entrant-specific stats: events joined and events won.
+     * Events joined = count of registrations where status is not "cancelled" or "declined"
+     * Events won = count of registrations where status is "invited" or "accepted"
+     */
+    public void getEntrantStats(String userId, EntrantStatsCallback callback) {
+        executor.submit(() -> {
+            try {
+                ArrayList<WaitlistEntry> history = remoteDataSource.getHistoryForUserSync(userId);
+                if (history == null) {
+                    mainHandler.post(() -> callback.onResult(0, 0));
+                    return;
+                }
+
+                final int[] counts = {0, 0}; // [eventsJoined, eventsWon]
+
+                for (WaitlistEntry entry : history) {
+                    String status = entry.getStatus();
+                    if (status == null) continue;
+
+                    // Count as joined if not cancelled or declined
+                    if (!status.equals(WaitlistEntry.STATUS_CANCELLED) && !status.equals(WaitlistEntry.STATUS_DECLINED)) {
+                        counts[0]++;
+                    }
+
+                    // Count as won if invited or accepted
+                    if (status.equals(WaitlistEntry.STATUS_INVITED) || status.equals(WaitlistEntry.STATUS_ACCEPTED)) {
+                        counts[1]++;
+                    }
+                }
+
+                mainHandler.post(() -> callback.onResult(counts[0], counts[1]));
+            } catch (Exception e) {
+                Log.e("RegistrationRepository", "Error loading entrant stats", e);
+                mainHandler.post(() -> callback.onResult(0, 0));
+            }
+        });
+    }
+
+    /**
      * Shuts down the background executor. Call from the owning lifecycle component's
      * onDestroy() / onTerminate() to prevent thread leaks.
      */
@@ -625,5 +664,12 @@ public class RegistrationRepository {
      */
     public interface VoidCallback {
         void onComplete(Exception error);
+    }
+
+    /**
+     * Callback interface for entrant stats (eventsJoined, eventsWon).
+     */
+    public interface EntrantStatsCallback {
+        void onResult(int eventsJoined, int eventsWon);
     }
 }

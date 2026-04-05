@@ -23,6 +23,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.timepicker.MaterialTimePicker;
@@ -31,8 +33,10 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -46,11 +50,14 @@ public class OrganizerCreateFragment extends Fragment {
     private CreateEventViewModel viewModel;
     private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity;
     private Button btnSetStart, btnSetEnd, btnCreate, btnSelectPoster;
+    private Button btnSetEventStart, btnSetEventEnd;
     private MaterialSwitch switchGeo, switchPrivate;
     private CheckBox cbLimit;
     private ImageView ivPosterPreview;
+    private ChipGroup chipGroupTags;
 
     private Timestamp startTimestamp, endTimestamp;
+    private Timestamp eventStartTimestamp, eventEndTimestamp;
     private Uri selectedImageUri;
 
     private final ActivityResultLauncher<Intent> imagePickerLauncher =
@@ -68,25 +75,27 @@ public class OrganizerCreateFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.organizer_create_fragment, container, false);
 
-        viewModel       = new ViewModelProvider(this).get(CreateEventViewModel.class);
-        etTitle         = view.findViewById(R.id.et_event_title);
-        etDescription   = view.findViewById(R.id.et_event_description);
-        etLimit         = view.findViewById(R.id.et_waitlist_limit);
-        etEventCapacity = view.findViewById(R.id.et_event_capacity);
-        etPosterUrl     = view.findViewById(R.id.et_poster_url);
-        btnSetStart     = view.findViewById(R.id.btn_set_start);
-        btnSetEnd       = view.findViewById(R.id.btn_set_end);
-        btnCreate       = view.findViewById(R.id.btn_create_event);
-        btnSelectPoster = view.findViewById(R.id.btn_select_poster);
-        ivPosterPreview = view.findViewById(R.id.iv_poster_preview);
-        switchGeo       = view.findViewById(R.id.switch_geo);
-        switchPrivate   = view.findViewById(R.id.switch_private);
-        cbLimit         = view.findViewById(R.id.cb_limit_waitlist);
+        viewModel           = new ViewModelProvider(this).get(CreateEventViewModel.class);
+        etTitle             = view.findViewById(R.id.et_event_title);
+        etDescription       = view.findViewById(R.id.et_event_description);
+        etLimit             = view.findViewById(R.id.et_waitlist_limit);
+        etEventCapacity     = view.findViewById(R.id.et_event_capacity);
+        etPosterUrl         = view.findViewById(R.id.et_poster_url);
+        btnSetStart         = view.findViewById(R.id.btn_set_start);
+        btnSetEnd           = view.findViewById(R.id.btn_set_end);
+        btnSetEventStart    = view.findViewById(R.id.btn_set_event_start);
+        btnSetEventEnd      = view.findViewById(R.id.btn_set_event_end);
+        btnCreate           = view.findViewById(R.id.btn_create_event);
+        btnSelectPoster     = view.findViewById(R.id.btn_select_poster);
+        ivPosterPreview     = view.findViewById(R.id.iv_poster_preview);
+        switchGeo           = view.findViewById(R.id.switch_geo);
+        switchPrivate       = view.findViewById(R.id.switch_private);
+        cbLimit             = view.findViewById(R.id.cb_limit_waitlist);
+        chipGroupTags       = view.findViewById(R.id.chip_group_tags);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
-                // Reverted to Tools page
                 ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
             }
         });
@@ -96,8 +105,10 @@ public class OrganizerCreateFragment extends Fragment {
             if (!isChecked) etLimit.setText("");
         });
 
-        btnSetStart.setOnClickListener(v -> showDateTimePicker(true));
-        btnSetEnd.setOnClickListener(v -> showDateTimePicker(false));
+        btnSetStart.setOnClickListener(v -> showRegistrationDateTimePicker(true));
+        btnSetEnd.setOnClickListener(v -> showRegistrationDateTimePicker(false));
+        btnSetEventStart.setOnClickListener(v -> showEventDateTimePicker(true));
+        btnSetEventEnd.setOnClickListener(v -> showEventDateTimePicker(false));
         btnCreate.setOnClickListener(v -> createEvent());
 
         btnSelectPoster.setOnClickListener(v -> {
@@ -130,7 +141,8 @@ public class OrganizerCreateFragment extends Fragment {
         });
     }
 
-    private void showDateTimePicker(boolean isStart) {
+    /** Date/time picker for the registration window (when entrants can join). */
+    private void showRegistrationDateTimePicker(boolean isStart) {
         Calendar cal = Calendar.getInstance();
 
         new DatePickerDialog(requireContext(), (view, year, month, day) -> {
@@ -143,25 +155,28 @@ public class OrganizerCreateFragment extends Fragment {
 
                 if (isStart) {
                     if (endTimestamp != null && ts.compareTo(endTimestamp) >= 0) {
-                        Toast.makeText(getContext(), "Start must be before end", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Registration start must be before registration end", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // Registration start cannot be after the event ends
+                    if (eventEndTimestamp != null && ts.compareTo(eventEndTimestamp) > 0) {
+                        Toast.makeText(getContext(), "Registration cannot start after the event ends", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     startTimestamp = ts;
+                    btnSetStart.setText("Reg. Start: " + formatTimestamp(calendar));
                 } else {
                     if (startTimestamp != null && ts.compareTo(startTimestamp) <= 0) {
-                        Toast.makeText(getContext(), "End must be after start", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Registration end must be after registration start", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // Registration end cannot be after the event ends
+                    if (eventEndTimestamp != null && ts.compareTo(eventEndTimestamp) > 0) {
+                        Toast.makeText(getContext(), "Registration cannot close after the event ends", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     endTimestamp = ts;
-                }
-
-                SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
-                String formatted = sdf.format(calendar.getTime());
-
-                if (isStart) {
-                    btnSetStart.setText("Start: " + formatted);
-                } else {
-                    btnSetEnd.setText("End: " + formatted);
+                    btnSetEnd.setText("Reg. End: " + formatTimestamp(calendar));
                 }
 
             }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show();
@@ -169,9 +184,65 @@ public class OrganizerCreateFragment extends Fragment {
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
     }
 
+    /** Date/time picker for the actual event (what entrants see and filter by). */
+    private void showEventDateTimePicker(boolean isStart) {
+        Calendar cal = Calendar.getInstance();
+
+        new DatePickerDialog(requireContext(), (view, year, month, day) -> {
+            new TimePickerDialog(requireContext(), (timeView, hourOfDay, minute) -> {
+                Calendar calendar = Calendar.getInstance();
+                calendar.set(year, month, day, hourOfDay, minute, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+
+                Timestamp ts = new Timestamp(new Date(calendar.getTimeInMillis()));
+
+                if (isStart) {
+                    if (eventEndTimestamp != null && ts.compareTo(eventEndTimestamp) >= 0) {
+                        Toast.makeText(getContext(), "Event start must be before event end", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    eventStartTimestamp = ts;
+                    btnSetEventStart.setText("Starts: " + formatTimestamp(calendar));
+                } else {
+                    if (eventStartTimestamp != null && ts.compareTo(eventStartTimestamp) <= 0) {
+                        Toast.makeText(getContext(), "Event end must be after event start", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    eventEndTimestamp = ts;
+                    btnSetEventEnd.setText("Ends: " + formatTimestamp(calendar));
+
+                    // If registration dates are already set and now fall after event end, clear them
+                    boolean clearedReg = false;
+                    if (endTimestamp != null && endTimestamp.compareTo(ts) > 0) {
+                        endTimestamp = null;
+                        btnSetEnd.setText("Set End Date / Time *");
+                        clearedReg = true;
+                    }
+                    if (startTimestamp != null && startTimestamp.compareTo(ts) > 0) {
+                        startTimestamp = null;
+                        btnSetStart.setText("Set Start Date / Time *");
+                        clearedReg = true;
+                    }
+                    if (clearedReg) {
+                        Toast.makeText(getContext(),
+                                "Registration dates were cleared — they cannot be after the event ends",
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+
+            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show();
+
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
+    }
+
+    private String formatTimestamp(Calendar calendar) {
+        return new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
+                .format(calendar.getTime());
+    }
+
     private void createEvent() {
-        String title = etTitle.getText().toString().trim();
-        String desc  = etDescription.getText().toString().trim();
+        String title  = etTitle.getText().toString().trim();
+        String desc   = etDescription.getText().toString().trim();
         String capStr = etEventCapacity.getText().toString().trim();
 
         if (title.isEmpty() || startTimestamp == null || endTimestamp == null || capStr.isEmpty()) {
@@ -202,8 +273,16 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
+        // Collect selected category tags from chip group
+        List<String> selectedTags = new ArrayList<>();
+        for (int i = 0; i < chipGroupTags.getChildCount(); i++) {
+            Chip chip = (Chip) chipGroupTags.getChildAt(i);
+            if (chip.isChecked()) {
+                selectedTags.add(chip.getText().toString());
+            }
+        }
+
         // Use Firebase UID (authenticated account) as organizerId, not device UUID
-        // This ensures each account can only manage their own created events
         com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {
             Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
@@ -214,6 +293,9 @@ public class OrganizerCreateFragment extends Fragment {
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
         event.setPrivate(switchPrivate.isChecked());
+        event.setTags(selectedTags);
+        event.setEventStart(eventStartTimestamp); // null if organizer left blank — that's fine
+        event.setEventEnd(eventEndTimestamp);
 
         viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
     }

@@ -86,13 +86,14 @@ public class MainInboxFragment extends Fragment {
         UserRepository userRepository = new UserRepository(local, userRemoteDataSource);
 
         userRepository.getProfile(user -> {
-            if (user == null) {
-                // Guest user — no inbox notifications
-                return;
+            if (user != null) {
+                currentUser = user;
+                currentUserId = user.getUid();
+                currentUserEmail = user.getEmail();
+            } else {
+                // Guest user — use device UUID
+                currentUserId = local.getUUIDSync();
             }
-            currentUser = user;
-            currentUserId = user.getUid();
-            currentUserEmail = user.getEmail();
 
             Log.d(TAG, "Loading notifications for UID: " + currentUserId);
             loadUserAndStart();
@@ -115,9 +116,12 @@ public class MainInboxFragment extends Fragment {
     }
 
     private void loadUserAndStart() {
-        UserRemoteDataSource userRemote = new UserRemoteDataSource(db);
         if (currentUserId != null) {
-            userRemote.getUser(currentUserId, user -> {
+            UserLocalDataSource local = new UserLocalDataSource(requireContext());
+            UserRemoteDataSource userRemote = new UserRemoteDataSource(db);
+            UserRepository userRepo = new UserRepository(local, userRemote);
+
+            userRepo.getProfile(user -> {
                 if (user != null) {
                     currentUser = user;
                     currentUserEmail = user.getEmail();
@@ -173,7 +177,6 @@ public class MainInboxFragment extends Fragment {
 
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
-
         String eventId = n.getEventId();
         String notificationType = n.getType();
 

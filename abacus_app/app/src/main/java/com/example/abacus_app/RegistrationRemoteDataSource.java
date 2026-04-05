@@ -229,11 +229,21 @@ public class RegistrationRemoteDataSource {
      * @throws Exception something went wrong
      */
     public void removeWaitlistEntrySync(String eventId, String userId) throws Exception {
-        DocumentReference docRef = getCollectionRef(eventId).document(userId);
-        Tasks.await(docRef.delete());
-        
-        // Decrement waitlistCount in the event document
-        Tasks.await(getEventDocRef(eventId).update("waitlistCount", FieldValue.increment(-1)));
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference eventRef = getEventDocRef(eventId);
+        DocumentReference entrantRef = getCollectionRef(eventId).document(userId);
+
+        Tasks.await(db.runTransaction(transaction -> {
+            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+            if (!entrantSnap.exists()) {
+                return null;
+            }
+
+            transaction.delete(entrantRef);
+            transaction.update(eventRef, "waitlistCount", FieldValue.increment(-1));
+            return null;
+        }));
     }
 
     /**

@@ -247,6 +247,8 @@ public class ProfileFragment extends Fragment {
             Boolean guestNow = viewModel.getIsGuest().getValue();
             if (guestNow == null || guestNow) return;
             refreshUIForCurrentRole();
+            // Load stats based on role
+            loadUserStats(role);
         });
 
         viewModel.getBio().observe(getViewLifecycleOwner(), bio -> {
@@ -274,6 +276,14 @@ public class ProfileFragment extends Fragment {
         });
 
         viewModel.getTotalRegistrations().observe(getViewLifecycleOwner(), count -> {
+            if (tvStatCount2 != null) tvStatCount2.setText(String.valueOf(count));
+        });
+
+        viewModel.getEventsJoined().observe(getViewLifecycleOwner(), count -> {
+            if (tvStatCount1 != null) tvStatCount1.setText(String.valueOf(count));
+        });
+
+        viewModel.getEventsWon().observe(getViewLifecycleOwner(), count -> {
             if (tvStatCount2 != null) tvStatCount2.setText(String.valueOf(count));
         });
 
@@ -496,6 +506,25 @@ public class ProfileFragment extends Fragment {
                 ((MainActivity) getActivity()).setEffectiveRole(mode);
             }
         });
+    }
+
+    /**
+     * Loads user stats based on their role.
+     * For entrants: loads events joined and events won
+     * For organizers: loads events created and total registrations
+     */
+    private void loadUserStats(String role) {
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        String userId = local.getUUIDSync();
+        if (userId == null) return;
+
+        if ("entrant".equals(role)) {
+            RegistrationRepository registrationRepo = new RegistrationRepository();
+            viewModel.loadEntrantStats(userId, registrationRepo);
+        } else if ("organizer".equals(role)) {
+            EventRepository eventRepo = new EventRepository();
+            viewModel.loadOrganizerStats(userId, eventRepo);
+        }
     }
 
     /**

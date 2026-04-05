@@ -1,7 +1,6 @@
 package com.example.abacus_app;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -90,8 +89,6 @@ public class EventMapFragment extends Fragment implements OnMapReadyCallback {
                         if (name == null) name = doc.getString("guestName");
                         if (name == null) name = "Anonymous Entrant";
                         String status = doc.getString("status");
-
-                        Log.d("EventMapFragment", "Loading entrant: " + name + " at " + lat + ", " + lng);
 
                         if (lat != null && lng != null) {
                             LatLng pos = new LatLng(lat, lng);

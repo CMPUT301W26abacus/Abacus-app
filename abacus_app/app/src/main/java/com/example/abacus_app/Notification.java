@@ -11,11 +11,11 @@ public class Notification {
     public static final String TYPE_SELECTED = "SELECTED";
     public static final String TYPE_NOT_SELECTED = "NOT_SELECTED";
     public static final String TYPE_CO_ORGANIZER_INVITE = "CO_ORGANIZER_INVITE";
+    public static final String TYPE_CANCELED = "CANCELED";
 
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
     public static final String STATUS_DECLINED = "DECLINED";
-    public static final String TYPE_CANCELED = "CANCELED";
 
     private String userId;      // The entrant ID
     private String userEmail;   // Added for stable identity
