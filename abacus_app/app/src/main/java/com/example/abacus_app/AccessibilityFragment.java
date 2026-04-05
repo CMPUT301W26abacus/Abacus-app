@@ -21,10 +21,8 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
  *
  * Accessibility settings:
  * - Large text: Quick toggle for text scaling
- * - High contrast: Switch for increased contrast mode
  * - Text size: Slider with live preview + Apply button (triggers recreate, returns here)
  * - One-handed mode: Switch for optimized single-hand navigation
- * - Reduce motion: Switch to disable animations
  */
 public class AccessibilityFragment extends Fragment {
 
@@ -41,10 +39,6 @@ public class AccessibilityFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         AccessibilityHelper helper = new AccessibilityHelper(requireContext());
-
-        if (helper.isHighContrast()) {
-            AccessibilityHelper.applyHighContrast(view);
-        }
 
         view.<android.widget.ImageButton>findViewById(R.id.btnBack).setOnClickListener(v ->
                 Navigation.findNavController(view).navigateUp());
@@ -64,17 +58,6 @@ public class AccessibilityFragment extends Fragment {
         switchLargeText.setOnCheckedChangeListener((btn, isChecked) -> {
             quickPrefs.edit().putBoolean("largeText", isChecked).apply();
             updateTextSizeSectionVisibility(isChecked, llTextSizeSection, slider);
-        });
-
-        // ── High contrast ──
-        SwitchMaterial switchHighContrast = view.findViewById(R.id.switchHighContrast);
-        switchHighContrast.setChecked(helper.isHighContrast());
-        switchHighContrast.setOnCheckedChangeListener((btn, isChecked) -> {
-            helper.setHighContrast(isChecked);
-            // Apply to this fragment's view immediately — other screens pick it up on next creation
-            if (isChecked) {
-                AccessibilityHelper.applyHighContrast(view);
-            }
         });
 
         // ── Text size slider ──
@@ -100,12 +83,6 @@ public class AccessibilityFragment extends Fragment {
         switchOneHanded.setChecked(helper.isOneHandedMode());
         switchOneHanded.setOnCheckedChangeListener((btn, isChecked) ->
                 helper.setOneHandedMode(isChecked));
-
-        // ── Reduce motion ──
-        SwitchMaterial switchReduceMotion = view.findViewById(R.id.switchReduceMotion);
-        switchReduceMotion.setChecked(helper.isReduceMotion());
-        switchReduceMotion.setOnCheckedChangeListener((btn, isChecked) ->
-                helper.setReduceMotion(isChecked));
     }
 
     private void updateTextSizeSectionVisibility(boolean isLargeTextEnabled, LinearLayout llTextSizeSection, Slider slider) {

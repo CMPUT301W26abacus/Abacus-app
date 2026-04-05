@@ -1020,9 +1020,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Left-edge → swipe RIGHT  : go back (pop NavController stack, or return home).
-     * Right-edge → swipe LEFT  : go forward (shift to next bottom-nav tab).
      *
-     * Edge zone is 64 dp from each side so horizontal RecyclerViews in the
+     * Edge zone is 64 dp from the left side so horizontal RecyclerViews in the
      * centre of the screen are never accidentally triggered.
      * Swipes starting inside the bottom-nav bar are ignored (handled by the
      * one-handed detector instead).
@@ -1062,12 +1061,6 @@ public class MainActivity extends AppCompatActivity {
                             } else {
                                 shiftTab(-1); // on home screen, go to previous tab
                             }
-                            return true;
-                        }
-
-                        // RIGHT EDGE → swipe LEFT = forward (next tab)
-                        if (dx < 0 && startX >= screenW - edgePx) {
-                            shiftTab(+1);
                             return true;
                         }
 
