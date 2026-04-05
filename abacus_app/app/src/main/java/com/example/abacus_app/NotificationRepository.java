@@ -11,15 +11,18 @@ import java.util.concurrent.Executors;
 /**
  * NotificationRepository.java
  *
- * Handles creating and sending notifications for events.
- * Supports:
- *  - Selected / Not Selected notifications for users
- *  - Lottery results notifications
- *  - Replacement notifications
- *  - Listening for notifications by email
+ * This repository handles the business logic for creating and sending notifications.
+ * It coordinates between different data sources (Users, Events, Registrations) to 
+ * construct appropriate notification messages for various scenarios like lottery results,
+ * manual organizer messages, and invitation cancellations.
  *
- * Uses both asynchronous user lookup via UserRemoteDataSource and
- * executor-based synchronous notification processing for batch operations.
+ * Role: Repository in the Domain/Data Layer (MVVM).
+ *
+ * Outstanding Issues:
+ * - Thread management: Using a single-thread executor for all batch operations might 
+ *   become a bottleneck if many organizers draw lotteries simultaneously.
+ * - Error handling: Some asynchronous operations fail silently or only log errors 
+ *   without notifying the UI layer via the callback.
  */
 public class NotificationRepository {
 
@@ -29,16 +32,20 @@ public class NotificationRepository {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    /**
+     * Initializes the repository with its required remote data sources.
+     */
     public NotificationRepository() {
         this.remote = new NotificationRemoteDataSource();
         this.userRemote = new UserRemoteDataSource(com.google.firebase.firestore.FirebaseFirestore.getInstance());
         this.eventRemote = new EventRemoteDataSource();
     }
 
-    // ── Selected / Not Selected Notifications ────────────────────────────────
-
     /**
-     * Notify users they have been selected for an event.
+     * Notify a list of users that they have been selected for an event.
+     * 
+     * @param eventId The ID of the event.
+     * @param userIds The list of user IDs to notify.
      */
     public void notifySelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
@@ -64,7 +71,10 @@ public class NotificationRepository {
     }
 
     /**
-     * Notify users they were not selected for an event.
+     * Notify a list of users they were not selected for an event.
+     * 
+     * @param eventId The ID of the event.
+     * @param userIds The list of user IDs to notify.
      */
     public void notifyNotSelected(String eventId, List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) return;
@@ -89,23 +99,22 @@ public class NotificationRepository {
         });
     }
 
-    // ── Listening ───────────────────────────────────────────────────────────
-
     /**
-     * Listen for notifications filtered by user email.
+     * Sets up a real-time listener for notifications filtered by a user's email.
+     * 
+     * @param email    The email to filter by.
+     * @param listener The listener callback for updates.
      */
     public void listenForNotificationsByEmail(String email, NotificationRemoteDataSource.OnNotificationsUpdatedListener listener) {
         remote.listenForNotificationsByEmail(email, listener);
     }
 
-    // ── Lottery & Replacement Notifications ──────────────────────────────────
-
     /**
      * Sends notifications to winners and losers when the lottery of an event is drawn.
      * Also notifies the organizer that the lottery draw is complete.
      *
-     * @param eventId  the unique ID of the event in the database
-     * @param callback called when the operation completes
+     * @param eventId  The unique ID of the event.
+     * @param callback Called when the bulk notification operation completes.
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
@@ -169,11 +178,11 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies a single user that they have been invited as a replacement for an event.
+     * Notifies a single user that they have been drawn as a replacement.
      *
-     * @param eventId  the unique ID of the event in the database
-     * @param userId   the unique ID of the user who was drawn
-     * @param callback called when the operation completes
+     * @param eventId  The unique ID of the event.
+     * @param userId   The ID of the replacement user.
+     * @param callback Called when the operation completes.
      */
     public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
         eventRemote.getEventByIdAsync(eventId, event -> {
@@ -198,11 +207,11 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies a single user that their invitation to an event has expired/been cancelled.
+     * Notifies a single user that their invitation has expired or been cancelled.
      *
-     * @param eventId  the unique ID of the event in the database
-     * @param userId   the unique ID of the user who was cancelled
-     * @param callback called when the operation completes
+     * @param eventId  The ID of the event.
+     * @param userId   The ID of the user whose spot was cancelled.
+     * @param callback Called when the operation completes.
      */
     public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
         eventRemote.getEventByIdAsync(eventId, event -> {
@@ -227,12 +236,12 @@ public class NotificationRepository {
     }
 
     /**
-     * Sends manual custom notifications to a list of users for a specific event.
+     * Sends custom manual notifications to a specific list of users.
      *
-     * @param eventId the ID of the event
-     * @param userIds the list of user IDs to notify
-     * @param message the message to send
-     * @param type    the notification type
+     * @param eventId the ID of the event context
+     * @param userIds the list of user IDs to receive the message
+     * @param message the custom message text
+     * @param type    the notification type (usually TYPE_MANUAL)
      */
     public void sendManualNotification(String eventId, List<String> userIds, String message, String type) {
         if (userIds == null || userIds.isEmpty()) return;
@@ -258,7 +267,10 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies the organizer that an invited user has declined their invitation.
+     * Notifies an organizer when an invited user declines.
+     * 
+     * @param eventId The ID of the event.
+     * @param userKey The ID of the user who declined.
      */
     public void notifyOrganizerDecline(String eventId, String userKey) {
         eventRemote.getEventByIdAsync(eventId, event -> {
@@ -286,7 +298,10 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies the organizer that a user has left the waitlist.
+     * Notifies an organizer when a user leaves the waitlist voluntarily.
+     * 
+     * @param eventId The ID of the event.
+     * @param userId  The ID of the user who left.
      */
     public void notifyOrganizerLeftWaitlist(String eventId, String userId) {
         eventRemote.getEventByIdAsync(eventId, event -> {
@@ -313,20 +328,21 @@ public class NotificationRepository {
         });
     }
 
-    // ── Callback Interface ───────────────────────────────────────────────────
-
     /**
-     * Shuts down the background executor. Call from the owning lifecycle component's
-     * onDestroy() / onTerminate() to prevent thread leaks.
+     * Shuts down the background executor service.
      */
     public void shutdown() {
         executor.shutdown();
     }
 
     /**
-     * Callback interface for void methods.
+     * Generic callback for operations with no return value.
      */
     public interface VoidCallback {
+        /**
+         * Called when the operation is complete.
+         * @param error An exception if the operation failed, null otherwise.
+         */
         void onComplete(Exception error);
     }
 }
