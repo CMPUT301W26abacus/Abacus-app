@@ -196,22 +196,28 @@ public class ManageEventViewModel extends ViewModel {
     public void sendCoOrganizerInvite(String eventId, String eventTitle, User user) {
         if (eventId == null || user == null) return;
 
-        Notification notification = new Notification(
-                user.getUid(),
-                user.getEmail(),
-                eventId,
-                "You have been invited to be a co-organizer for the event: " + eventTitle,
-                "CO_ORGANIZER_INVITE"
-        );
-        
-        db.collection("notifications")
-                .add(notification)
-                .addOnSuccessListener(documentReference -> {
-                    searchResults.setValue(new ArrayList<>());
-                })
-                .addOnFailureListener(e -> {
-                    error.setValue("Failed to send invite: " + e.getMessage());
-                });
+        db.collection("events").document(eventId).get().addOnSuccessListener(documentSnapshot -> {
+            String organizerId = documentSnapshot.getString("organizerId");
+            Notification notification = new Notification(
+                    user.getUid(),
+                    user.getEmail(),
+                    organizerId,
+                    eventId,
+                    "You have been invited to be a co-organizer for the event: " + eventTitle,
+                    Notification.TYPE_CO_ORGANIZER_INVITE
+            );
+
+            db.collection("notifications")
+                    .add(notification)
+                    .addOnSuccessListener(documentReference -> {
+                        searchResults.setValue(new ArrayList<>());
+                    })
+                    .addOnFailureListener(e -> {
+                        error.setValue("Failed to send invite: " + e.getMessage());
+                    });
+        }).addOnFailureListener(e -> {
+            error.setValue("Failed to fetch event for invitation: " + e.getMessage());
+        });
     }
 
     public void inviteToPrivateEvent(String eventId, String eventTitle, User user) {
