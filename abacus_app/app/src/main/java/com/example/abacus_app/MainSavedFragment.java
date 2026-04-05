@@ -261,6 +261,9 @@ public class MainSavedFragment extends Fragment {
             );
 
             recyclerView.setAdapter(adapter);
+            if (currentMode == ViewMode.SAVED) {
+                adapter.setHideFavourite(true);
+            }
         }
     }
 }
