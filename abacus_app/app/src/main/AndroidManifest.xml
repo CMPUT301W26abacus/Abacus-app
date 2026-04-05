@@ -28,7 +28,7 @@
         <!-- Google Maps API Key - Linked to mapsApiKey in build.gradle.kts -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR-API-KEY" />
+            android:value="you-api-key" />
 
         <activity android:name=".SplashActivity"
             android:exported="true">
