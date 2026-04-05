@@ -292,4 +292,16 @@ public class ManageEventViewModel extends ViewModel {
                     coOrganizers.setValue(new ArrayList<>());
                 });
     }
+
+    /**
+     * Sends manual custom notifications to a list of users for a specific event.
+     */
+    public void sendManualNotifications(String eventId, List<String> userIds, String message) {
+        if (eventId == null || userIds == null || userIds.isEmpty() || message == null || message.trim().isEmpty()) {
+            return;
+        }
+        isLoading.setValue(true);
+        notificationRepository.sendManualNotification(eventId, userIds, message, "MANUAL");
+        isLoading.setValue(false);
+    }
 }
