@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Entity class representing an Event in the system.
- * Contains information about the event details, registration period, 
+ * Contains information about the event details, registration period,
  * capacity limits, and organizer settings.
  *
  * @author Himesh
@@ -20,6 +20,8 @@ public class Event implements Serializable {
     private String organizerId;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
+    private Timestamp eventStart;
+    private Timestamp eventEnd;
     private Integer waitlistCapacity;
     private Integer eventCapacity;
     private Integer waitlistCount;    // Current number of people on waitlist
@@ -64,74 +66,33 @@ public class Event implements Serializable {
         this.isPrivate = false; // Default to public
     }
 
-    /**
-     * @return the unique ID of the event.
-     */
     public String getEventId() { return eventId; }
-
-    /**
-     * @param eventId sets the unique ID of the event.
-     */
     public void setEventId(String eventId) { this.eventId = eventId; }
 
-    /**
-     * @return the display title.
-     */
     public String getTitle() { return title; }
-
-    /**
-     * @param title sets the display title.
-     */
     public void setTitle(String title) { this.title = title; }
 
-    /**
-     * @return the event description.
-     */
     public String getDescription() { return description; }
-
-    /**
-     * @param description sets the event description.
-     */
     public void setDescription(String description) { this.description = description; }
 
-    /**
-     * @return the organizer's ID.
-     */
     public String getOrganizerId() { return organizerId; }
-
-    /**
-     * @param organizerId sets the organizer's ID.
-     */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
 
-    /**
-     * @return start of registration period.
-     */
     public Timestamp getRegistrationStart() { return registrationStart; }
-
-    /**
-     * @param registrationStart sets registration start time.
-     */
     public void setRegistrationStart(Timestamp registrationStart) { this.registrationStart = registrationStart; }
 
-    /**
-     * @return end of registration period.
-     */
     public Timestamp getRegistrationEnd() { return registrationEnd; }
-
-    /**
-     * @param registrationEnd sets registration end time.
-     */
     public void setRegistrationEnd(Timestamp registrationEnd) { this.registrationEnd = registrationEnd; }
 
-    /**
-     * @return max waitlist size (null if no limit).
-     */
-    public Integer getWaitlistCapacity() { return waitlistCapacity; }
+    /** When the event itself starts (shown to entrants). */
+    public Timestamp getEventStart() { return eventStart; }
+    public void setEventStart(Timestamp eventStart) { this.eventStart = eventStart; }
 
-    /**
-     * @param waitlistCapacity sets waitlist size limit.
-     */
+    /** When the event itself ends (shown to entrants). */
+    public Timestamp getEventEnd() { return eventEnd; }
+    public void setEventEnd(Timestamp eventEnd) { this.eventEnd = eventEnd; }
+
+    public Integer getWaitlistCapacity() { return waitlistCapacity; }
     public void setWaitlistCapacity(Integer waitlistCapacity) { this.waitlistCapacity = waitlistCapacity; }
 
     public Integer getEventCapacity() { return eventCapacity; }
@@ -141,52 +102,25 @@ public class Event implements Serializable {
     public void setWaitlistCount(Integer waitlistCount) { this.waitlistCount = waitlistCount; }
 
     public boolean isGeoRequired() { return geoRequired; }
-
-    /**
-     * @param geoRequired sets geolocation requirement.
-     */
     public void setGeoRequired(boolean geoRequired) { this.geoRequired = geoRequired; }
 
     public boolean isLotteryDrawn() { return lotteryDrawn; }
-
-    /**
-     * @param lotteryDrawn sets lottery status
-     */
     public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
 
     public boolean isPrivate() { return isPrivate; }
     public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
-    /**
-     * @return public URL of the poster image.
-     */
     public String getPosterImageUrl() { return posterImageUrl; }
-
-    /**
-     * @param posterImageUrl sets the poster image URL.
-     */
     public void setPosterImageUrl(String posterImageUrl) { this.posterImageUrl = posterImageUrl; }
 
-    /**
-     * @return public URL of the promotional QR code.
-     */
     public String getQrCodeUrl() { return qrCodeUrl; }
-
-    /**
-     * @param qrCodeUrl sets the promotional QR code URL.
-     */
     public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }
 
     public List<String> getCoOrganizers() { return coOrganizers; }
     public void setCoOrganizers(List<String> coOrganizers) { this.coOrganizers = coOrganizers; }
 
-    public Boolean getIsDeleted() {
-        return isDeleted;
-    }
-
-    public void setIsDeleted(Boolean isDeleted) {
-        this.isDeleted = isDeleted;
-    }
+    public Boolean getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Boolean isDeleted) { this.isDeleted = isDeleted; }
 
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }

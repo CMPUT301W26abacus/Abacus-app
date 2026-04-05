@@ -226,8 +226,6 @@ public class EventDetailsFragment extends Fragment {
             setupAuthenticatedWaitlist();
         }
 
-
-
         loadWaitlistCount();
     }
 
@@ -419,14 +417,31 @@ public class EventDetailsFragment extends Fragment {
                     if (tvDescription != null && event.getDescription() != null)
                         tvDescription.setText(event.getDescription());
 
-                    TextView tvDateTime = getView() != null
+                    SimpleDateFormat sdfDate = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+                    SimpleDateFormat sdfDateTime = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+
+                    // ── Event date row (entrant-facing) ───────────────────────
+                    TextView tvEventDateTime = getView() != null
+                            ? getView().findViewById(R.id.tv_event_date_time) : null;
+                    if (tvEventDateTime != null) {
+                        if (event.getEventStart() != null) {
+                            String start = sdfDateTime.format(event.getEventStart().toDate());
+                            String text  = event.getEventEnd() != null
+                                    ? start + " – " + sdfDateTime.format(event.getEventEnd().toDate())
+                                    : start;
+                            tvEventDateTime.setText(text);
+                        } else {
+                            tvEventDateTime.setText("Not set");
+                        }
+                    }
+
+                    // ── Registration period row ───────────────────────────────
+                    TextView tvRegDateTime = getView() != null
                             ? getView().findViewById(R.id.tv_date_time) : null;
-                    if (tvDateTime != null && event.getRegistrationStart() != null) {
-                        SimpleDateFormat sdf =
-                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-                        String start = sdf.format(event.getRegistrationStart().toDate());
-                        tvDateTime.setText(event.getRegistrationEnd() != null
-                                ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
+                    if (tvRegDateTime != null && event.getRegistrationStart() != null) {
+                        String start = sdfDate.format(event.getRegistrationStart().toDate());
+                        tvRegDateTime.setText(event.getRegistrationEnd() != null
+                                ? start + " – " + sdfDate.format(event.getRegistrationEnd().toDate())
                                 : start);
                     }
 
