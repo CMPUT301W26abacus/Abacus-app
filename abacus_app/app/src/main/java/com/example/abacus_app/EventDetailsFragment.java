@@ -380,6 +380,10 @@ public class EventDetailsFragment extends Fragment {
             }
             Toast.makeText(requireContext(),
                     "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+
+            // Notify organizer that entrant left
+            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, guestKey);
+
             View root = getView();
             if (root != null) {
                 showJoinButton();
@@ -591,6 +595,10 @@ public class EventDetailsFragment extends Fragment {
             }
             Toast.makeText(requireContext(),
                     "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+
+            // Notify organizer that entrant left
+            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, currentRegistrationKey);
+
             showJoinButton();
             loadWaitlistCount();
         });

@@ -102,6 +102,7 @@ public class NotificationRepository {
 
     /**
      * Sends notifications to winners and losers when the lottery of an event is drawn.
+     * Also notifies the organizer that the lottery draw is complete.
      *
      * @param eventId  the unique ID of the event in the database
      * @param callback called when the operation completes
@@ -139,6 +140,23 @@ public class NotificationRepository {
                                 );
                             }
                             remote.saveNotification(notification);
+                        }
+                    });
+                }
+
+                // Notify Organizer
+                if (organizerId != null) {
+                    userRemote.getUser(organizerId, organizer -> {
+                        if (organizer != null) {
+                            Notification orgNotif = new Notification(
+                                    organizerId,
+                                    organizer.getEmail(),
+                                    organizerId,
+                                    eventId,
+                                    "Lottery draw for \"" + (event != null ? event.getTitle() : "your event") + "\" has been successfully completed.",
+                                    Notification.TYPE_MANUAL
+                            );
+                            remote.saveNotification(orgNotif);
                         }
                     });
                 }
@@ -258,6 +276,34 @@ public class NotificationRepository {
                                 organizerId,
                                 eventId,
                                 name + " has declined the invitation for " + event.getTitle() + ".",
+                                Notification.TYPE_MANUAL
+                        );
+                        remote.saveNotification(notification);
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Notifies the organizer that a user has left the waitlist.
+     */
+    public void notifyOrganizerLeftWaitlist(String eventId, String userId) {
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            if (event == null) return;
+            String organizerId = event.getOrganizerId();
+            if (organizerId == null) return;
+
+            userRemote.getUser(userId, user -> {
+                String name = (user != null) ? user.getName() : "A user";
+                userRemote.getUser(organizerId, organizer -> {
+                    if (organizer != null) {
+                        Notification notification = new Notification(
+                                organizerId,
+                                organizer.getEmail(),
+                                organizerId,
+                                eventId,
+                                name + " has left the waiting list for \"" + event.getTitle() + "\".",
                                 Notification.TYPE_MANUAL
                         );
                         remote.saveNotification(notification);
