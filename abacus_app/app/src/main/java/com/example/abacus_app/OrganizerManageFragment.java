@@ -285,33 +285,39 @@ public class OrganizerManageFragment extends Fragment {
                     true, // isAdmin (to show delete button)
                     true, // canManageEvents
                     uuid,
-                    false
+                    false  // isGuest
             ));
         });
 
         // Waitlist mode
         viewModel.getEntrants().observe(getViewLifecycleOwner(), newEntries -> {
-            if (currentMode == Mode.WAITLIST && newEntries != null) {
-                allEntries.clear();
-                allEntries.addAll(newEntries);
-                selectedEventWaitlistSize = allEntries.size();
-                tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
+            if (currentMode != Mode.WAITLIST || newEntries == null) return;
 
-                long countInvitedAccepted = allEntries.stream()
-                        .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
-                                || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
-                        .count();
+            allEntries.clear();
+            allEntries.addAll(newEntries);
+            selectedEventWaitlistSize = allEntries.size();
+            tvCount.setText("Total Entrants: " + selectedEventWaitlistSize);
 
-                if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                    if (countInvitedAccepted < Math.min(selectedEvent.getEventCapacity(), selectedEventWaitlistSize)) {
-                        btnDrawReplacement.setEnabled(true);
-                    } else {
-                        btnDrawReplacement.setEnabled(false);
-                    }
+            long countInvitedAccepted = allEntries.stream()
+                    .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
+                            || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
+                    .count();
+            long countWaitlisted = allEntries.stream()
+                    .filter(entry -> WaitlistEntry.STATUS_WAITLISTED.equals(entry.getStatus()))
+                    .count();
+
+            if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
+                Log.d(TAG, "countInvitedAccepted: " + countInvitedAccepted);
+                Log.d(TAG, "cap: " + selectedEvent.getEventCapacity());
+                Log.d(TAG, "waitlist size: " + countWaitlisted);
+                if (countInvitedAccepted < selectedEvent.getEventCapacity() && countWaitlisted > 0) {
+                    btnDrawReplacement.setEnabled(true);
+                } else {
+                    btnDrawReplacement.setEnabled(false);
                 }
-
-                applyFilter();
             }
+
+            applyFilter();
         });
 
         // Search results
