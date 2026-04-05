@@ -2,8 +2,7 @@ package com.example.abacus_app;
 
 import android.os.Handler;
 import android.os.Looper;
-
-import com.google.firebase.firestore.FirebaseFirestore;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,14 +24,18 @@ import java.util.concurrent.Executors;
  */
 public class NotificationRepository {
 
+    private static final String TAG = "NotificationRepository";
+
     private final NotificationRemoteDataSource remote;
     private final UserRemoteDataSource userRemote;
+    private final EventRemoteDataSource eventRemote;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public NotificationRepository() {
         this.remote = new NotificationRemoteDataSource();
         this.userRemote = new UserRemoteDataSource(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+        this.eventRemote = new EventRemoteDataSource();
     }
 
     // ── Selected / Not Selected Notifications ────────────────────────────────
@@ -40,26 +43,33 @@ public class NotificationRepository {
     /**
      * Notify users they have been selected for an event.
      */
-    public void notifySelected(String eventId, List<String> userIds, VoidCallback callback) {
+    public void notifySelected(String eventId, List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) return;
+
         executor.submit(() -> {
             try {
-                if (userIds == null || userIds.isEmpty()) return;
-
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
                 for (String userId : userIds) {
-                    User user = userRemote.getUserSync(userId);
-                    if (user != null) {
-                        Notification notification = new Notification(
-                                userId,
-                                user.getEmail(), // <-- now included
-                                eventId,
-                                "Congratulations! You have been selected for the event.",
-                                Notification.TYPE_SELECTED
-                        );
-                        remote.saveNotification(notification);
+                    try {
+                        User user = userRemote.getUserSync(userId);
+                        if (user != null) {
+                            Notification notification = new Notification(
+                                    userId,
+                                    user.getEmail(),
+                                    organizerId,
+                                    eventId,
+                                    "Congratulations! You have been selected for the event.",
+                                    Notification.TYPE_SELECTED
+                            );
+                            remote.saveNotification(notification);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error notifying user: " + userId, e);
                     }
                 }
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onComplete(e));
+                Log.e(TAG, "Error in notifySelected", e);
             }
         });
     }
@@ -67,26 +77,33 @@ public class NotificationRepository {
     /**
      * Notify users they were not selected for an event.
      */
-    public void notifyNotSelected(String eventId, List<String> userIds, VoidCallback callback) {
+    public void notifyNotSelected(String eventId, List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) return;
+
         executor.submit(() -> {
             try {
-                if (userIds == null || userIds.isEmpty()) return;
-
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
                 for (String userId : userIds) {
-                    User user = userRemote.getUserSync(userId);
-                    if (user != null) {
-                        Notification notification = new Notification(
-                                userId,
-                                user.getEmail(), // <-- included
-                                eventId,
-                                "We regret to inform you that you were not selected for the event this time.",
-                                Notification.TYPE_NOT_SELECTED
-                        );
-                        remote.saveNotification(notification);
+                    try {
+                        User user = userRemote.getUserSync(userId);
+                        if (user != null) {
+                            Notification notification = new Notification(
+                                    userId,
+                                    user.getEmail(),
+                                    organizerId,
+                                    eventId,
+                                    "We regret to inform you that you were not selected for the event this time.",
+                                    Notification.TYPE_NOT_SELECTED
+                            );
+                            remote.saveNotification(notification);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error notifying user: " + userId, e);
                     }
                 }
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onComplete(e));
+                Log.e(TAG, "Error in notifyNotSelected", e);
             }
         });
     }
@@ -103,79 +120,48 @@ public class NotificationRepository {
     // ── Lottery & Replacement Notifications ──────────────────────────────────
 
     /**
-     * Sends notifications to winners and losers when the lottery of an event is drawn.
-     *
-     * @param eventId the unique ID of the event in the database
-     * @param callback called when the operation completes
+     * Notify all users when lottery results are drawn for an event.
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
-           try {
-               RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
-               EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-
-               ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
-               Event event = eventRDS.getEventById(eventId);
-
-               ArrayList<Notification> notifications = new ArrayList<>();
-               for (WaitlistEntry entry : entries) {
-                   // get user email
-                   User entryUser = userRemote.getUserSync(entry.getUserID());
-
-                   // send appropriate notification
-                   if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
-                       notifications.add(new Notification(
-                               entry.getUserId(),
-                               entryUser.getEmail(),
-                               event.getOrganizerId(),
-                               eventId,
-                               "Congratulations! You have been invited to " + event.getTitle(),
-                               Notification.TYPE_SELECTED
-                       ));
-                   } else if (entry.getStatus().equals(WaitlistEntry.STATUS_WAITLISTED)) {
-                       notifications.add(new Notification(
-                               entry.getUserId(),
-                               entryUser.getEmail(),
-                               event.getOrganizerId(),
-                               eventId,
-                               "The lottery for " + event.getTitle() + " has been drawn. Unfortunately you have not been selected at this time.",
-                               Notification.TYPE_NOT_SELECTED
-                       ));
-                   }
-               }
-
-               remote.saveNotificationsBatch(notifications);
-               mainHandler.post(() -> callback.onComplete(null));
-           } catch (Exception e) {
-               mainHandler.post(() -> callback.onComplete(e));
-           }
-        });
-    }
-
-    /**
-     * Notifies a single user that they have been invited to an event.
-     *
-     * @param eventId the unique ID of the event in the database
-     * @param userId the unique ID of the user who was drawn
-     * @param callback called when the operation completes
-     */
-    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
-        executor.submit(() -> {
             try {
-                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-                Event event = eventRDS.getEventById(eventId);
-                User entryUser = userRemote.getUserSync(userId);
+                RegistrationRemoteDataSource registrationRDS = new RegistrationRemoteDataSource();
+                ArrayList<WaitlistEntry> entries = registrationRDS.getEntriesSync(eventId);
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
 
-                Notification notification = (new Notification(
-                        userId,
-                        entryUser.getEmail(),
-                        event.getOrganizerId(),
-                        eventId,
-                        "Congratulations! You have been selected as a replacement for " + event.getTitle() + ".",
-                        Notification.TYPE_SELECTED
-                ));
+                for (WaitlistEntry entry : entries) {
+                    String userId = entry.getUserId();
+                    try {
+                        User user = userRemote.getUserSync(userId);
+                        if (user != null) {
+                            Notification notification;
+                            if (entry.getStatus().equals(WaitlistEntry.STATUS_INVITED)) {
+                                notification = new Notification(
+                                        userId,
+                                        user.getEmail(),
+                                        organizerId,
+                                        eventId,
+                                        "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
+                                        Notification.TYPE_SELECTED
+                                );
+                            } else { // waitlisted
+                                notification = new Notification(
+                                        userId,
+                                        user.getEmail(),
+                                        organizerId,
+                                        eventId,
+                                        "The lottery for " + (event != null ? event.getTitle() : "the event") + " has been drawn. Unfortunately you have not been selected at this time.",
+                                        Notification.TYPE_NOT_SELECTED
+                                );
+                            }
+                            remote.saveNotification(notification);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error notifying user: " + userId, e);
+                    }
+                }
 
-                remote.saveNotification(notification);
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
@@ -184,32 +170,63 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies a single user that they have been cancelled from an event.
-     *
-     * @param eventId the unique ID of the event in the database
-     * @param userId the unique ID of the user who was cancelled
-     * @param callback called when the operation completes
+     * Notify a user as a replacement for an event.
+     */
+    public void notifyReplacement(String eventId, String userId, VoidCallback callback) {
+        executor.submit(() -> {
+            try {
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
+                User user = userRemote.getUserSync(userId);
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(),
+                            organizerId,
+                            eventId,
+                            "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
+                            Notification.TYPE_SELECTED
+                    );
+                    remote.saveNotification(notification);
+                }
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(null));
+                }
+            } catch (Exception e) {
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(e));
+                }
+            }
+        });
+    }
+
+    /**
+     * Notify a user that they have been cancelled from an event.
      */
     public void notifyCancelled(String eventId, String userId, VoidCallback callback) {
         executor.submit(() -> {
             try {
-                EventRemoteDataSource eventRDS = new EventRemoteDataSource();
-                Event event = eventRDS.getEventById(eventId);
-                User entryUser = userRemote.getUserSync(userId);
-
-                Notification notification = (new Notification(
-                        userId,
-                        entryUser.getEmail(),
-                        event.getOrganizerId(),
-                        eventId,
-                        "Your invitation to " + event.getTitle() + " has expired.",
-                        Notification.TYPE_CANCELED
-                ));
-
-                remote.saveNotification(notification);
-                mainHandler.post(() -> callback.onComplete(null));
+                Event event = eventRemote.getEventById(eventId);
+                String organizerId = (event != null) ? event.getOrganizerId() : null;
+                User user = userRemote.getUserSync(userId);
+                if (user != null) {
+                    Notification notification = new Notification(
+                            userId,
+                            user.getEmail(),
+                            organizerId,
+                            eventId,
+                            (event != null ? event.getTitle() : "the event") + " has been cancelled.",
+                            Notification.TYPE_CANCELED
+                    );
+                    remote.saveNotification(notification);
+                }
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(null));
+                }
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onComplete(e));
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onComplete(e));
+                }
             }
         });
     }
@@ -217,15 +234,7 @@ public class NotificationRepository {
     // ── Callback Interface ───────────────────────────────────────────────────
 
     /**
-     * Shuts down the background executor. Call from the owning lifecycle component's
-     * onDestroy() / onTerminate() to prevent thread leaks.
-     */
-    public void shutdown() {
-        executor.shutdown();
-    }
-
-    /**
-     * Callback interface for void methods.
+     * Generic callback for void methods.
      */
     public interface VoidCallback {
         void onComplete(Exception error);

@@ -15,15 +15,19 @@ import com.google.android.material.button.MaterialButton;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Adapter class for the RecyclerView in NotificationFragment.
- * This class follows the Adapter design pattern to bind Notification data to UI components.
- * It manages a list of Notification objects and provides the logic for displaying them in a list.
+ * Supports two view types: Normal (My Inbox) and Log (Admin view).
  */
-public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.NotificationViewHolder> {
+public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+    private static final int VIEW_TYPE_NORMAL = 0;
+    private static final int VIEW_TYPE_LOG = 1;
 
     public interface OnNotificationActionListener {
         void onAccept(Notification notification);
@@ -31,81 +35,115 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     }
 
     private List<Notification> notifications = new ArrayList<>();
+    private Map<String, String> organizerEmails = new HashMap<>();
     private OnNotificationActionListener actionListener;
+    private boolean isReadOnly = false;
 
     public void setOnNotificationActionListener(OnNotificationActionListener listener) {
         this.actionListener = listener;
     }
 
-    /**
-     * Updates the data set of the adapter and refreshes the UI.
-     *
-     * @param notifications The new list of notifications to display.
-     */
     public void setNotifications(List<Notification> notifications) {
         this.notifications = notifications;
         notifyDataSetChanged();
     }
 
-    @NonNull
-    @Override
-    public NotificationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_notification, parent, false);
-        return new NotificationViewHolder(view);
+    public void setOrganizerEmails(Map<String, String> emails) {
+        this.organizerEmails = emails;
+        notifyDataSetChanged();
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        this.isReadOnly = readOnly;
+        notifyDataSetChanged();
     }
 
     @Override
-    public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
+    public int getItemViewType(int position) {
+        return isReadOnly ? VIEW_TYPE_LOG : VIEW_TYPE_NORMAL;
+    }
+
+    @NonNull
+    @Override
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == VIEW_TYPE_LOG) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_notification_log, parent, false);
+            return new LogViewHolder(view);
+        } else {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_notification, parent, false);
+            return new NotificationViewHolder(view);
+        }
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Notification notification = notifications.get(position);
-        holder.messageTextView.setText(notification.getMessage());
-        
         SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
         String dateString = sdf.format(new Date(notification.getTimestamp()));
-        holder.timestampTextView.setText(dateString);
 
-        String type = notification.getType();
-        String status = notification.getStatus();
-
-        // Show buttons for co-organizer invites OR event invitations (from lottery results or private invites)
-        boolean isInviteType = Notification.TYPE_CO_ORGANIZER_INVITE.equals(type) 
-                || Notification.TYPE_SELECTED.equals(type) 
-                || WaitlistEntry.STATUS_INVITED.equals(type);
-
-        if (isInviteType) {
-            // Show buttons if status is still pending or invited
-            if (Notification.STATUS_PENDING.equals(status) || WaitlistEntry.STATUS_INVITED.equals(status)) {
-                holder.layoutActions.setVisibility(View.VISIBLE);
-                holder.statusTextView.setVisibility(View.GONE);
-                holder.btnAccept.setOnClickListener(v -> {
-                    if (actionListener != null) actionListener.onAccept(notification);
-                });
-                holder.btnDecline.setOnClickListener(v -> {
-                    if (actionListener != null) actionListener.onDecline(notification);
-                });
+        if (holder instanceof LogViewHolder) {
+            LogViewHolder logHolder = (LogViewHolder) holder;
+            logHolder.messageTextView.setText(notification.getMessage());
+            logHolder.timestampTextView.setText(dateString);
+            logHolder.tvRecipient.setText("To: " + (notification.getUserEmail() != null ? notification.getUserEmail() : "Unknown"));
+            
+            // Resolve organizer email from cache or fallback to ID
+            String orgId = notification.getOrganizerId();
+            String email = organizerEmails.get(orgId);
+            String senderDisplay = (email != null) ? email : (orgId != null ? orgId : "System/Unknown");
+            
+            logHolder.tvSender.setText("From: " + senderDisplay);
+            logHolder.tvType.setText(notification.getType());
+            logHolder.statusTextView.setText("Status: " + notification.getStatus());
+            
+            if (Notification.STATUS_ACCEPTED.equals(notification.getStatus())) {
+                logHolder.statusTextView.setTextColor(Color.parseColor("#4CAF50"));
+            } else if (Notification.STATUS_DECLINED.equals(notification.getStatus())) {
+                logHolder.statusTextView.setTextColor(Color.parseColor("#F44336"));
             } else {
-                // Show final status label (Accepted/Declined)
-                holder.layoutActions.setVisibility(View.GONE);
-                holder.statusTextView.setVisibility(View.VISIBLE);
-                holder.statusTextView.setText(status.toUpperCase());
-                if (Notification.STATUS_ACCEPTED.equals(status) || WaitlistEntry.STATUS_ACCEPTED.equals(status)) {
-                    holder.statusTextView.setTextColor(Color.parseColor("#4CAF50")); // Green
-                } else {
-                    holder.statusTextView.setTextColor(Color.parseColor("#F44336")); // Red
-                }
+                logHolder.statusTextView.setTextColor(Color.GRAY);
             }
-        } else {
-            holder.layoutActions.setVisibility(View.GONE);
-            holder.statusTextView.setVisibility(View.GONE);
-        }
 
-        holder.itemView.setOnClickListener(v -> {
-            String eventId = notification.getEventId();
-            if (eventId != null && !eventId.isEmpty()) {
-                Bundle args = new Bundle();
-                args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-                Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
+        } else if (holder instanceof NotificationViewHolder) {
+            NotificationViewHolder normalHolder = (NotificationViewHolder) holder;
+            normalHolder.messageTextView.setText(notification.getMessage());
+            normalHolder.timestampTextView.setText(dateString);
+
+            if (Notification.TYPE_CO_ORGANIZER_INVITE.equals(notification.getType())) {
+                String status = notification.getStatus();
+                if (Notification.STATUS_PENDING.equals(status)) {
+                    normalHolder.layoutActions.setVisibility(View.VISIBLE);
+                    normalHolder.statusTextView.setVisibility(View.GONE);
+                    normalHolder.btnAccept.setOnClickListener(v -> {
+                        if (actionListener != null) actionListener.onAccept(notification);
+                    });
+                    normalHolder.btnDecline.setOnClickListener(v -> {
+                        if (actionListener != null) actionListener.onDecline(notification);
+                    });
+                } else {
+                    normalHolder.layoutActions.setVisibility(View.GONE);
+                    normalHolder.statusTextView.setVisibility(View.VISIBLE);
+                    normalHolder.statusTextView.setText(status);
+                    if (Notification.STATUS_ACCEPTED.equals(status)) {
+                        normalHolder.statusTextView.setTextColor(Color.parseColor("#4CAF50"));
+                    } else {
+                        normalHolder.statusTextView.setTextColor(Color.parseColor("#F44336"));
+                    }
+                }
+            } else {
+                normalHolder.layoutActions.setVisibility(View.GONE);
+                normalHolder.statusTextView.setVisibility(View.GONE);
             }
-        });
+
+            normalHolder.itemView.setOnClickListener(v -> {
+                String eventId = notification.getEventId();
+                if (eventId != null && !eventId.isEmpty()) {
+                    Bundle args = new Bundle();
+                    args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                    Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
+                }
+            });
+        }
     }
 
     @Override
@@ -113,22 +151,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         return notifications.size();
     }
 
-    /**
-     * ViewHolder class for individual notification items.
-     * Holds references to the views within each item layout.
-     */
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
-        TextView messageTextView;
-        TextView timestampTextView;
-        TextView statusTextView;
+        TextView messageTextView, timestampTextView, statusTextView;
         View layoutActions;
         MaterialButton btnAccept, btnDecline;
 
-        /**
-         * Constructs a ViewHolder and initializes its view references.
-         *
-         * @param itemView The root view of the notification item layout.
-         */
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);
@@ -137,6 +164,20 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             layoutActions = itemView.findViewById(R.id.layout_notification_actions);
             btnAccept = itemView.findViewById(R.id.btn_accept_notification);
             btnDecline = itemView.findViewById(R.id.btn_decline_notification);
+        }
+    }
+
+    static class LogViewHolder extends RecyclerView.ViewHolder {
+        TextView messageTextView, timestampTextView, statusTextView, tvRecipient, tvSender, tvType;
+
+        public LogViewHolder(@NonNull View itemView) {
+            super(itemView);
+            messageTextView = itemView.findViewById(R.id.notificationMessage);
+            timestampTextView = itemView.findViewById(R.id.notificationTimestamp);
+            statusTextView = itemView.findViewById(R.id.tv_notification_status);
+            tvRecipient = itemView.findViewById(R.id.tv_log_recipient);
+            tvSender = itemView.findViewById(R.id.tv_log_sender);
+            tvType = itemView.findViewById(R.id.tv_log_type);
         }
     }
 }

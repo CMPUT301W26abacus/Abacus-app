@@ -188,7 +188,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:visibility="gone"
-                    app:cardBackgroundColor="@color/grey"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="0dp">
 
@@ -493,7 +492,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:layout_marginBottom="12dp"
-                    android:backgroundTint="@color/black"
                     android:text="Link Account"
                     android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:textColor="@color/white"
@@ -515,10 +513,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:layout_marginBottom="12dp"
-                    android:backgroundTint="@color/grey"
                     android:text="Event Preferences"
                     android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="@color/black"
+                    android:textColor="@color/white"
                     android:visibility="gone" />
 
                 <Button
@@ -526,10 +523,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:layout_marginBottom="12dp"
-                    android:backgroundTint="@color/grey"
                     android:text="Accessibility"
                     android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="@color/black"
+                    android:textColor="@color/white"
                     android:visibility="gone" />
 
                 <Button
@@ -537,10 +533,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:layout_marginBottom="12dp"
-                    android:backgroundTint="@color/grey"
                     android:text="Log out"
                     android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="@color/orange"
+                    android:textColor="@color/white"
                     android:visibility="gone" />
 
                 <View
