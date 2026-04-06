@@ -377,6 +377,9 @@ public class EventDetailsFragment extends Fragment {
                     Event event = snapshot.toObject(Event.class);
                     if (event == null) return;
                     this.loadedEvent = event;
+                    if (tvTitle != null && event.getTitle() != null) {
+                        tvTitle.setText(event.getTitle());
+                    }
 
                     if (btnViewQr != null) {
                         btnViewQr.setVisibility(event.isPrivate() ? View.GONE : View.VISIBLE);
