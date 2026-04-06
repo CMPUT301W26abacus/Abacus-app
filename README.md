@@ -1,6 +1,6 @@
 # 🧮 ABACUS Team App
 
-> *App name TBD — we're still workshopping it!*
+> *App name: ABACUS*
 
 Welcome to the ABACUS team's Android app repository!
 
