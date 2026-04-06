@@ -11,38 +11,37 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:overScrollMode="never"
-        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/btn_draw_lottery"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/app_bar_manage"
         app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="100dp"
+            android:paddingTop="20dp"
             android:paddingBottom="100dp">
 
             <LinearLayout
                 android:id="@+id/layout_co_organizers"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
                 android:layout_marginBottom="16dp"
-                android:paddingHorizontal="16dp"
-                android:visibility="gone">
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Co-Organizers"
+                        android:text="Event Invitations"
                         android:textAppearance="?attr/textAppearanceTitleSmall"
                         android:textColor="@color/black"
                         android:textStyle="bold" />
@@ -52,23 +51,22 @@
                         style="@style/Widget.MaterialComponents.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Invite"
-                        app:icon="@android:drawable/ic_input_add" />
+                        android:text="Send " />
                 </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layout_search_co_organizer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical"
-                    android:visibility="gone"
-                    android:layout_marginTop="8dp">
+                    android:visibility="gone">
 
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Search Users"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense">
+                        android:hint="Search Users">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_search_entrant"
@@ -91,8 +89,9 @@
                     android:id="@+id/rv_co_organizers"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp" />
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
             </LinearLayout>
 
             <TextView
@@ -109,10 +108,10 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="8dp"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="16dp"
-                android:layout_marginBottom="8dp">
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp">
 
                 <TextView
                     android:id="@+id/tv_waitlist_count"
@@ -122,15 +121,6 @@
                     android:text="Total Entrants: 0"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="@color/grey" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_notify_entrants"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Notify"
-                    android:visibility="gone"
-                    app:icon="@android:drawable/ic_dialog_email" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_export_csv"
@@ -146,25 +136,25 @@
                 android:id="@+id/filter_scroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:scrollbars="none"
-                android:paddingHorizontal="16dp"
                 android:layout_marginBottom="12dp"
+                android:paddingHorizontal="16dp"
+                android:scrollbars="none"
                 android:visibility="gone">
 
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/chip_group_filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:singleSelection="true"
-                    app:selectionRequired="true">
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_all"
                         style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="All"
-                        android:checked="true" />
+                        android:checked="true"
+                        android:text="All" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_waitlisted"
@@ -208,32 +198,55 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <ImageButton
-        android:id="@+id/btn_back"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="50dp"
-        android:background="@android:color/transparent"
-        android:contentDescription="Go back"
-        android:src="@drawable/ic_arrow_back"
-        app:tint="@color/black"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar_manage"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:gravity="center"
-        android:text="Manage Events"
-        android:textAppearance="?attr/textAppearanceHeadlineSmall"
-        android:textColor="@color/black"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@color/white"
+            android:paddingHorizontal="16dp" />
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:paddingHorizontal="8dp"
+            android:paddingBottom="8dp">
+
+            <ImageButton
+                android:id="@+id/btn_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="Go back"
+                android:src="@drawable/ic_arrow_back"
+                android:visibility="gone"
+                app:tint="@color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Manage Events"
+                android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.google.android.material.appbar.AppBarLayout>
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_draw_lottery"
         android:layout_width="match_parent"
@@ -241,7 +254,6 @@
         android:layout_margin="16dp"
         android:text="Draw Lottery"
         android:padding="12dp"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

@@ -144,7 +144,11 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
         // ── Description ────────────────────────────────────────────────────────
         if (event.getDescription() != null && !event.getDescription().isEmpty()) {
-            holder.tvDescription.setText(event.getDescription());
+            String desc = event.getDescription();
+            if (desc.length() > 29) {
+                desc = desc.substring(0, 29) + "...";
+            }
+            holder.tvDescription.setText(desc);
             holder.tvDescription.setVisibility(View.VISIBLE);
         } else {
             holder.tvDescription.setVisibility(View.GONE);

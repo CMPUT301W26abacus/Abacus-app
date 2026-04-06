@@ -54,20 +54,11 @@
         android:name="com.example.abacus_app.OrganizerManageFragment"
         android:label="Manage Event" />
 
+
     <fragment
         android:id="@+id/browseEntrantsFragment"
         android:name="com.example.abacus_app.BrowseEntrantsFragment"
-        android:label="Browse Entrants" />
-
-    <fragment
-        android:id="@+id/organizerToolsFragment"
-        android:name="com.example.abacus_app.OrganizerToolsFragment"
-        android:label="Tools" />
-
-    <fragment
-        android:id="@+id/organizerLogsFragment"
-        android:name="com.example.abacus_app.OrganizerLogsFragment"
-        android:label="Logs" />
+        android:label="BrowseEntrantsFragment" />
 
     <!-- Admin only -->
     <fragment

@@ -378,13 +378,13 @@ public class MainActivity extends AppCompatActivity {
                     showHome();
                     return true;
                 } else if (id == R.id.nav_tools) {
-                    showFragment(R.id.organizerToolsFragment, true);
+                    showFragment(R.id.organizerCreateFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
                     if ("admin".equals(userRole)) {
                         showFragment(R.id.adminLogsFragment, true);
                     } else {
-                        showFragment(R.id.organizerLogsFragment, true);
+                        showFragment(R.id.organizerManageFragment, true);
                     }
                     return true;
                 } else if (id == R.id.nav_notifications) {
@@ -483,13 +483,8 @@ public class MainActivity extends AppCompatActivity {
                 : activeFilterTags.split(",");
 
         for (Event event : allEvents) {
-            // EXCLUDE co-organized events from the browse screen
-            if (resolvedUserKey != null && event.getCoOrganizers() != null
-                    && event.getCoOrganizers().contains(resolvedUserKey)) {
-                continue;
-            }
 
-            String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
+            String title = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
             // ── Search bar match (title + description) ────────────────────────
@@ -525,13 +520,13 @@ public class MainActivity extends AppCompatActivity {
                         if (event.getEventStart() != null) {
                             // Use event dates when available
                             Date start = event.getEventStart().toDate();
-                            Date end   = event.getEventEnd() != null
+                            Date end = event.getEventEnd() != null
                                     ? event.getEventEnd().toDate() : start;
                             dateMatch = !picked.before(start) && !picked.after(end);
                         } else if (event.getRegistrationStart() != null) {
                             // Fallback for events created before event dates were added
                             Date start = event.getRegistrationStart().toDate();
-                            Date end   = event.getRegistrationEnd() != null
+                            Date end = event.getRegistrationEnd() != null
                                     ? event.getRegistrationEnd().toDate() : start;
                             dateMatch = !picked.before(start) && !picked.after(end);
                         }
@@ -552,7 +547,7 @@ public class MainActivity extends AppCompatActivity {
             boolean spotsMatch = true;
             if (filterHasSpots) {
                 Integer capacity = event.getWaitlistCapacity();
-                Integer count    = event.getWaitlistCount();
+                Integer count = event.getWaitlistCount();
                 if (capacity != null) {
                     spotsMatch = count == null || count < capacity;
                 }
@@ -566,25 +561,24 @@ public class MainActivity extends AppCompatActivity {
 
             // ── Visibility: private events only shown to their organizer ──────
             boolean isPublic = !event.isPrivate();
+            boolean isCoOrganizer = resolvedUserKey != null && event.getCoOrganizers() != null && event.getCoOrganizers().contains(resolvedUserKey);
             boolean isOrganizerOfPrivate = false;
-            if (!isPublic) {
+            boolean isAdminViewingPrivate = "admin".equals(userRole) && !isPublic;
+
+            if (!isPublic && !isAdminViewingPrivate) {
                 String organizerId = event.getOrganizerId();
-                boolean isOrganizerByUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
-                boolean isOrganizerByFirebaseUID = false;
-                if (!isOrganizerByUUID) {
-                    com.google.firebase.auth.FirebaseUser firebaseUser =
-                            com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                    isOrganizerByFirebaseUID = (firebaseUser != null
-                            && firebaseUser.getUid().equals(organizerId));
-                }
-                isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
+                boolean byUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
+                FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+                boolean byFirebase = fu != null && fu.getUid().equals(organizerId);
+                isOrganizerOfPrivate = byUUID || byFirebase;
             }
 
-            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch
-                    && notExpired && (isPublic || isOrganizerOfPrivate)) {
+            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch && notExpired
+                    && (isPublic || isOrganizerOfPrivate || isAdminViewingPrivate || isCoOrganizer)) {
                 filtered.add(event);
             }
         }
+
 
         // ── Update filter button tint to show active state ────────────────────
         ImageButton btnFilter = findViewById(R.id.btn_filter);
@@ -1312,5 +1306,9 @@ public class MainActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    public void setBottomNavVisible(boolean visible) {
+        bottomNav.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 }
