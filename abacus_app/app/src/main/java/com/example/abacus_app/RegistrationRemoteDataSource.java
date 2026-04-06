@@ -399,7 +399,7 @@ public class RegistrationRemoteDataSource {
             String guestEmail) throws ExecutionException, InterruptedException {
         try {
             QuerySnapshot snapshot = Tasks.await(
-                    firestore.collection("registrations").whereEqualTo("guestEmail", guestEmail).get());
+                    firestore.collectionGroup("waitlist").whereEqualTo("guestEmail", guestEmail).get());
 
             ArrayList<WaitlistEntry> history = new ArrayList<>();
             for (DocumentSnapshot doc : snapshot.getDocuments()) {
