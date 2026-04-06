@@ -335,6 +335,46 @@ public class NotificationRepository {
     }
 
     /**
+     * Notifies an organizer when an accepted entrant cancels their participation.
+     *
+     * @param eventId The ID of the event.
+     * @param userId  The ID of the entrant who cancelled.
+     * @param callback called when the operation completes
+     */
+    public void notifyOrganizerEntrantCancelled(String eventId, String userId, VoidCallback callback) {
+        eventRemote.getEventByIdAsync(eventId, event -> {
+            if (event == null) {
+                if (callback != null) callback.onComplete(null);
+                return;
+            }
+            String organizerId = event.getOrganizerId();
+            if (organizerId == null) {
+                if (callback != null) callback.onComplete(null);
+                return;
+            }
+
+            userRemote.getUser(userId, user -> {
+                String name = (user != null) ? user.getName() : "An entrant";
+                userRemote.getUser(organizerId, organizer -> {
+                    if (organizer != null) {
+                        Notification notification = new Notification(
+                                organizerId,
+                                organizer.getEmail(),
+                                organizerId,
+                                eventId,
+                                name + " has cancelled their participation in \"" + event.getTitle() + "\".",
+                                Notification.TYPE_ENTRANT_CANCELLED
+                        );
+                        notification.setReceivedInInbox(organizer.getNotificationsEnabled());
+                        remote.saveNotification(notification);
+                    }
+                    if (callback != null) callback.onComplete(null);
+                });
+            });
+        });
+    }
+
+    /**
      * Shuts down the background executor service.
      */
     public void shutdown() {

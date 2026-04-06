@@ -63,6 +63,9 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     /** The user's email, persisted for UI display on the organizer map without extra lookups. */
     private String userEmail;
 
+    /** Device UUID for guest users, used to track history and saved events on device-local storage. */
+    private String deviceId;
+
     /**
      * Firebase Timestamp equivalent of {@link #timestamp}.
      * Stored for tests and code that uses getJoinTime(). Excluded from Firestore
@@ -153,6 +156,11 @@ public class WaitlistEntry implements Comparable<WaitlistEntry> {
     public String getUserEmail()            { return userEmail; }
     /** @param v the user's email address. */
     public void   setUserEmail(String v)    { this.userEmail = v; }
+
+    /** @return the device UUID for guest users, used to track history and saved events. */
+    public String getDeviceId()             { return deviceId; }
+    /** @param v the device UUID. */
+    public void   setDeviceId(String v)     { this.deviceId = v; }
 
     /**
      * Returns the Firebase Timestamp set via the Timestamp constructor.

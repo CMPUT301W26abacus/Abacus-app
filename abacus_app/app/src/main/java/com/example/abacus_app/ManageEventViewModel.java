@@ -221,10 +221,10 @@ public class ManageEventViewModel extends ViewModel {
                 isLoading.setValue(false);
                 if (entry == null) {
                     Log.d("mytagmanageeventVM", "onResult: draw replacement failed");
-                } else {
-                    Log.d("mytagmanageeventVM", "onResult: replacement drawn = " + entry.getUserId());
-                    loadWaitlist(eventId);
+                    return;
                 }
+                Log.d("mytagmanageeventVM", "onResult: replacement drawn = " + entry.getUserId());
+                loadWaitlist(eventId);
                 notificationRepository.notifyReplacement(eventId, entry.getUserID(), new NotificationRepository.VoidCallback() {
                     @Override
                     public void onComplete(Exception error) {
