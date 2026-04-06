@@ -28,7 +28,7 @@
                 android:text="username"
                 android:textStyle="bold"
                 android:textSize="12sp"
-                android:textColor="@color/black"/>
+                android:textColor="?attr/colorOnSurface"/>
 
             <TextView
                 android:id="@+id/tv_timestamp_comment"
@@ -60,7 +60,7 @@
         android:layout_marginTop="4dp"
         android:text="This is a comment"
         android:textSize="15sp"
-        android:textColor="@color/black"
+        android:textColor="?attr/colorOnSurface"
         android:lineSpacingExtra="2dp"/>
 
 </LinearLayout>

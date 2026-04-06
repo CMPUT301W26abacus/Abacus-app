@@ -829,6 +829,24 @@ public class MainActivity extends AppCompatActivity {
                 .addOnSuccessListener(unused -> {
                     allEvents.remove(event);
                     applyFilters();
+
+                    String organizerId = event.getOrganizerId();
+                    if (organizerId != null && !organizerId.isEmpty()) {
+                        Notification n = new Notification(
+                                organizerId,
+                                null,
+                                organizerId,
+                                event.getEventId(),
+                                "Your event \"" + event.getTitle() + "\" was removed by an administrator.",
+                                Notification.TYPE_EVENT_DELETED
+                        );
+                        FirebaseFirestore.getInstance()
+                                .collection("notifications")
+                                .add(n)
+                                .addOnFailureListener(e ->
+                                        android.util.Log.e("MainActivity",
+                                                "Failed to send event-deleted notification: " + e.getMessage()));
+                    }
                 })
                 .addOnFailureListener(e ->
                         android.util.Log.e("MainActivity",
