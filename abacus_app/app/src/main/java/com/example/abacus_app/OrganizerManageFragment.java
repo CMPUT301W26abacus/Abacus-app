@@ -1,5 +1,7 @@
 package com.example.abacus_app;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -8,6 +10,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -17,6 +21,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -27,14 +33,22 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * UI Controller for the active event management screen.
  * Shows the organizer's events, then the waitlist for a selected event.
  * Owner: Himesh
+ *
+ * @author Himesh, Kaylee
  */
 public class OrganizerManageFragment extends Fragment {
 
@@ -45,9 +59,10 @@ public class OrganizerManageFragment extends Fragment {
     private TextView tvEventName, tvCount;
     private Button btnDrawLottery;
     private Button btnDrawReplacement;
-    private MaterialButton btnExportCsv;
     private View filterContainer;
     private ChipGroup chipGroupFilter;
+    private MaterialButton btnExportCsv;
+    private MaterialButton btnNotifyEntrants;
 
     private List<WaitlistEntry> allEntries = new ArrayList<>();
     private List<WaitlistEntry> filteredEntries = new ArrayList<>();
@@ -85,6 +100,7 @@ public class OrganizerManageFragment extends Fragment {
         chipGroupFilter = view.findViewById(R.id.chip_group_filter);
         btnDrawReplacement = view.findViewById(R.id.btn_draw_replacement);
         btnExportCsv = view.findViewById(R.id.btn_export_csv);
+        btnNotifyEntrants = view.findViewById(R.id.btn_notify_entrants);
 
         // Co-organizer UI binding
         layoutCoOrganizers = view.findViewById(R.id.layout_co_organizers);
@@ -150,11 +166,9 @@ public class OrganizerManageFragment extends Fragment {
             }
         });
 
-        btnExportCsv.setOnClickListener(v -> {
-            if (currentMode == Mode.WAITLIST && selectedEventId != null) {
-                exportEnrolledListToCsv();
-            }
-        });
+        btnExportCsv.setOnClickListener(v -> exportEnrolledListToCsv());
+
+        btnNotifyEntrants.setOnClickListener(v -> showNotifyCategoryDialog());
 
         chipGroupFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
             applyFilter();
@@ -203,6 +217,11 @@ public class OrganizerManageFragment extends Fragment {
                             } else {
                                 showEventList();
                             }
+                        } else if (currentMode == Mode.EVENT_LIST) {
+                            // Return to Tools/Organizer home
+                            if (getActivity() instanceof MainActivity) {
+                                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
+                            }
                         }
                     }
                 });
@@ -227,19 +246,16 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText("My Events");
         tvCount.setText("");
         btnDrawLottery.setVisibility(View.GONE);
-        btnExportCsv.setVisibility(View.GONE);
         filterContainer.setVisibility(View.GONE);
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
+        btnExportCsv.setVisibility(View.GONE);
+        btnNotifyEntrants.setVisibility(View.GONE);
 
-        UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        String uuid = local.getUUIDSync();
-        String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
-
-        if (uuid != null || firebaseUid != null) {
-            viewModel.loadOrganizerEvents(uuid, firebaseUid);
+        // Load events by Firebase UID (organizers use Firebase UID as organizerId)
+        com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            viewModel.loadOrganizerEvents(firebaseUser.getUid());
         } else {
             tvCount.setText("Could not load events");
         }
@@ -259,9 +275,8 @@ public class OrganizerManageFragment extends Fragment {
 
             UserLocalDataSource local = new UserLocalDataSource(requireContext());
             String uuid = local.getUUIDSync();
-            String firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid()
-                    : null;
+            com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String firebaseUid = (fbUser != null) ? fbUser.getUid() : null;
 
             recyclerView.setAdapter(new EventAdapter(
                     eventList,
@@ -285,8 +300,8 @@ public class OrganizerManageFragment extends Fragment {
                                 .setNegativeButton("Cancel", null)
                                 .show();
                     },
-                    true, // isAdmin (to show delete button)
-                    true, // canManageEvents
+                    true,  // isAdmin
+                    false, // canManageEvents
                     uuid,
                     false  // isGuest
             ));
@@ -385,6 +400,33 @@ public class OrganizerManageFragment extends Fragment {
                 }
             }
         });
+
+        viewModel.getEventDetails().observe(getViewLifecycleOwner(), event -> {
+            if (event != null && currentMode == Mode.WAITLIST) {
+                selectedEvent = event;
+                updateExportButtonVisibility();
+            }
+        });
+    }
+
+    private void updateExportButtonVisibility() {
+        if (selectedEvent == null) {
+            btnExportCsv.setVisibility(View.GONE);
+            return;
+        }
+
+        btnExportCsv.setVisibility(View.VISIBLE);
+        Date now = new Date();
+        boolean registrationEnded = selectedEvent.getRegistrationStart() != null && now.after(selectedEvent.getRegistrationEnd().toDate());
+        
+        btnExportCsv.setEnabled(registrationEnded);
+        if (!registrationEnded) {
+            btnExportCsv.setAlpha(0.5f);
+            TooltipCompat.setTooltipText(btnExportCsv, "Available after registration ends");
+        } else {
+            btnExportCsv.setAlpha(1.0f);
+            TooltipCompat.setTooltipText(btnExportCsv, null);
+        }
     }
 
     private void showWaitlist(String eventTitle, String eventId) {
@@ -392,11 +434,12 @@ public class OrganizerManageFragment extends Fragment {
         tvEventName.setText(eventTitle);
         tvCount.setText("Loading...");
         btnDrawLottery.setVisibility(View.VISIBLE);
-        btnExportCsv.setVisibility(View.VISIBLE);
         filterContainer.setVisibility(View.VISIBLE);
         chipGroupFilter.check(R.id.chip_all);
         layoutCoOrganizers.setVisibility(View.VISIBLE);
         layoutSearchCoOrganizer.setVisibility(View.GONE);
+        btnExportCsv.setVisibility(View.GONE);
+        btnNotifyEntrants.setVisibility(View.VISIBLE);
 
         filteredEntries.clear();
         waitlistAdapter = new WaitlistAdapter(filteredEntries);
@@ -438,6 +481,218 @@ public class OrganizerManageFragment extends Fragment {
         }
     }
 
+    private void exportEnrolledListToCsv() {
+        if (selectedEvent == null) return;
+
+        List<WaitlistEntry> enrolled = allEntries.stream()
+                .filter(e -> WaitlistEntry.STATUS_ACCEPTED.equals(e.getStatus()))
+                .collect(Collectors.toList());
+
+        if (enrolled.isEmpty()) {
+            Toast.makeText(getContext(), "No enrolled entrants to export", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder csvData = new StringBuilder();
+        csvData.append("Name,Email,Status,Registration Time\n");
+
+        for (WaitlistEntry entry : enrolled) {
+            csvData.append(entry.getUserName() != null ? entry.getUserName() : "Anonymous")
+                    .append(",")
+                    .append(entry.getUserEmail() != null ? entry.getUserEmail() : "N/A")
+                    .append(",")
+                    .append(entry.getStatus())
+                    .append(",")
+                    .append(new java.util.Date(entry.getTimestamp()).toString())
+                    .append("\n");
+        }
+
+        try {
+            String fileName = "enrolled_" + selectedEvent.getTitle().replaceAll("\\s+", "_") + ".csv";
+            File file = new File(requireContext().getCacheDir(), fileName);
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(csvData.toString().getBytes());
+            fos.close();
+
+            Uri contentUri = FileProvider.getUriForFile(requireContext(), "com.example.abacus_app.fileprovider", file);
+            
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("text/csv");
+            intent.putExtra(Intent.EXTRA_SUBJECT, "Enrolled Entrants: " + selectedEvent.getTitle());
+            intent.putExtra(Intent.EXTRA_STREAM, contentUri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            startActivity(Intent.createChooser(intent, "Export CSV"));
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error exporting CSV", e);
+            Toast.makeText(getContext(), "Failed to export CSV", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showNotifyCategoryDialog() {
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_notify_category, null);
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create();
+
+        dialogView.findViewById(R.id.btn_category_waitlist).setOnClickListener(v -> {
+            dialog.dismiss();
+            showSelectEntrantsDialog(WaitlistEntry.STATUS_WAITLISTED);
+        });
+
+        dialogView.findViewById(R.id.btn_category_selected).setOnClickListener(v -> {
+            dialog.dismiss();
+            showSelectEntrantsDialog(WaitlistEntry.STATUS_INVITED);
+        });
+
+        dialogView.findViewById(R.id.btn_category_cancelled).setOnClickListener(v -> {
+            dialog.dismiss();
+            showSelectEntrantsDialog(WaitlistEntry.STATUS_CANCELLED);
+        });
+
+        dialog.show();
+    }
+
+    private void showSelectEntrantsDialog(String status) {
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_select_entrants, null);
+        RecyclerView rvSelection = dialogView.findViewById(R.id.rv_entrants_selection);
+        CheckBox cbSelectAll = dialogView.findViewById(R.id.cb_select_all);
+        TextView tvTitle = dialogView.findViewById(R.id.tv_selection_title);
+
+        String displayStatus = status.equals(WaitlistEntry.STATUS_INVITED) ? "Selected / Accepted" :
+                status.equals(WaitlistEntry.STATUS_CANCELLED) ? "Cancelled / Declined" : "Waitlisted";
+        tvTitle.setText("Select " + displayStatus + " Recipients");
+
+        List<WaitlistEntry> targets;
+        if (status.equals(WaitlistEntry.STATUS_CANCELLED)) {
+            targets = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_CANCELLED.equals(e.getStatus()) || WaitlistEntry.STATUS_DECLINED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else if (status.equals(WaitlistEntry.STATUS_INVITED)) {
+            targets = allEntries.stream()
+                    .filter(e -> WaitlistEntry.STATUS_INVITED.equals(e.getStatus()) || WaitlistEntry.STATUS_ACCEPTED.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        } else {
+            targets = allEntries.stream()
+                    .filter(e -> status.equals(e.getStatus()))
+                    .collect(Collectors.toList());
+        }
+
+        if (targets.isEmpty()) {
+            Toast.makeText(getContext(), "No users found in this category", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Set<String> selectedUserIds = new HashSet<>();
+        EntrantSelectionAdapter adapter = new EntrantSelectionAdapter(targets, selectedUserIds);
+        rvSelection.setLayoutManager(new LinearLayoutManager(requireContext()));
+        rvSelection.setAdapter(adapter);
+
+        cbSelectAll.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                for (WaitlistEntry e : targets) selectedUserIds.add(e.getUserId());
+            } else {
+                selectedUserIds.clear();
+            }
+            adapter.notifyDataSetChanged();
+        });
+
+        new AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .setPositiveButton("Next", (dialog, which) -> {
+                    if (selectedUserIds.isEmpty()) {
+                        Toast.makeText(getContext(), "Please select at least one recipient", Toast.LENGTH_SHORT).show();
+                    } else {
+                        showComposeMessageDialog(new ArrayList<>(selectedUserIds));
+                    }
+                })
+                .setNegativeButton("Back", (dialog, which) -> showNotifyCategoryDialog())
+                .show();
+    }
+
+    private void showComposeMessageDialog(List<String> userIds) {
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_compose_message, null);
+        TextView tvRecipientCount = dialogView.findViewById(R.id.tv_recipient_count);
+        EditText etMessage = dialogView.findViewById(R.id.et_message);
+
+        tvRecipientCount.setText("Sending to " + userIds.size() + " recipient(s)");
+
+        new AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .setPositiveButton("Send", (dialog, which) -> {
+                    String message = etMessage.getText().toString().trim();
+                    if (message.isEmpty()) {
+                        Toast.makeText(getContext(), "Message cannot be empty", Toast.LENGTH_SHORT).show();
+                    } else {
+                        viewModel.sendManualNotifications(selectedEventId, userIds, message);
+                        Toast.makeText(getContext(), "Notifications sent successfully", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Back", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private class EntrantSelectionAdapter extends RecyclerView.Adapter<EntrantSelectionAdapter.ViewHolder> {
+        private final List<WaitlistEntry> entrants;
+        private final Set<String> selectedIds;
+
+        public EntrantSelectionAdapter(List<WaitlistEntry> entrants, Set<String> selectedIds) {
+            this.entrants = entrants;
+            this.selectedIds = selectedIds;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_entrant_selection, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            WaitlistEntry entry = entrants.get(position);
+            holder.tvName.setText(entry.getUserName());
+            holder.tvEmail.setText(entry.getUserEmail());
+            holder.cbSelected.setChecked(selectedIds.contains(entry.getUserId()));
+
+            holder.itemView.setOnClickListener(v -> {
+                if (selectedIds.contains(entry.getUserId())) {
+                    selectedIds.remove(entry.getUserId());
+                } else {
+                    selectedIds.add(entry.getUserId());
+                }
+                notifyItemChanged(position);
+            });
+
+            holder.cbSelected.setOnClickListener(v -> {
+                if (selectedIds.contains(entry.getUserId())) {
+                    selectedIds.remove(entry.getUserId());
+                } else {
+                    selectedIds.add(entry.getUserId());
+                }
+                notifyItemChanged(position);
+            });
+        }
+
+        @Override
+        public int getItemCount() {
+            return entrants.size();
+        }
+
+        class ViewHolder extends RecyclerView.ViewHolder {
+            CheckBox cbSelected;
+            TextView tvName, tvEmail;
+
+            public ViewHolder(@NonNull View itemView) {
+                super(itemView);
+                cbSelected = itemView.findViewById(R.id.cb_entrant_selected);
+                tvName = itemView.findViewById(R.id.tv_entrant_name);
+                tvEmail = itemView.findViewById(R.id.tv_entrant_email);
+            }
+        }
+    }
+
     public static OrganizerManageFragment newInstance(String eventId, String eventTitle) {
         OrganizerManageFragment fragment = new OrganizerManageFragment();
         Bundle args = new Bundle();
@@ -445,74 +700,6 @@ public class OrganizerManageFragment extends Fragment {
         args.putString("EVENT_TITLE", eventTitle);
         fragment.setArguments(args);
         return fragment;
-    }
-
-    // ── CSV Export ────────────────────────────────────────────────────────────
-
-    private void exportEnrolledListToCsv() {
-        // Filter for accepted/invited entries only
-        List<WaitlistEntry> enrolledEntries = allEntries.stream()
-                .filter(entry -> WaitlistEntry.STATUS_INVITED.equals(entry.getStatus())
-                        || WaitlistEntry.STATUS_ACCEPTED.equals(entry.getStatus()))
-                .collect(Collectors.toList());
-
-        if (enrolledEntries.isEmpty()) {
-            Toast.makeText(getContext(), "No enrolled entrants to export", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Build CSV content
-        StringBuilder csvContent = new StringBuilder();
-        csvContent.append("Name,Email,Status,Registration Time\n");
-
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault());
-
-        for (WaitlistEntry entry : enrolledEntries) {
-            String name = entry.getUserName() != null ? entry.getUserName() : "Guest";
-            String email = entry.getUserEmail() != null ? entry.getUserEmail() : "";
-            String status = entry.getStatus() != null ? entry.getStatus() : "";
-            String joinTime = entry.getTimestamp() != null
-                    ? sdf.format(new java.util.Date(entry.getTimestamp()))
-                    : "Unknown";
-
-            csvContent.append("\"").append(escapeQuotes(name)).append("\",")
-                    .append("\"").append(escapeQuotes(email)).append("\",")
-                    .append("\"").append(escapeQuotes(status)).append("\",")
-                    .append("\"").append(escapeQuotes(joinTime)).append("\"\n");
-        }
-
-        // Save CSV to file
-        String fileName = (selectedEvent != null ? selectedEvent.getTitle() : "entrants")
-                + "_" + System.currentTimeMillis() + ".csv";
-
-        try {
-            java.io.File file = new java.io.File(getContext().getCacheDir(), fileName);
-            java.io.FileWriter writer = new java.io.FileWriter(file);
-            writer.write(csvContent.toString());
-            writer.close();
-
-            // Share the file
-            android.net.Uri fileUri = androidx.core.content.FileProvider.getUriForFile(
-                    requireContext(),
-                    requireContext().getPackageName() + ".fileprovider",
-                    file);
-
-            android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
-            shareIntent.setType("text/csv");
-            shareIntent.putExtra(android.content.Intent.EXTRA_STREAM, fileUri);
-            shareIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Enrolled Entrants - " + fileName);
-            shareIntent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            startActivity(android.content.Intent.createChooser(shareIntent, "Export CSV"));
-        } catch (Exception e) {
-            Log.e(TAG, "Error exporting CSV", e);
-            Toast.makeText(getContext(), "Error exporting CSV: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private String escapeQuotes(String value) {
-        if (value == null) return "";
-        return value.replace("\"", "\"\"");
     }
 
     // ── Button visibility ─────────────────────────────────────────────────────

@@ -8,28 +8,57 @@ import com.google.firebase.firestore.WriteBatch;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * NotificationRemoteDataSource.java
+ *
+ * This class serves as the direct interface with Google Firebase Firestore for all
+ * notification-related data operations. It handles low-level tasks such as setting
+ * up real-time snapshot listeners and performing batch writes.
+ *
+ * Role: Remote Data Source in the Data Layer (MVVM).
+ *
+ * Outstanding Issues:
+ * - Security: Firestore rules must be carefully configured to ensure users can only 
+ *   listen to notifications where 'userEmail' matches their own authenticated identity.
+ * - Scalability: listenForNotificationsByEmail returns all historical notifications; 
+ *   pagination or a limit (e.g., last 50) should be implemented to save bandwidth.
+ */
 public class NotificationRemoteDataSource {
 
     private final FirebaseFirestore db;
     private static final String TAG = "NotificationRDS";
 
+    /**
+     * Listener interface to receive real-time updates when the notification list changes in Firestore.
+     */
     public interface OnNotificationsUpdatedListener {
+        /**
+         * Called when new data is retrieved from Firestore.
+         * @param notifications The updated list of notification objects.
+         */
         void onUpdate(List<Notification> notifications);
     }
 
+    /**
+     * Initializes the data source with a Firestore instance.
+     */
     public NotificationRemoteDataSource() {
         db = FirebaseFirestore.getInstance();
     }
 
     /**
-     * Saves a single notification to Firestore.
+     * Persists a single notification to the 'notifications' collection.
+     * 
+     * @param notification The notification object to save.
      */
     public void saveNotification(Notification notification) {
         db.collection("notifications").add(notification);
     }
 
     /**
-     * Saves multiple notifications efficiently using a WriteBatch.
+     * Efficiently persists multiple notifications in a single atomic transaction.
+     * 
+     * @param notifications The list of notifications to save.
      */
     public void saveNotificationsBatch(List<Notification> notifications) {
         if (notifications == null || notifications.isEmpty()) return;
@@ -42,9 +71,11 @@ public class NotificationRemoteDataSource {
     }
 
     /**
-     * Listens for real-time updates to a user's notifications by email.
-     * Restored .orderBy() for server-side sorting.
-     * Note: This requires a composite index on (userEmail ASC, timestamp DESC).
+     * Sets up a real-time listener for notifications for a specific email address.
+     * Results are ordered by timestamp in descending order (newest first).
+     * 
+     * @param email    The recipient email address.
+     * @param listener The callback to trigger on data changes.
      */
     public void listenForNotificationsByEmail(String email, OnNotificationsUpdatedListener listener) {
         if (email == null || email.isEmpty()) {
@@ -74,7 +105,10 @@ public class NotificationRemoteDataSource {
     }
 
     /**
-     * Listens for real-time updates to a user's notifications by userId.
+     * Sets up a real-time listener for notifications for a specific user ID.
+     * 
+     * @param userId   The recipient user ID.
+     * @param listener The callback to trigger on data changes.
      */
     public void listenForNotifications(String userId, OnNotificationsUpdatedListener listener) {
         Log.d(TAG, "Setting up listener for userId: " + userId);

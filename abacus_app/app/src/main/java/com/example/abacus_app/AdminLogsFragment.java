@@ -24,6 +24,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.android.material.tabs.TabLayoutMediator.TabConfigurationStrategy;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
@@ -221,10 +222,11 @@ public class AdminLogsFragment extends Fragment {
                     if (query.isEmpty()) {
                         imageList.add(e);
                     } else {
-                        // Match against organizer ID, title, or description
+                        // Match against organizer ID, email, title, or description
                         boolean match =
                                 (e.getTitle() != null && e.getTitle().toLowerCase().contains(query))
-                                        || (e.getOrganizerId() != null && e.getOrganizerId().toLowerCase().contains(query));
+                                        || (e.getOrganizerId() != null && e.getOrganizerId().toLowerCase().contains(query))
+                                        || (e.getOrganizerEmail() != null && e.getOrganizerEmail().toLowerCase().contains(query));
                         if (match) imageList.add(e);
                     }
                 }
