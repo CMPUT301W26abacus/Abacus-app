@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.PropertyName;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +20,7 @@ public class Event implements Serializable {
     private String title;
     private String description;
     private String organizerId;
+    private String organizerEmail;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
     private Timestamp eventStart;
@@ -27,6 +30,7 @@ public class Event implements Serializable {
     private Integer waitlistCount;    // Current number of people on waitlist
     private boolean geoRequired;
     private boolean lotteryDrawn;
+    @PropertyName("isPrivate")
     private boolean isPrivate;
     private String posterImageUrl;
     private String qrCodeUrl;
@@ -66,22 +70,67 @@ public class Event implements Serializable {
         this.isPrivate = false; // Default to public
     }
 
+    /**
+     * @return the unique ID of the event.
+     */
     public String getEventId() { return eventId; }
+
+    /**
+     * @param eventId sets the unique ID of the event.
+     */
     public void setEventId(String eventId) { this.eventId = eventId; }
 
+    /**
+     * @return the display title.
+     */
     public String getTitle() { return title; }
+
+    /**
+     * @param title sets the display title.
+     */
     public void setTitle(String title) { this.title = title; }
 
+    /**
+     * @return the event description.
+     */
     public String getDescription() { return description; }
+    
+    /**
+     * @param description sets the event description.
+     */
     public void setDescription(String description) { this.description = description; }
 
+    /**
+     * @return the organizer's ID.
+     */
     public String getOrganizerId() { return organizerId; }
+    
+    /**
+     * @param organizerId sets the organizer's ID.
+     */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
 
+    public String getOrganizerEmail() { return organizerEmail; }
+    public void setOrganizerEmail(String organizerEmail) { this.organizerEmail = organizerEmail; }
+
+    /**
+     * @return start of registration period.
+     */
     public Timestamp getRegistrationStart() { return registrationStart; }
+    
+    /**
+     * @param registrationStart sets registration start time.
+     */
     public void setRegistrationStart(Timestamp registrationStart) { this.registrationStart = registrationStart; }
 
+    /**
+     * @return end of registration period.
+     */
     public Timestamp getRegistrationEnd() { return registrationEnd; }
+    
+    /**
+     * @param registrationEnd sets registration end time.
+     */
     public void setRegistrationEnd(Timestamp registrationEnd) { this.registrationEnd = registrationEnd; }
 
     /** When the event itself starts (shown to entrants). */
@@ -107,9 +156,11 @@ public class Event implements Serializable {
     public boolean isLotteryDrawn() { return lotteryDrawn; }
     public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
 
+    @PropertyName("isPrivate")
     public boolean isPrivate() { return isPrivate; }
-    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
+    @PropertyName("isPrivate")
+    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
     public String getPosterImageUrl() { return posterImageUrl; }
     public void setPosterImageUrl(String posterImageUrl) { this.posterImageUrl = posterImageUrl; }
 

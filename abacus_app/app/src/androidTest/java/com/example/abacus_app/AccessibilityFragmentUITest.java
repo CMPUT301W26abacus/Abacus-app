@@ -26,7 +26,7 @@ import org.junit.runner.RunWith;
  * Uses {@link FragmentScenario} — no Firebase connection needed.
  * Tests verify:
  *   - Both switches start unchecked when SharedPreferences are clear
- *   - Color-blind switch reflects persisted state (true)
+ *   - One-handed mode switch reflects persisted state (true)
  *   - Large-text switch reflects persisted state (true)
  *   - Back button is visible
  *
@@ -65,7 +65,7 @@ public class AccessibilityFragmentUITest {
 
     @Test
     public void fragment_launchesWithoutCrashing() {
-        onView(withId(R.id.switchColorBlind)).check(matches(isDisplayed()));
+        onView(withId(R.id.switchOneHanded)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -77,16 +77,16 @@ public class AccessibilityFragmentUITest {
 
     @Test
     public void switchesStartUnchecked_whenPrefsAreClear() {
-        onView(withId(R.id.switchColorBlind)).check(matches(isNotChecked()));
+        onView(withId(R.id.switchOneHanded)).check(matches(isNotChecked()));
         onView(withId(R.id.switchLargeText)).check(matches(isNotChecked()));
     }
 
     // ── Persisted state reflected in UI ──────────────────────────────────────
 
     @Test
-    public void colorBlindSwitch_isChecked_whenPrefsSetToTrue() {
+    public void oneHandedSwitch_isChecked_whenPrefsSetToTrue() {
         // Pre-set the preference before launching the fragment
-        prefs.edit().putBoolean("colorBlindMode", true).commit();
+        prefs.edit().putBoolean("oneHandedMode", true).commit();
         if (scenario != null) scenario.close();
 
         scenario = FragmentScenario.launchInContainer(
@@ -95,7 +95,7 @@ public class AccessibilityFragmentUITest {
                 R.style.Theme_Abacusapp,
                 (androidx.fragment.app.FragmentFactory) null);
 
-        onView(withId(R.id.switchColorBlind)).check(matches(isChecked()));
+        onView(withId(R.id.switchOneHanded)).check(matches(isChecked()));
     }
 
     @Test
@@ -113,8 +113,8 @@ public class AccessibilityFragmentUITest {
     }
 
     @Test
-    public void colorBlindSwitch_isNotChecked_whenPrefsSetToFalse() {
-        prefs.edit().putBoolean("colorBlindMode", false).commit();
+    public void oneHandedSwitch_isNotChecked_whenPrefsSetToFalse() {
+        prefs.edit().putBoolean("oneHandedMode", false).commit();
         if (scenario != null) scenario.close();
 
         scenario = FragmentScenario.launchInContainer(
@@ -123,7 +123,7 @@ public class AccessibilityFragmentUITest {
                 R.style.Theme_Abacusapp,
                 (androidx.fragment.app.FragmentFactory) null);
 
-        onView(withId(R.id.switchColorBlind)).check(matches(isNotChecked()));
+        onView(withId(R.id.switchOneHanded)).check(matches(isNotChecked()));
     }
 
     // ── Both switches visible ─────────────────────────────────────────────────

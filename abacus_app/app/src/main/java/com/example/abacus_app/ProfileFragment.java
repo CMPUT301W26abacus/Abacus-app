@@ -28,6 +28,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
@@ -90,6 +91,8 @@ public class ProfileFragment extends Fragment {
     private TextView    labelSection;
     private View        dangerDivider;
     private TextView    labelDanger;
+    private MaterialSwitch switchNotifications;
+    private View        cardNotificationToggle;
 
     private ActivityResultLauncher<Intent> photoPickerLauncher;
 
@@ -175,6 +178,8 @@ public class ProfileFragment extends Fragment {
         labelSection     = view.findViewById(R.id.labelSection);
         dangerDivider    = view.findViewById(R.id.dangerDivider);
         labelDanger      = view.findViewById(R.id.labelDanger);
+        switchNotifications = view.findViewById(R.id.switchNotifications);
+        cardNotificationToggle = view.findViewById(R.id.cardNotificationToggle);
 
         btnBack.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
@@ -304,6 +309,12 @@ public class ProfileFragment extends Fragment {
             }
         });
 
+        viewModel.getNotificationsEnabled().observe(getViewLifecycleOwner(), enabled -> {
+            if (switchNotifications != null && switchNotifications.isChecked() != enabled) {
+                switchNotifications.setChecked(enabled);
+            }
+        });
+
 
         etName.addTextChangedListener(new SimpleTextWatcher() {
             @Override public void afterTextChanged(Editable s) {
@@ -394,6 +405,13 @@ public class ProfileFragment extends Fragment {
             updateModeDot(mode);
         });
 
+        if (switchNotifications != null) {
+            switchNotifications.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                viewModel.setNotificationsEnabled(isChecked);
+                viewModel.saveNotificationPreference(isChecked);
+            });
+        }
+
 
         viewModel.loadProfile();
     }
@@ -412,6 +430,7 @@ public class ProfileFragment extends Fragment {
         cardBio.setVisibility(View.GONE);
         cardOrgName.setVisibility(View.GONE);
         cardStats.setVisibility(View.GONE);
+        cardNotificationToggle.setVisibility(View.GONE);
         tvGuestBanner.setVisibility(View.VISIBLE);
         btnLinkAccount.setVisibility(View.VISIBLE);
         btnAccessibility.setVisibility(View.VISIBLE);
@@ -437,6 +456,7 @@ public class ProfileFragment extends Fragment {
         cardFields.setVisibility(View.VISIBLE);
         cardBio.setVisibility(View.VISIBLE);
         cardStats.setVisibility(View.VISIBLE);
+        cardNotificationToggle.setVisibility(View.VISIBLE);
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
         btnAccessibility.setVisibility(View.VISIBLE);

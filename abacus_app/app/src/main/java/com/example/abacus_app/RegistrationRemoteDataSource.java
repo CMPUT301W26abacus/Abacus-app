@@ -45,6 +45,13 @@ public class RegistrationRemoteDataSource {
         firestore = FirebaseFirestore.getInstance();
     }
 
+    /**
+     * Returns a reference to the waitlist subcollection for the given event.
+     * Waitlist documents are stored at {@code events/{eventID}/waitlist}.
+     *
+     * @param eventID the Firestore document ID of the event
+     * @return a CollectionReference to the event's waitlist subcollection
+     */
     private CollectionReference getCollectionRef(String eventID) {
         return firestore
                 .collection("events")
@@ -52,19 +59,30 @@ public class RegistrationRemoteDataSource {
                 .collection("waitlist");
     }
 
+    /**
+     * Returns a reference to the event document for the given event ID.
+     * Used to read and update event-level fields such as {@code waitlistCount}.
+     *
+     * @param eventID the Firestore document ID of the event
+     * @return a DocumentReference to the event document
+     */
     private DocumentReference getEventDocRef(String eventID) {
         return firestore.collection("events").document(eventID);
     }
 
     /**
-     * Helper to extract WaitlistEntry from a document.
+     * Maps a Firestore document snapshot to a {@link WaitlistEntry}.
      *
-     * Handles both authenticated docs (userId / eventId) and guest docs
-     * (guestEmail / guestName / eventId). For guest docs, userId is populated
-     * with the guestEmail so the rest of the history pipeline can treat them
-     * identically without needing to know the difference.
+     * <p>Handles both authenticated user documents (which store {@code userId} or legacy
+     * {@code userID}) and guest documents (which have no userId field and instead store
+     * {@code guestEmail}). For guest documents, the guestEmail is used as the userId so
+     * the rest of the history pipeline can treat them identically.
      *
-     * WaitlistEntry does not use firebase serialization.
+     * <p>WaitlistEntry does not use Firebase automatic deserialisation — fields are
+     * extracted manually to handle the legacy field name variations.
+     *
+     * @param doc the Firestore document snapshot to map
+     * @return a populated WaitlistEntry, or null if the document does not exist
      */
     private WaitlistEntry mapDocument(DocumentSnapshot doc) {
         if (!doc.exists()) return null;
@@ -94,7 +112,7 @@ public class RegistrationRemoteDataSource {
         entry.setLongitude(doc.getDouble("longitude"));
         entry.setUserName(doc.getString("userName"));
         entry.setUserEmail(doc.getString("userEmail"));
-        
+
         return entry;
     }
 
@@ -154,6 +172,7 @@ public class RegistrationRemoteDataSource {
 
     /**
      * Adds a WaitlistEntry to the waitlist subcollection of an event.
+     * Also increments the {@code waitlistCount} field on the event document.
      *
      * @param eventID the unique ID of the event in the database
      * @param entry   the WaitlistEntry to add
@@ -161,11 +180,11 @@ public class RegistrationRemoteDataSource {
      */
     public void joinWaitlistSync(String eventID, WaitlistEntry entry) throws Exception {
         DocumentReference docRef = getCollectionRef(eventID).document(entry.getUserID());
-        
-        // Use a transaction or batch to ensure count consistency if needed, 
+
+        // Use a transaction or batch to ensure count consistency if needed,
         // but simple update is usually enough for this scope.
         Tasks.await(docRef.set(entry));
-        
+
         // Increment waitlistCount in the event document
         Tasks.await(getEventDocRef(eventID).update("waitlistCount", FieldValue.increment(1)));
     }
@@ -222,7 +241,9 @@ public class RegistrationRemoteDataSource {
     }
 
     /**
-     * Removes a user's entry from the waitlist subcollection.
+     * Removes a user's entry from the waitlist subcollection using a Firestore transaction.
+     * Decrements {@code waitlistCount} on the event document atomically.
+     * No-ops silently if the entry does not exist.
      *
      * @param eventId the unique ID of the event in the database
      * @param userId  the unique ID of the user in the database
@@ -251,7 +272,7 @@ public class RegistrationRemoteDataSource {
      *
      * @param eventId the unique ID of the event in the database
      * @param userId  the unique ID of the user in the database
-     * @param status  the new status string
+     * @param status  the new status string — one of the {@link WaitlistEntry} STATUS_* constants
      * @throws Exception something went wrong
      */
     public void updateUserEntryStatusSync(String eventId, String userId, String status) throws Exception {
@@ -281,7 +302,7 @@ public class RegistrationRemoteDataSource {
      * Returns all waitlist entries for a specific event filtered by status.
      *
      * @param eventID the unique ID of the event in the database
-     * @param status  the status to filter by
+     * @param status  the status to filter by — one of the {@link WaitlistEntry} STATUS_* constants
      * @return filtered list of WaitlistEntry objects
      * @throws Exception something went wrong
      */
@@ -301,8 +322,18 @@ public class RegistrationRemoteDataSource {
     /**
      * Returns all waitlist entries associated with a single user across all events.
      *
+     * <p>Queries three locations to ensure complete coverage:
+     * <ol>
+     *   <li>Collection group query on {@code userId} (current field name).</li>
+     *   <li>Collection group query on {@code userID} (legacy uppercase field name).</li>
+     *   <li>Flat {@code registrations} collection for backward compatibility with older flows.</li>
+     * </ol>
+     * Results are de-duplicated by Firestore document path using a {@link LinkedHashMap}.
+     *
      * @param userID the unique ID of the user in the database
-     * @return list of all WaitlistEntry objects for the user
+     * @return list of all WaitlistEntry objects for the user, or null on failure
+     * @throws ExecutionException   if a Firestore task fails
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
         try {
@@ -354,15 +385,16 @@ public class RegistrationRemoteDataSource {
     /**
      * Returns all registrations for a guest user, querying by guestEmail.
      *
-     * Guest docs have no userId field — they are keyed by sanitised email
+     * <p>Guest docs have no userId field — they are keyed by sanitised email
      * as the document ID prefix and store the raw email in the guestEmail field.
      * This method is used by FirebaseRegistrationRepository when the app is
      * running in guest mode (isGuest intent extra == true).
      *
      * @param guestEmail the raw email address entered by the guest
      * @return list of WaitlistEntry items, or empty list on failure
+     * @throws ExecutionException   if a Firestore task fails
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
-    // users should not be allowed to join waitlists without being identified (signed in)
     public ArrayList<WaitlistEntry> getHistoryForGuestSync(
             String guestEmail) throws ExecutionException, InterruptedException {
         try {
@@ -381,6 +413,17 @@ public class RegistrationRemoteDataSource {
         return new ArrayList<>();
     }
 
+    /**
+     * Adds guest-specific fields (guestEmail, guestName, isGuest) to an existing
+     * waitlist entry document. Only updates the document if it already exists —
+     * this is called after {@link #joinWaitlistAtomicSync} has written the base entry.
+     *
+     * @param eventId    the unique ID of the event in the database
+     * @param guestId    the guest's sanitised email key used as the document ID
+     * @param guestEmail the raw email address entered by the guest
+     * @param guestName  the name entered by the guest
+     * @throws Exception if the Firestore read or update operation fails
+     */
     public void addGuestFields(String eventId, String guestId, String guestEmail, String guestName) throws Exception {
         DocumentReference docRef = getCollectionRef(eventId).document(guestId);
 

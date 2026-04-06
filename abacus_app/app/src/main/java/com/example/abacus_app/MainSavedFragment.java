@@ -224,11 +224,14 @@ public class MainSavedFragment extends Fragment {
      * {@link ManageEventViewModel#addCoOrganizer(String, String)} using Firebase UIDs.
      */
     private void loadCoOrganizedEvents() {
-        // coOrganizers stores Firebase UID (set by addCoOrganizer in ManageEventViewModel)
-        if (userUid == null) return;
+        if (userUid == null && deviceUuid == null) return;
+
+        List<String> idsToCheck = new ArrayList<>();
+        if (userUid != null) idsToCheck.add(userUid);
+        if (deviceUuid != null && !deviceUuid.equals(userUid)) idsToCheck.add(deviceUuid);
 
         FirebaseFirestore.getInstance().collection("events")
-                .whereArrayContains("coOrganizers", userUid)
+                .whereArrayContainsAny("coOrganizers", idsToCheck)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     displayList.clear();
@@ -260,11 +263,8 @@ public class MainSavedFragment extends Fragment {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmpty.setVisibility(View.GONE);
 
-            boolean canManageEvents = false;
-            if (getActivity() instanceof MainActivity) {
-                String role = ((MainActivity) getActivity()).getEffectiveRole();
-                canManageEvents = "organizer".equals(role) || "admin".equals(role);
-            }
+            boolean canManageEvents = true;
+            String resolvedKey = deviceUuid != null ? deviceUuid : userUid;
 
             adapter = new EventAdapter(
                     displayList,
@@ -288,14 +288,17 @@ public class MainSavedFragment extends Fragment {
                         Bundle args = new Bundle();
                         args.putString("EVENT_ID", event.getEventId());
                         args.putString("EVENT_TITLE", event.getTitle());
-
                         ((MainActivity) getActivity()).showFragment(R.id.organizerManageFragment, false, args);
                     },
                     false,
                     canManageEvents,
-                    userUid,
+                    resolvedKey,
                     false
             );
+
+            if (currentMode == ViewMode.CO_ORGANIZED) {
+                adapter.setHideFavourite(true);
+            }
 
             recyclerView.setAdapter(adapter);
             if (currentMode == ViewMode.SAVED) {

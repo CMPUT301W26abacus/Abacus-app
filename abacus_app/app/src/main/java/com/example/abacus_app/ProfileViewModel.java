@@ -35,8 +35,6 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<String>  _organizationName = new MutableLiveData<>("");
     private final MutableLiveData<Integer> _eventsCreated    = new MutableLiveData<>(0);
     private final MutableLiveData<Integer> _totalRegistrations = new MutableLiveData<>(0);
-
-    // Stats from dev branch
     private final MutableLiveData<Integer> _eventsJoined    = new MutableLiveData<>(0);
     private final MutableLiveData<Integer> _eventsWon       = new MutableLiveData<>(0);
 
@@ -98,14 +96,26 @@ public class ProfileViewModel extends ViewModel {
         _notificationsEnabled.setValue(enabled);
     }
 
+    /**
+     * Saves the notification preference to Firestore immediately (Dev Branch Feature).
+     */
+    public void saveNotificationPreference(boolean enabled) {
+        if (userRepository == null) return;
+        Map<String, Object> data = new HashMap<>();
+        data.put("notificationsEnabled", enabled);
+        userRepository.saveProfileAsync(data, error -> {
+            if (error != null) {
+                _toastMessage.postValue("Failed to update notification preference");
+            }
+        });
+    }
+
     public void invalidateProfile() {
         profileLoaded = false;
     }
 
     public void loadProfile() {
         if (userRepository == null) return;
-
-        // Use dev branch guest check
         Boolean guestNow = _isGuest.getValue();
         if (guestNow != null && guestNow) return;
 
@@ -233,7 +243,6 @@ public class ProfileViewModel extends ViewModel {
                 .addOnFailureListener(e -> _eventsCreated.postValue(0));
     }
 
-    // Dev branch stats method
     public void loadEntrantStats(String userId, RegistrationRepository registrationRepository) {
         registrationRepository.getEntrantStats(userId, (eventsJoined, eventsWon) -> {
             _eventsJoined.postValue(eventsJoined);
@@ -242,7 +251,7 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
-     * YOUR CLOUDINARY UPLOAD LOGIC
+     * YOUR CLOUDINARY UPLOAD LOGIC (Kept from your branch)
      */
     public void uploadProfilePhoto(android.net.Uri photoUri, StorageRepository storageRepo) {
         if (userRepository == null || photoUri == null) return;
@@ -250,7 +259,6 @@ public class ProfileViewModel extends ViewModel {
         userRepository.getCurrentUserIdAsync(uuid -> {
             if (uuid == null) return;
 
-            // Use the Cloudinary callback method you implemented
             storageRepo.uploadImage(photoUri, new StorageRepository.CloudinaryCallback() {
                 @Override
                 public void onSuccess(String url) {

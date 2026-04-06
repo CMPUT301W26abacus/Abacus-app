@@ -128,7 +128,13 @@ public class MainActivity extends AppCompatActivity {
 
     private ListenerRegistration eventsListener;
 
-    /** App-level role model supports only entrant/organizer for signed-in users. */
+    /**
+     * Normalises a raw role string to one of the three app-level roles.
+     * Any unrecognised value defaults to "entrant".
+     *
+     * @param role the raw role string from Firestore or the launch Intent
+     * @return one of "admin", "organizer", or "entrant"
+     */
     private String normalizeAppRole(String role) {
         if ("admin".equals(role)) return "admin";
         if ("organizer".equals(role)) return "organizer";
@@ -362,6 +368,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Builds or rebuilds the bottom navigation menu based on the current user role.
+     * Organizers and admins receive a different menu than entrants.
+     * No-ops if the role group has not changed since the last build, avoiding
+     * unnecessary menu inflation and listener resets.
+     */
     private void setupBottomNav() {
         String roleGroup = ("organizer".equals(userRole) || "admin".equals(userRole))
                 ? "organizer" : "entrant";
@@ -378,13 +390,13 @@ public class MainActivity extends AppCompatActivity {
                     showHome();
                     return true;
                 } else if (id == R.id.nav_tools) {
-                    showFragment(R.id.organizerToolsFragment, true);
+                    showFragment(R.id.organizerCreateFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
                     if ("admin".equals(userRole)) {
                         showFragment(R.id.adminLogsFragment, true);
                     } else {
-                        showFragment(R.id.organizerLogsFragment, true);
+                        showFragment(R.id.organizerManageFragment, true);
                     }
                     return true;
                 } else if (id == R.id.nav_notifications) {
@@ -466,12 +478,14 @@ public class MainActivity extends AppCompatActivity {
      * Filters allEvents by the active keyword, tags, date, availability, and expiry,
      * then binds the result to the RecyclerView via EventAdapter.
      *
-     * - activeKeyword:    search bar, matches title + description, applied on keystroke
-     * - activeFilterTags: comma-separated chip selections, matches event.tags then text
-     * - activeDate:       checked against eventStart/eventEnd (the actual event dates,
-     *                     not the registration window — more intuitive for entrants)
-     * - filterOpenOnly:   excludes events whose registration window has not yet started
-     * - filterHasSpots:   excludes events where waitlistCount >= waitlistCapacity
+     * <ul>
+     *   <li>{@code activeKeyword} — search bar, matches title + description, applied on keystroke</li>
+     *   <li>{@code activeFilterTags} — comma-separated chip selections, matches event.tags then text</li>
+     *   <li>{@code activeDate} — checked against eventStart/eventEnd (the actual event dates,
+     *       not the registration window — more intuitive for entrants)</li>
+     *   <li>{@code filterOpenOnly} — excludes events whose registration window has not yet started</li>
+     *   <li>{@code filterHasSpots} — excludes events where waitlistCount &gt;= waitlistCapacity</li>
+     * </ul>
      */
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
@@ -483,13 +497,8 @@ public class MainActivity extends AppCompatActivity {
                 : activeFilterTags.split(",");
 
         for (Event event : allEvents) {
-            // EXCLUDE co-organized events from the browse screen
-            if (resolvedUserKey != null && event.getCoOrganizers() != null
-                    && event.getCoOrganizers().contains(resolvedUserKey)) {
-                continue;
-            }
 
-            String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
+            String title = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
 
             // ── Search bar match (title + description) ────────────────────────
@@ -525,13 +534,13 @@ public class MainActivity extends AppCompatActivity {
                         if (event.getEventStart() != null) {
                             // Use event dates when available
                             Date start = event.getEventStart().toDate();
-                            Date end   = event.getEventEnd() != null
+                            Date end = event.getEventEnd() != null
                                     ? event.getEventEnd().toDate() : start;
                             dateMatch = !picked.before(start) && !picked.after(end);
                         } else if (event.getRegistrationStart() != null) {
                             // Fallback for events created before event dates were added
                             Date start = event.getRegistrationStart().toDate();
-                            Date end   = event.getRegistrationEnd() != null
+                            Date end = event.getRegistrationEnd() != null
                                     ? event.getRegistrationEnd().toDate() : start;
                             dateMatch = !picked.before(start) && !picked.after(end);
                         }
@@ -552,7 +561,7 @@ public class MainActivity extends AppCompatActivity {
             boolean spotsMatch = true;
             if (filterHasSpots) {
                 Integer capacity = event.getWaitlistCapacity();
-                Integer count    = event.getWaitlistCount();
+                Integer count = event.getWaitlistCount();
                 if (capacity != null) {
                     spotsMatch = count == null || count < capacity;
                 }
@@ -566,22 +575,20 @@ public class MainActivity extends AppCompatActivity {
 
             // ── Visibility: private events only shown to their organizer ──────
             boolean isPublic = !event.isPrivate();
+            boolean isCoOrganizer = resolvedUserKey != null && event.getCoOrganizers() != null && event.getCoOrganizers().contains(resolvedUserKey);
             boolean isOrganizerOfPrivate = false;
-            if (!isPublic) {
+            boolean isAdminViewingPrivate = "admin".equals(userRole) && !isPublic;
+
+            if (!isPublic && !isAdminViewingPrivate) {
                 String organizerId = event.getOrganizerId();
-                boolean isOrganizerByUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
-                boolean isOrganizerByFirebaseUID = false;
-                if (!isOrganizerByUUID) {
-                    com.google.firebase.auth.FirebaseUser firebaseUser =
-                            com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                    isOrganizerByFirebaseUID = (firebaseUser != null
-                            && firebaseUser.getUid().equals(organizerId));
-                }
-                isOrganizerOfPrivate = isOrganizerByUUID || isOrganizerByFirebaseUID;
+                boolean byUUID = resolvedUserKey != null && resolvedUserKey.equals(organizerId);
+                FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+                boolean byFirebase = fu != null && fu.getUid().equals(organizerId);
+                isOrganizerOfPrivate = byUUID || byFirebase;
             }
 
-            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch
-                    && notExpired && (isPublic || isOrganizerOfPrivate)) {
+            if (searchMatch && tagMatch && dateMatch && openMatch && spotsMatch && notExpired
+                    && (isPublic || isOrganizerOfPrivate || isAdminViewingPrivate || isCoOrganizer)) {
                 filtered.add(event);
             }
         }
@@ -691,7 +698,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** True when the user has at least one category preference saved. */
+    /**
+     * Returns true when the user has at least one category preference saved.
+     *
+     * @param prefs the user's preferences map from Firestore, or null
+     * @return true if the "categories" list is non-empty
+     */
     private boolean hasActivePreferences(java.util.Map<String, Object> prefs) {
         if (prefs == null || prefs.isEmpty()) return false;
         Object raw = prefs.get("categories");
@@ -699,6 +711,15 @@ public class MainActivity extends AppCompatActivity {
         return !((java.util.List<?>) raw).isEmpty();
     }
 
+    /**
+     * Filters the given event list to only those matching at least one of the
+     * user's preferred categories. Matching is checked against event title and
+     * description (case-insensitive).
+     *
+     * @param events the pre-filtered event list to further narrow
+     * @param prefs  the user's preferences map containing a "categories" list
+     * @return a new list containing only events that match at least one preference
+     */
     private List<Event> applyPreferenceFilter(List<Event> events,
                                               java.util.Map<String, Object> prefs) {
         Object categoriesRaw = prefs.get("categories");
@@ -714,6 +735,13 @@ public class MainActivity extends AppCompatActivity {
         return matching;
     }
 
+    /**
+     * Returns true if the event's title or description contains any of the given keywords.
+     *
+     * @param event    the event to check
+     * @param keywords the list of category keywords to match against
+     * @return true if at least one keyword is found in the title or description
+     */
     private boolean eventMatchesAny(Event event, java.util.List<String> keywords) {
         String title = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
         String desc  = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
@@ -757,6 +785,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Admin event deletion ──────────────────────────────────────────────────
 
+    /**
+     * Shows a confirmation dialog before an admin deletes an event from the browse list.
+     *
+     * @param event the event to be deleted
+     */
     private void confirmDeleteEvent(Event event) {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Event")
@@ -766,6 +799,12 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Performs a soft delete by setting isDeleted=true on the event document in Firestore.
+     * Removes the event from the local list and refreshes the adapter immediately on success.
+     *
+     * @param event the event to soft-delete
+     */
     private void softDeleteEvent(Event event) {
         if (event.getEventId() == null || event.getEventId().isEmpty()) return;
         FirebaseFirestore.getInstance()
@@ -784,11 +823,16 @@ public class MainActivity extends AppCompatActivity {
     // ── Bottom sheet filter ───────────────────────────────────────────────────
 
     /**
-     * Shows the filter bottom sheet.
+     * Inflates and displays the filter bottom sheet.
+     * Restores the current filter state (checked chips, date label, toggle states)
+     * so re-opening the sheet reflects previous selections.
      *
-     * 1. Category chips  → activeFilterTags
-     * 2. Date picker     → activeDate (matches against eventStart/eventEnd)
-     * 3. Availability    → filterOpenOnly, filterHasSpots
+     * <p>Three filter dimensions are managed:
+     * <ol>
+     *   <li>Category chips → {@code activeFilterTags}</li>
+     *   <li>Date picker    → {@code activeDate} (matched against eventStart/eventEnd)</li>
+     *   <li>Availability   → {@code filterOpenOnly}, {@code filterHasSpots}</li>
+     * </ol>
      */
     private void showFilterBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
@@ -865,6 +909,10 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * Sets the event list area to a loading state while Firestore data is being fetched.
+     * Hides the RecyclerView and shows the empty-state layout with a "Loading events…" message.
+     */
     private void showLoadingState() {
         recyclerView.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);
@@ -874,6 +922,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
+    /** Slide animation used for sub-page forward navigations. */
     public static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
             .setEnterAnim(R.anim.nav_slide_in_right)
             .setExitAnim(R.anim.nav_slide_out_left)
@@ -881,6 +930,7 @@ public class MainActivity extends AppCompatActivity {
             .setPopExitAnim(R.anim.nav_slide_out_right)
             .build();
 
+    /** No-animation options used for bottom nav tab switches to avoid visual glitches. */
     private static final NavOptions NAV_OPTS_TAB = new NavOptions.Builder()
             .setEnterAnim(0)
             .setExitAnim(0)
@@ -888,12 +938,18 @@ public class MainActivity extends AppCompatActivity {
             .setPopExitAnim(0)
             .build();
 
+    /**
+     * Convenience overload that navigates without passing arguments.
+     *
+     * @param destinationId nav-graph resource ID of the destination fragment
+     * @param showBottomNav true for top-level tab navigations; false for sub-pages
+     */
     public void showFragment(int destinationId, boolean showBottomNav) {
         showFragment(destinationId, showBottomNav, null);
     }
 
     /**
-     * Navigates to a destination inside the {@link androidx.navigation.NavController} and
+     * Navigates to a destination inside the {@link NavController} and
      * manages the visibility of the home screen vs. the nav host.
      *
      * <p>When {@code showBottomNav} is {@code true} (top-level tab switch), the back stack is
@@ -901,10 +957,10 @@ public class MainActivity extends AppCompatActivity {
      * When transitioning from the home screen to any fragment, the back stack is also cleared
      * so that Back skips the nav-graph start destination and goes straight to home.
      *
-     * @param destinationId Nav-graph resource ID of the destination fragment.
-     * @param showBottomNav {@code true} for top-level tab navigations (bottom nav visible);
-     *                      {@code false} for sub-page navigations (bottom nav hidden).
-     * @param args          Optional arguments {@link Bundle} passed to the destination, or null.
+     * @param destinationId nav-graph resource ID of the destination fragment
+     * @param showBottomNav true for top-level tab navigations (bottom nav visible);
+     *                      false for sub-page navigations (bottom nav hidden)
+     * @param args          optional arguments Bundle passed to the destination, or null
      */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
         // Clear back stack for top-level tabs to ensure clean navigation between tabs
@@ -981,6 +1037,12 @@ public class MainActivity extends AppCompatActivity {
 
     // ── One-handed mode ───────────────────────────────────────────────────────
 
+    /**
+     * Configures the one-handed mode gesture detection and the bottom nav touch listener.
+     * The bottom nav touch listener consumes vertical swipes to prevent them from leaking
+     * into the SwipeRefreshLayout behind it. Gesture detection itself is handled in
+     * dispatchTouchEvent() using raw coordinates for emulator compatibility.
+     */
     private void setupOneHandedMode() {
         View rootView = findViewById(R.id.main);
         View handle   = findViewById(R.id.oneHandedHandle);
@@ -1015,6 +1077,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Slides the entire UI down by 42% of the screen height to bring content
+     * into comfortable one-handed reach, then fades in the chevron handle.
+     *
+     * @param rootView the root view of the activity to translate
+     * @param handle   the chevron handle view to show, or null if not yet inflated
+     */
     private void activateOneHanded(View rootView, View handle) {
         isOneHandedActive = true;
         float shift = getResources().getDisplayMetrics().heightPixels * 0.42f;
@@ -1036,6 +1105,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Slides the UI back to its normal position and fades out the chevron handle.
+     *
+     * @param rootView the root view to reset, or null to find it by ID
+     * @param handle   the chevron handle to hide, or null to find it by ID
+     */
     private void deactivateOneHanded(View rootView, View handle) {
         isOneHandedActive = false;
         stopChevronAnimation();
@@ -1059,10 +1134,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Convenience overload used by onResume when the local view references are not available.
+     */
     private void deactivateOneHanded() {
         deactivateOneHanded(findViewById(R.id.main), findViewById(R.id.oneHandedHandle));
     }
 
+    /**
+     * Starts a looping brightness-wave animation on the four chevron children of the handle.
+     * The wave travels bottom-to-top (child 3 → 0) with 120 ms stagger and repeats after
+     * a 350 ms pause. Stops automatically if the handle is detached from the window.
+     *
+     * @param handle the LinearLayout containing four chevron ImageViews
+     */
     private void startChevronAnimation(View handle) {
         if (!(handle instanceof LinearLayout)) return;
         LinearLayout group = (LinearLayout) handle;
@@ -1101,6 +1186,9 @@ public class MainActivity extends AppCompatActivity {
         loop[0].run();
     }
 
+    /**
+     * Cancels the running chevron animation and removes any pending loop callbacks.
+     */
     private void stopChevronAnimation() {
         if (chevronAnimator != null) {
             chevronAnimator.cancel();
@@ -1114,12 +1202,9 @@ public class MainActivity extends AppCompatActivity {
     // ── Swipe back / forward navigation ──────────────────────────────────────
 
     /**
-     * Left-edge → swipe RIGHT  : go back (pop NavController stack, or return home).
-     *
-     * Edge zone is 64 dp from the left side so horizontal RecyclerViews in the
-     * centre of the screen are never accidentally triggered.
-     * Swipes starting inside the bottom-nav bar are ignored (handled by the
-     * one-handed detector instead).
+     * Configures a left-edge swipe-right gesture to navigate back.
+     * The edge zone is 64 dp from the left side of the screen. Swipes starting
+     * inside the bottom nav bar are ignored (handled by the one-handed detector).
      */
     private void setupNavSwipeGesture() {
         float edgePx = 64 * getResources().getDisplayMetrics().density;
@@ -1159,6 +1244,12 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * Cycles the bottom nav selection by {@code delta} positions.
+     * No-ops if the resulting index would be out of bounds.
+     *
+     * @param delta positive to move forward, negative to move backward
+     */
     private void shiftTab(int delta) {
         android.view.Menu menu = bottomNav.getMenu();
         int count = menu.size();
@@ -1236,6 +1327,12 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Recursively sets the text and hint colour on all TextViews within a ViewGroup.
+     * Used to ensure the search bar text is always visible regardless of theme.
+     *
+     * @param viewGroup the root ViewGroup to traverse
+     */
     private void setSearchBarTextColor(ViewGroup viewGroup) {
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
             View child = viewGroup.getChildAt(i);
@@ -1248,8 +1345,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /** @return the NavController managing in-app fragment navigation. */
     public NavController getNavController() { return navController; }
 
+    /** @return the current user role ("entrant", "organizer", or "admin"). */
     public String getUserRole() { return userRole; }
 
     /**
@@ -1266,12 +1365,16 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /** @return the current effective role, reflecting any admin view-mode switch. */
     public String getEffectiveRole() { return userRole; }
 
+    /** @return true if the current session is a guest (unauthenticated) session. */
     public boolean isGuestSession() { return isGuest; }
 
     /**
      * Called by ProfileFragment when the user signs out.
+     * Resets role and guest state, clears the stored guest email, rebuilds the
+     * bottom nav as entrant, and returns to the home screen.
      */
     public void onUserLoggedOut() {
         userRole = "entrant";
@@ -1291,10 +1394,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Called by EventAdapter when a guest attempts to join an event.
+     * Shows a sign-in prompt instead of proceeding with the join flow.
+     */
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
     }
 
+    /**
+     * Shows a Material dialog prompting the user to sign in or register.
+     *
+     * @param message the explanatory message shown in the dialog body
+     */
     private void showLoginPrompt(String message) {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Sign in required")
@@ -1307,10 +1419,24 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Redirects to SplashActivity and clears the back stack.
+     * Used when an unauthenticated non-guest session is detected on launch.
+     */
     private void goToSplash() {
         Intent intent = new Intent(this, SplashActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Sets the bottom navigation bar visibility.
+     * Used by fragments that need to temporarily hide the nav bar (e.g. full-screen views).
+     *
+     * @param visible true to show the bottom nav, false to hide it
+     */
+    public void setBottomNavVisible(boolean visible) {
+        bottomNav.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 }

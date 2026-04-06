@@ -93,12 +93,6 @@ public class OrganizerCreateFragment extends Fragment {
         cbLimit             = view.findViewById(R.id.cb_limit_waitlist);
         chipGroupTags       = view.findViewById(R.id.chip_group_tags);
 
-        ImageButton btnBack = view.findViewById(R.id.btn_back);
-        btnBack.setOnClickListener(v -> {
-            if (getActivity() instanceof MainActivity) {
-                ((MainActivity) getActivity()).showFragment(R.id.organizerToolsFragment, true);
-            }
-        });
 
         cbLimit.setOnCheckedChangeListener((v, isChecked) -> {
             etLimit.setEnabled(isChecked);
