@@ -17,10 +17,20 @@ import java.util.Locale;
 /**
  * Adapter for the admin image moderation list.
  * Shows event name, organizer email, and date posted.
+ *
+ * @author erika
  */
 public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.ViewHolder> {
 
+    /**
+     * Callback interface for delete button clicks on an event card.
+     */
     public interface OnDeleteClickListener {
+        /**
+         * Called when the delete button is clicked for the given event.
+         *
+         * @param event The event to be deleted.
+         */
         void onDelete(Event event);
     }
 
@@ -28,11 +38,20 @@ public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.Vi
     private final OnDeleteClickListener listener;
     private final SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
 
+    /**
+     * Constructs a new {@code AdminImageAdapter}.
+     *
+     * @param events   The list of events to display.
+     * @param listener Callback invoked when the delete button is tapped.
+     */
     public AdminImageAdapter(List<Event> events, OnDeleteClickListener listener) {
         this.events   = events;
         this.listener = listener;
     }
 
+    /**
+     * Inflates the item layout and returns a new {@link ViewHolder}.
+     */
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -41,12 +60,18 @@ public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.Vi
         return new ViewHolder(view);
     }
 
+    /**
+     * Binds event data to the given {@link ViewHolder}.
+     *
+     * @param holder   The ViewHolder to bind data into.
+     * @param position The position of the item in the list.
+     */
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Event event = events.get(position);
 
         holder.tvPrimary.setText(event.getTitle() != null ? event.getTitle() : "Untitled");
-        
+
         // Show organizer email instead of ID
         String organizerInfo = event.getOrganizerEmail() != null ? event.getOrganizerEmail() : event.getOrganizerId();
         holder.tvSecondary.setText("Organizer: " + (organizerInfo != null ? organizerInfo : "Unknown"));
@@ -70,14 +95,28 @@ public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.Vi
         });
     }
 
+    /**
+     * Returns the total number of events in the list.
+     *
+     * @return The item count.
+     */
     @Override
     public int getItemCount() { return events.size(); }
 
+    /**
+     * ViewHolder for an admin image moderation card.
+     * Holds references to the thumbnail, text fields, and delete button.
+     */
     static class ViewHolder extends RecyclerView.ViewHolder {
         android.widget.ImageView ivThumb;
         TextView tvPrimary, tvSecondary, tvTertiary;
         MaterialButton btnDelete;
 
+        /**
+         * Constructs a ViewHolder and binds all child views.
+         *
+         * @param itemView The root view of the item layout.
+         */
         ViewHolder(@NonNull View itemView) {
             super(itemView);
             ivThumb     = itemView.findViewById(R.id.iv_thumb);

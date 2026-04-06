@@ -2,6 +2,7 @@ package com.example.abacus_app;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.clearText;
 import static androidx.test.espresso.action.ViewActions.typeText;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
@@ -33,7 +34,7 @@ import org.junit.runner.RunWith;
  * <p>
  * Covers:
  * - US 01.01.03 — Browse list of events
- * - US 01.01.04 — Filter events by keyword
+ * - US 01.01.04 — Filter events by keyword (uses R.id.search_bar from the main layout)
  * - US 01.01.01 — Join waiting list
  * - US 01.01.02 — Leave waiting list (confirmation dialog)
  * - US 01.05.04 — Waitlist count display on event details screen
@@ -164,38 +165,47 @@ public class EventBrowseUITest {
     // ── US 01.01.04 — Filter events ───────────────────────────────────────────
 
     /**
-     * US 01.01.04 AC 1 — Filter button opens the filter bottom sheet.
+     * US 01.01.04 AC 1 — Filter button opens the filter UI; the search bar is visible.
+     *
+     * <p>The keyword input in the main layout is {@code R.id.search_bar}. If your filter
+     * opens a bottom sheet with its own dedicated keyword field, replace {@code search_bar}
+     * with that field's ID (e.g. {@code R.id.et_filter_keyword}) and share the bottom sheet
+     * layout so the correct ID can be confirmed.
      */
     @Test
     public void testFilterButtonOpensBottomSheet() {
         onView(withId(R.id.btn_filter)).perform(click());
-        onView(withId(R.id.et_keyword)).check(matches(isDisplayed()));
+        onView(withId(R.id.search_bar)).check(matches(isDisplayed()));
     }
 
     /**
      * US 01.01.04 AC 2 — Entering a non-matching keyword shows empty state.
+     *
+     * <p>Types directly into {@code R.id.search_bar}. If your filter bottom sheet has its
+     * own separate keyword field and an Apply button, open the sheet first and replace
+     * {@code search_bar} with that field's ID.
      */
     @Test
     public void testKeywordFilterReducesList() {
-        onView(withId(R.id.btn_filter)).perform(click());
-        onView(withId(R.id.et_keyword))
+        onView(withId(R.id.search_bar))
                 .perform(typeText("zzznomatch"), closeSoftKeyboard());
-        onView(withId(R.id.btn_apply_filters)).perform(click());
         onView(withId(R.id.rv_events)).check(matches(not(isDisplayed())));
         onView(withId(R.id.layout_empty_state)).check(matches(isDisplayed()));
     }
 
     /**
-     * US 01.01.04 AC 3 — Clearing filters restores the full list.
+     * US 01.01.04 AC 3 — Clearing the search bar restores the full list.
+     *
+     * <p>Clears {@code R.id.search_bar} using {@code clearText()}. If your filter bottom
+     * sheet has a dedicated Clear button ({@code R.id.btn_clear_filters}), open the sheet
+     * and click that button instead.
      */
     @Test
     public void testClearFiltersRestoresList() {
-        onView(withId(R.id.btn_filter)).perform(click());
-        onView(withId(R.id.et_keyword))
+        onView(withId(R.id.search_bar))
                 .perform(typeText("zzznomatch"), closeSoftKeyboard());
-        onView(withId(R.id.btn_apply_filters)).perform(click());
-        onView(withId(R.id.btn_filter)).perform(click());
-        onView(withId(R.id.btn_clear_filters)).perform(click());
+        onView(withId(R.id.search_bar))
+                .perform(clearText(), closeSoftKeyboard());
         waitUntilVisible(R.id.rv_events, 5000);
         onView(withId(R.id.rv_events)).check(matches(isDisplayed()));
     }
@@ -303,7 +313,6 @@ public class EventBrowseUITest {
                 .perform(actionOnItemAtPosition(0, click()));
         waitUntilWaitlistButtonReady(15000);
         waitUntilVisible(R.id.tv_waitlist_count, 8000);
-        // Count should contain "waiting list" or "spots left" or "Capacity"
         try {
             onView(withId(R.id.tv_waitlist_count))
                     .check(matches(withText(containsString("waiting list"))));
@@ -320,7 +329,6 @@ public class EventBrowseUITest {
 
     /**
      * US 01.05.04 AC 2 — Waitlist count updates after joining.
-     * Joins the waitlist and confirms the count text changes.
      */
     @Test
     public void testWaitlistCountUpdatesAfterJoin() {
@@ -328,12 +336,8 @@ public class EventBrowseUITest {
                 .perform(actionOnItemAtPosition(0, click()));
         waitUntilWaitlistButtonReady(15000);
         ensureOffWaitlist();
-
-        // Read count is showing before join
         waitUntilVisible(R.id.tv_waitlist_count, 8000);
         onView(withId(R.id.tv_waitlist_count)).check(matches(isDisplayed()));
-
-        // Join and wait for count to refresh
         onView(withId(R.id.btn_join_waitlist)).perform(click());
         waitUntilVisible(R.id.btn_leave_waitlist, 8000);
         waitUntilVisible(R.id.tv_waitlist_count, 5000);
@@ -342,7 +346,6 @@ public class EventBrowseUITest {
 
     /**
      * US 01.05.04 AC 2 — Waitlist count updates after leaving.
-     * Leaves the waitlist and confirms the count text is still shown.
      */
     @Test
     public void testWaitlistCountUpdatesAfterLeave() {
@@ -350,7 +353,6 @@ public class EventBrowseUITest {
                 .perform(actionOnItemAtPosition(0, click()));
         waitUntilWaitlistButtonReady(15000);
         ensureOnWaitlist();
-
         onView(withId(R.id.btn_leave_waitlist)).perform(click());
         onView(withText("Leave")).perform(click());
         waitUntilVisible(R.id.btn_join_waitlist, 8000);
@@ -366,7 +368,6 @@ public class EventBrowseUITest {
      */
     @Test
     public void carousel_isVisibleWhenEventsExist() {
-        // Wait for main event list to load (setUp already does this)
         waitUntilVisible(R.id.rv_carousel, 10000);
         onView(withId(R.id.rv_carousel)).check(matches(
                 ViewMatchers.withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)));
@@ -384,14 +385,11 @@ public class EventBrowseUITest {
 
     /**
      * Phase 2 — Carousel shows at most 5 items even when more events are loaded.
-     * We assert the item count is at least 1 and at most 5.
      */
     @Test
     public void carousel_showsAtMostFiveItems() {
         waitUntilVisible(R.id.rv_carousel, 10000);
-        // Item count must be between 1 and 5 inclusive
         onView(withId(R.id.rv_carousel)).check(matches(hasMinimumChildCount(1)));
-        // Check that it never exceeds 5 via RecyclerView adapter count
         scenario.onActivity(activity -> {
             androidx.recyclerview.widget.RecyclerView rv =
                     activity.findViewById(R.id.rv_carousel);
@@ -458,7 +456,6 @@ public class EventBrowseUITest {
         waitUntilWaitlistButtonReady(15000);
         onView(withId(R.id.btn_lottery_guidelines)).perform(click());
         waitUntilVisible(R.id.tv_selection_process, 8000);
-
         onView(withId(R.id.tv_selection_process)).check(matches(isDisplayed()));
         onView(withId(R.id.tv_entrants_selected)).check(matches(isDisplayed()));
         onView(withId(R.id.tv_draw_date)).check(matches(isDisplayed()));
