@@ -312,7 +312,7 @@
         android:id="@+id/layout_waitlist_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:gravity="center"
         android:backgroundTint="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -347,6 +347,19 @@
             android:visibility="gone"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+        <!-- Event Status Message — shown when user has accepted/declined/cancelled -->
+        <TextView
+            android:id="@+id/tv_event_waitlist_status_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+
         <!-- Accept Invitation — green, shown when invited -->
         <Button
             android:id="@+id/btn_accept_invitation"
@@ -354,7 +367,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
             android:layout_marginEnd="20dp"
-            android:layout_marginVertical="10dp"
+            android:layout_marginBottom="10dp"
             android:text="ACCEPT"
             android:textColor="@color/color_status_accepted_green"
             android:backgroundTint="@color/white"
@@ -369,7 +382,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
             android:layout_marginEnd="20dp"
-            android:layout_marginVertical="10dp"
+            android:layout_marginBottom="10dp"
             android:text="DECLINE"
             android:textColor="@color/color_status_declined_red"
             android:backgroundTint="@color/white"
@@ -377,13 +390,7 @@
             android:enabled="false"
             android:visibility="gone" />
 
-        <!-- Event Status Message — shown when user has accepted/declined/cancelled -->
-        <TextView
-            android:id="@+id/tv_event_waitlist_status_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="10dp"
-            android:visibility="gone" />
+        </LinearLayout>
 
     </LinearLayout>
 

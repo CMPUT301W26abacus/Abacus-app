@@ -11,6 +11,7 @@ import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,38 +22,97 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Adapter class for the RecyclerView in NotificationFragment.
- * Supports two view types: Normal (My Inbox) and Log (Admin view).
+ * NotificationAdapter.java
+ *
+ * This adapter manages the display of notification items in a RecyclerView.
+ * It supports two distinct view modes:
+ * 1. Normal Mode (My Inbox): For users to view and interact with their own notifications (e.g., accepting invitations).
+ * 2. Log Mode (Admin View): A read-only view for administrators to audit all system notifications.
+ *
+ * Role: Adapter in the View Layer (MVVM/MVP).
+ *
+ * Outstanding Issues:
+ * - Event title fetching happens inside onBindViewHolder; consider pre-fetching or moving to a ViewModel to avoid redundant Firestore calls.
+ * - The 'isReadOnly' flag should ideally be passed through a constructor or a more formal configuration object.
  */
 public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int VIEW_TYPE_NORMAL = 0;
     private static final int VIEW_TYPE_LOG = 1;
 
+    /**
+     * Interface to handle user actions on notifications (e.g., Accept/Decline).
+     */
     public interface OnNotificationActionListener {
+        /**
+         * Called when the user clicks 'Accept' on an invitation notification.
+         * @param notification The notification object being acted upon.
+         */
         void onAccept(Notification notification);
+
+        /**
+         * Called when the user clicks 'Decline' on an invitation notification.
+         * @param notification The notification object being acted upon.
+         */
         void onDecline(Notification notification);
+    }
+
+    /**
+     * Interface to handle clicks on a notification item to navigate to details.
+     */
+    public interface OnItemClickListener {
+        /**
+         * Called when a notification item is clicked.
+         * @param eventId The ID of the event associated with the notification.
+         */
+        void onItemClick(String eventId);
     }
 
     private List<Notification> notifications = new ArrayList<>();
     private Map<String, String> organizerEmails = new HashMap<>();
+    private Map<String, String> eventTitles = new HashMap<>();
     private OnNotificationActionListener actionListener;
+    private OnItemClickListener itemClickListener;
     private boolean isReadOnly = false;
 
+    /**
+     * Sets the listener for notification actions (Accept/Decline).
+     * @param listener The listener implementation.
+     */
     public void setOnNotificationActionListener(OnNotificationActionListener listener) {
         this.actionListener = listener;
     }
 
+    /**
+     * Sets the listener for item clicks.
+     * @param listener The listener implementation.
+     */
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.itemClickListener = listener;
+    }
+
+    /**
+     * Updates the list of notifications to be displayed.
+     * @param notifications The new list of notifications.
+     */
     public void setNotifications(List<Notification> notifications) {
         this.notifications = notifications;
         notifyDataSetChanged();
     }
 
+    /**
+     * Updates the cache of organizer emails for display in Log mode.
+     * @param emails A map of organizer IDs to their emails.
+     */
     public void setOrganizerEmails(Map<String, String> emails) {
         this.organizerEmails = emails;
         notifyDataSetChanged();
     }
 
+    /**
+     * Sets whether the adapter is in read-only (Log) mode or interactive (Inbox) mode.
+     * @param readOnly True for read-only mode, false otherwise.
+     */
     public void setReadOnly(boolean readOnly) {
         this.isReadOnly = readOnly;
         notifyDataSetChanged();
@@ -93,16 +153,37 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             String senderDisplay = (email != null) ? email : (orgId != null ? orgId : "System/Unknown");
             
             logHolder.tvSender.setText("From: " + senderDisplay);
-            logHolder.tvType.setText(notification.getType());
-            logHolder.statusTextView.setText("Status: " + notification.getStatus());
-            
-            if (Notification.STATUS_ACCEPTED.equals(notification.getStatus())) {
-                logHolder.statusTextView.setTextColor(Color.parseColor("#4CAF50"));
-            } else if (Notification.STATUS_DECLINED.equals(notification.getStatus())) {
-                logHolder.statusTextView.setTextColor(Color.parseColor("#F44336"));
+
+            // Fetch and show Event Title instead of Type
+            String eventId = notification.getEventId();
+            if (eventId != null && !eventId.isEmpty()) {
+                if (eventTitles.containsKey(eventId)) {
+                    logHolder.tvType.setText(eventTitles.get(eventId));
+                } else {
+                    logHolder.tvType.setText("Loading event...");
+                    FirebaseFirestore.getInstance().collection("events").document(eventId)
+                            .get()
+                            .addOnSuccessListener(documentSnapshot -> {
+                                String title = documentSnapshot.getString("title");
+                                if (title != null) {
+                                    eventTitles.put(eventId, title);
+                                    notifyItemChanged(position);
+                                } else {
+                                    eventTitles.put(eventId, "Unknown Event");
+                                    logHolder.tvType.setText("Unknown Event");
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                eventTitles.put(eventId, "Error loading title");
+                                logHolder.tvType.setText("Error loading title");
+                            });
+                }
             } else {
-                logHolder.statusTextView.setTextColor(Color.GRAY);
+                logHolder.tvType.setText("System Notification");
             }
+
+            // Hide status as requested
+            logHolder.statusTextView.setVisibility(View.GONE);
 
         } else if (holder instanceof NotificationViewHolder) {
             NotificationViewHolder normalHolder = (NotificationViewHolder) holder;
@@ -138,9 +219,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             normalHolder.itemView.setOnClickListener(v -> {
                 String eventId = notification.getEventId();
                 if (eventId != null && !eventId.isEmpty()) {
-                    Bundle args = new Bundle();
-                    args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
-                    Navigation.findNavController(v).navigate(R.id.eventDetailsFragment, args);
+                    itemClickListener.onItemClick(eventId);
                 }
             });
         }
@@ -151,6 +230,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         return notifications.size();
     }
 
+    /**
+     * ViewHolder for standard interactive notifications.
+     */
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView, timestampTextView, statusTextView;
         View layoutActions;
@@ -167,6 +249,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
+    /**
+     * ViewHolder for read-only log entries (Admin view).
+     */
     static class LogViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView, timestampTextView, statusTextView, tvRecipient, tvSender, tvType;
 

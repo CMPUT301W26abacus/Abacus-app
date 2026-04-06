@@ -868,7 +868,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    private static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
+    public static final NavOptions NAV_OPTS_FORWARD = new NavOptions.Builder()
             .setEnterAnim(R.anim.nav_slide_in_right)
             .setExitAnim(R.anim.nav_slide_out_left)
             .setPopEnterAnim(R.anim.nav_slide_in_left)

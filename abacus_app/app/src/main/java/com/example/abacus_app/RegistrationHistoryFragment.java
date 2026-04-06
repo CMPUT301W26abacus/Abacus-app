@@ -111,8 +111,14 @@ public class RegistrationHistoryFragment extends Fragment {
             Bundle args = new Bundle();
             args.putString(EventDetailsFragment.ARG_EVENT_ID,    eventId);
             args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
-            Navigation.findNavController(requireView())
-                    .navigate(R.id.action_nav_history_to_eventDetailsFragment, args);
+
+            // show event details page with no nav-bar
+            ((MainActivity) requireActivity())
+                    .showFragment(
+                            R.id.eventDetailsFragment,
+                            false,
+                            args
+                    );
         });
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);

@@ -9,16 +9,11 @@
  * the fragment fires joinWaitlist() or openGuestSignUp() automatically as
  * soon as the user ID is resolved — no extra tap needed.
  *
- * Admin delete: When the effective role is "admin", btnJoinWaitlist is
- * repurposed as a red DELETE button. Tapping it shows a confirmation dialog
- * and performs a soft delete (sets isDeleted=true in Firestore).
- *
- * Organizer edit: When the current user is the organizer or co-organizer,
- * btnJoinWaitlist is repurposed as an orange Edit button. Tapping it toggles
- * inline edit mode for title, description, and poster URL.
- *
- * The waitlist join/leave buttons are hidden for admins and organizers since
- * they manage rather than participate.
+ * Admin delete: When the effective role is "admin", a red Delete Event button
+ * is shown above the join/leave buttons. Tapping it shows a confirmation
+ * dialog and performs a soft delete (sets isDeleted=true in Firestore).
+ * The waitlist join/leave buttons are hidden for admins since they manage
+ * rather than participate.
  */
 package com.example.abacus_app;
 
@@ -53,10 +48,14 @@ import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.CancellationTokenSource;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
@@ -64,19 +63,23 @@ public class EventDetailsFragment extends Fragment {
     public static final String ARG_EVENT_TITLE = "eventTitle";
     public static final String ARG_EVENT_ID    = "eventId";
 
+    /**
+     * Optional boolean arg. When true, the fragment immediately triggers the
+     * join flow (or guest sign-up) as soon as the user ID is resolved.
+     * Set by EventAdapter when the user taps the Join button on a home card.
+     */
     public static final String ARG_AUTO_JOIN = "autoJoin";
 
-    private String currentEventId         = null;
-    private String currentUserId          = null;
+    private String currentEventId = null;
+    private String currentUserId  = null;
     private String currentRegistrationKey = null;
-    private Event  loadedEvent            = null;
-    private String eventTitle             = "Event Details";
-    private boolean isGuest               = false;
-    private boolean autoJoin              = false;
-    private boolean isEditing             = false;
+    private Event  loadedEvent    = null;
+    private String eventTitle     = "Event Details";
+    private boolean isGuest       = false;
+    private boolean autoJoin      = false;
+    private boolean isEditing     = false;
 
     private FirebaseFirestore db;
-
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
     private Button btnAccept;
@@ -88,12 +91,15 @@ public class EventDetailsFragment extends Fragment {
 
     private EventRepository eventRepository;
     private RegistrationRepository registrationRepository;
+    private NotificationRepository notificationRepository;
 
     private EditText etTitle, etDescription, etPosterUrl;
     private TextView tvTitle, tvDescription;
     private ImageView ivPoster;
 
     private FusedLocationProviderClient fusedLocationClient;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Nullable
     @Override
@@ -114,7 +120,9 @@ public class EventDetailsFragment extends Fragment {
         db                     = FirebaseFirestore.getInstance();
         eventRepository        = new EventRepository();
         registrationRepository = new RegistrationRepository();
+        notificationRepository = new NotificationRepository();
 
+        // ── Back ───────────────────────────────────────────────────────────────
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (!Navigation.findNavController(view).popBackStack()) {
@@ -122,6 +130,7 @@ public class EventDetailsFragment extends Fragment {
             }
         });
 
+        // ── Args ───────────────────────────────────────────────────────────────
         eventTitle = getArguments() != null
                 ? getArguments().getString(ARG_EVENT_TITLE, "Event Details")
                 : "Event Details";
@@ -132,6 +141,7 @@ public class EventDetailsFragment extends Fragment {
         tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
 
+        // ── QR button ─────────────────────────────────────────────────────────
         btnViewQr = view.findViewById(R.id.btn_view_qr);
         btnViewQr.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -140,6 +150,7 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
 
+        // ── Comment Button ─────────────────────────────────────────────────────
         Button btnViewComments = view.findViewById(R.id.btn_view_comments);
         btnViewComments.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -149,6 +160,7 @@ public class EventDetailsFragment extends Fragment {
             commentsFragment.show(getParentFragmentManager(), "comments");
         });
 
+        // ── Lottery Guidelines ─────────────────────────────────────────────────
         Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
         btnLotteryGuidelines.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -163,11 +175,14 @@ public class EventDetailsFragment extends Fragment {
         etDescription = view.findViewById(R.id.et_edit_description);
         etPosterUrl   = view.findViewById(R.id.et_edit_poster_url);
 
+        if (currentEventId != null) loadEventDetails();
+
+        // ── Waitlist setup ─────────────────────────────────────────────────────
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
-        btnAccept        = view.findViewById(R.id.btn_accept_invitation);
-        btnDecline       = view.findViewById(R.id.btn_decline_invitation);
-        tvStatusMessage  = view.findViewById(R.id.tv_event_waitlist_status_message);
+        btnAccept = view.findViewById(R.id.btn_accept_invitation);
+        btnDecline = view.findViewById(R.id.btn_decline_invitation);
+        tvStatusMessage = view.findViewById(R.id.tv_event_waitlist_status_message);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
         btnViewMap       = view.findViewById(R.id.btn_view_map);
 
@@ -180,13 +195,32 @@ public class EventDetailsFragment extends Fragment {
             btnViewMap.setVisibility(View.GONE);
             btnViewMap.setOnClickListener(v -> {
                 Bundle args = new Bundle();
-                args.putString(EventMapFragment.ARG_EVENT_ID,   currentEventId);
+                args.putString(EventMapFragment.ARG_EVENT_ID, currentEventId);
                 args.putString(EventMapFragment.ARG_EVENT_NAME, eventTitle);
                 Navigation.findNavController(view).navigate(R.id.eventMapFragment, args);
             });
         }
 
-        if (currentEventId != null) loadEventDetails();
+        // ── Delete button ─────────────────────────────────────────────────────────
+        // Shown to: admins (any event) or organizers (their own events)
+        boolean isAdmin = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
+        boolean isOrganizerOfThisEvent = canEditCurrentEvent();
+
+        if (isAdmin || isOrganizerOfThisEvent) {
+            btnLeaveWaitlist.setVisibility(View.GONE);
+            btnJoinWaitlist.setEnabled(true);
+            btnJoinWaitlist.setText("Delete");
+            btnJoinWaitlist.setBackgroundTintList(
+                    ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_red)));
+            btnJoinWaitlist.setOnClickListener(v ->
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Delete Event")
+                            .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
+                            .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
+                            .setNegativeButton("Cancel", null)
+                            .show());
+            return; // skip all waitlist setup below
+        }
 
         if (isGuest) {
             setupGuestWaitlist(view);
@@ -194,19 +228,9 @@ public class EventDetailsFragment extends Fragment {
             setupAuthenticatedWaitlist();
         }
 
+
+
         loadWaitlistCount();
-    }
-
-    // ── Role helper ───────────────────────────────────────────────────────────
-
-    /**
-     * Returns true if the current user has the organizer or admin role.
-     * Used to suppress waitlist buttons for organizers on events they don't own.
-     */
-    private boolean isOrganizerRole() {
-        if (getActivity() == null) return false;
-        String role = ((MainActivity) getActivity()).getEffectiveRole();
-        return "organizer".equals(role) || "admin".equals(role);
     }
 
     // ── Guest waitlist ────────────────────────────────────────────────────────
@@ -220,11 +244,13 @@ public class EventDetailsFragment extends Fragment {
             showJoinButton();
             btnJoinWaitlist.setEnabled(true);
             btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
+            // Auto-join for guests with no email goes straight to sign-up form
             if (autoJoin) openGuestSignUp(view);
             return;
         }
 
         String guestKey = GuestSignUpFragment.emailToKey(savedEmail);
+
         registrationRepository.isOnWaitlist(guestKey, currentEventId, isOn -> {
             if (isOn) {
                 showLeaveButton();
@@ -235,6 +261,7 @@ public class EventDetailsFragment extends Fragment {
                 showJoinButton();
                 btnJoinWaitlist.setEnabled(true);
                 btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
+                // Auto-join: go straight to guest sign-up form
                 if (autoJoin) openGuestSignUp(view);
             }
         });
@@ -244,8 +271,9 @@ public class EventDetailsFragment extends Fragment {
 
     private void setupAuthenticatedWaitlist() {
         UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
-        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
-        UserRepository userRepository         = new UserRepository(localDataSource, remoteDataSource);
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(
+                FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
@@ -256,14 +284,14 @@ public class EventDetailsFragment extends Fragment {
                 currentRegistrationKey = GuestSignUpFragment.emailToKey(
                         email.trim().toLowerCase(Locale.US));
             } else {
+                // Fallback if auth email is unavailable.
                 currentRegistrationKey = uuid;
             }
 
-            // Only call checkWaitlistStatus() if:
-            // 1. loadedEvent is already set (so canEditCurrentEvent() is accurate)
-            // 2. The user is not the organizer/owner of this event
-            // 3. The user does not have the organizer/admin role at all
-            if (loadedEvent != null && !canEditCurrentEvent() && !isOrganizerRole()) {
+            // Re-check now that IDs are resolved — co-organizer needs Edit not Join
+            if (canEditCurrentEvent()) {
+                showJoinButton(); // showJoinButton checks canEditCurrentEvent and shows "Edit"
+            } else {
                 checkWaitlistStatus();
             }
         });
@@ -281,15 +309,16 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Checks registration status and shows the correct button.
-     * If autoJoin is set and the user is NOT yet on the waitlist,
-     * immediately fires handleJoinFlow().
+     * Checks registration status via RegistrationRepository and shows
+     * the correct button. If autoJoin is set and the user is NOT yet on the
+     * waitlist, immediately fires handleJoinFlow().
      */
     private void checkWaitlistStatus() {
         if (currentEventId == null || currentRegistrationKey == null) return;
         registrationRepository.isOnWaitlist(currentRegistrationKey, currentEventId, isOn -> {
             if (isOn) {
                 registrationRepository.getUserEntry(currentRegistrationKey, currentEventId, entry -> {
+                    // show correct button/text depending on waitlist status
                     switch (entry.getStatus()) {
                         case WaitlistEntry.STATUS_WAITLISTED:
                             showLeaveButton();
@@ -310,6 +339,7 @@ public class EventDetailsFragment extends Fragment {
                 });
             } else {
                 showJoinButton();
+                // Auto-join: fire immediately, no extra tap needed
                 if (autoJoin && btnJoinWaitlist.getVisibility() == View.VISIBLE) handleJoinFlow();
             }
         });
@@ -344,10 +374,16 @@ public class EventDetailsFragment extends Fragment {
         registrationRepository.leaveWaitlist(guestKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(), "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),
+                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+
+            // Notify organizer that entrant left
+            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, guestKey);
+
             View root = getView();
             if (root != null) {
                 showJoinButton();
@@ -359,14 +395,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Event details ─────────────────────────────────────────────────────────
 
-    /**
-     * Loads the event from Firestore and populates all UI fields.
-     * Determines which action button to show based on role:
-     * - Admin     → btnJoinWaitlist repurposed as red DELETE button
-     * - Organizer (owner/co-organizer) → btnJoinWaitlist repurposed as orange Edit button
-     * - Organizer (not owner) → all waitlist buttons hidden
-     * - Regular   → normal waitlist buttons via checkWaitlistStatus()
-     */
     private void loadEventDetails() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -397,26 +425,13 @@ public class EventDetailsFragment extends Fragment {
                     if (tvDescription != null && event.getDescription() != null)
                         tvDescription.setText(event.getDescription());
 
-                    SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
-
-                    TextView tvEventDateTime = getView() != null
-                            ? getView().findViewById(R.id.tv_event_date_time) : null;
-                    if (tvEventDateTime != null) {
-                        if (event.getEventStart() != null) {
-                            String start = sdf.format(event.getEventStart().toDate());
-                            tvEventDateTime.setText(event.getEventEnd() != null
-                                    ? start + " – " + sdf.format(event.getEventEnd().toDate())
-                                    : start);
-                        } else {
-                            tvEventDateTime.setText("Not set");
-                        }
-                    }
-
-                    TextView tvRegDateTime = getView() != null
+                    TextView tvDateTime = getView() != null
                             ? getView().findViewById(R.id.tv_date_time) : null;
-                    if (tvRegDateTime != null && event.getRegistrationStart() != null) {
+                    if (tvDateTime != null && event.getRegistrationStart() != null) {
+                        SimpleDateFormat sdf =
+                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
                         String start = sdf.format(event.getRegistrationStart().toDate());
-                        tvRegDateTime.setText(event.getRegistrationEnd() != null
+                        tvDateTime.setText(event.getRegistrationEnd() != null
                                 ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
                                 : start);
                     }
@@ -427,57 +442,15 @@ public class EventDetailsFragment extends Fragment {
                                 ? "Unlimited spots" : "Capacity: " + capacity);
                     }
 
-                    if (btnViewMap != null && event.isGeoRequired() && canEditCurrentEvent()) {
+                    if (btnViewMap != null && event.isGeoRequired()
+                            && canEditCurrentEvent()) {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
-                    // ── Role-based action button ───────────────────────────────
-                    boolean isAdminRole       = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
-                    boolean isOrganizerOfThis = canEditCurrentEvent();
+                    // Re-apply join button visibility based on loaded event privacy
+                    if (currentUserId != null) checkWaitlistStatus();
 
-                    if (isAdminRole) {
-                        hideAllActionButtons();
-                        btnJoinWaitlist.setVisibility(View.VISIBLE);
-                        btnJoinWaitlist.setEnabled(true);
-                        btnJoinWaitlist.setText("DELETE");
-                        btnJoinWaitlist.setTextColor(
-                                ContextCompat.getColor(requireContext(), R.color.white));
-                        btnJoinWaitlist.setBackgroundTintList(
-                                ColorStateList.valueOf(
-                                        ContextCompat.getColor(requireContext(), R.color.error_red)));
-                        btnJoinWaitlist.setOnClickListener(v ->
-                                new AlertDialog.Builder(requireContext())
-                                        .setTitle("Delete Event")
-                                        .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
-                                        .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
-                                        .setNegativeButton("Cancel", null)
-                                        .show());
-
-                    } else if (isOrganizerOfThis) {
-                        // Owner/co-organizer of this event: show Edit button
-                        hideAllActionButtons();
-                        btnJoinWaitlist.setVisibility(View.VISIBLE);
-                        btnJoinWaitlist.setEnabled(true);
-                        btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
-                        btnJoinWaitlist.setTextColor(
-                                ContextCompat.getColor(requireContext(), R.color.white));
-                        btnJoinWaitlist.setBackgroundTintList(
-                                ColorStateList.valueOf(
-                                        ContextCompat.getColor(requireContext(), R.color.orange)));
-                        btnJoinWaitlist.setOnClickListener(v -> toggleEditMode());
-
-                    } else if (isOrganizerRole()) {
-                        // Organizer role but does NOT own this event: hide everything
-                        hideAllActionButtons();
-
-                    } else if (currentRegistrationKey != null) {
-                        // Regular user: show waitlist buttons
-                        checkWaitlistStatus();
-                    }
-                    // If currentRegistrationKey is still null here, the getUserId
-                    // callback in setupAuthenticatedWaitlist() will call
-                    // checkWaitlistStatus() once it resolves.
-
+                    // Organizer name — direct Firestore read used here intentionally.
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -509,10 +482,9 @@ public class EventDetailsFragment extends Fragment {
             } else {
                 long spotsLeft = Math.max(0, capacity - count);
                 tvWaitlistCount.setText(count + " on waiting list · " + spotsLeft + " spots left");
-                // Only disable join button for regular users — not for admins/organizers
                 if (spotsLeft == 0 && btnJoinWaitlist != null
                         && btnJoinWaitlist.getVisibility() == View.VISIBLE
-                        && !isOrganizerRole()) {
+                        && !"admin".equals(((MainActivity) requireActivity()).getEffectiveRole())) {
                     btnJoinWaitlist.setEnabled(false);
                     btnJoinWaitlist.setText("Event Full");
                 }
@@ -527,7 +499,8 @@ public class EventDetailsFragment extends Fragment {
             if (ActivityCompat.checkSelfPermission(requireContext(),
                     Manifest.permission.ACCESS_FINE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+                requestPermissions(
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
             } else {
                 fetchLocationAndJoin();
             }
@@ -583,13 +556,19 @@ public class EventDetailsFragment extends Fragment {
             Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_SHORT).show();
             return;
         }
+
         registrationRepository.joinWaitlist(currentRegistrationKey, currentEventId, location, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(), "You have joined the waiting list!", Toast.LENGTH_SHORT).show();
+
+            Toast.makeText(requireContext(),
+                    "You have joined the waiting list!",
+                    Toast.LENGTH_SHORT).show();
+
             showLeaveButton();
             loadWaitlistCount();
         });
@@ -606,13 +585,20 @@ public class EventDetailsFragment extends Fragment {
 
     private void leaveWaitlist() {
         if (currentRegistrationKey == null || currentEventId == null) return;
+
         registrationRepository.leaveWaitlist(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(), "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),
+                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
+
+            // Notify organizer that entrant left
+            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, currentRegistrationKey);
+
             showJoinButton();
             loadWaitlistCount();
         });
@@ -623,7 +609,7 @@ public class EventDetailsFragment extends Fragment {
                 .setTitle("Decline Invitation?")
                 .setMessage("Are you sure you want to decline your invitation to this event? Once you do, you cannot change your mind.")
                 .setPositiveButton("YES",  (dialog, which) -> declineInvitation())
-                .setNegativeButton("NO",   (dialog, which) -> dialog.dismiss())
+                .setNegativeButton("NO", (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -632,10 +618,16 @@ public class EventDetailsFragment extends Fragment {
         registrationRepository.declineInvitation(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(), "Declined.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),
+                    "Declined.", Toast.LENGTH_SHORT).show();
+
+            // Notify organizer that entrant declined
+            notificationRepository.notifyOrganizerDecline(currentEventId, currentRegistrationKey);
+
             showStatusMessage(WaitlistEntry.STATUS_DECLINED);
             loadWaitlistCount();
         });
@@ -646,43 +638,35 @@ public class EventDetailsFragment extends Fragment {
         registrationRepository.acceptInvitation(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(), "Accepted.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),
+                    "Accepted.", Toast.LENGTH_SHORT).show();
             showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
             loadWaitlistCount();
         });
     }
 
-    // ── Button visibility helpers ─────────────────────────────────────────────
+    // ── Button visibility ─────────────────────────────────────────────────────
 
-    private void hideAllActionButtons() {
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
-        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
-    }
-
-    /**
-     * Shows the Join Waiting List button for regular users only.
-     * Admins and organizers are blocked here as a safety net in case
-     * checkWaitlistStatus() is somehow reached for those roles.
-     */
     private void showJoinButton() {
-        // Safety net: admins and organizers should never see the join button
-        if (isOrganizerRole()) {
-            hideAllActionButtons();
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
+
+        if (canEditCurrentEvent()) {
+            if (btnJoinWaitlist != null) {
+                btnJoinWaitlist.setEnabled(true);
+                btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
+            }
             return;
         }
 
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
-        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
-
+        // US: Private events are invite-only. If not already on waitlist/invited, hide join button.
         if (loadedEvent != null && loadedEvent.isPrivate()) {
             if (btnJoinWaitlist != null) btnJoinWaitlist.setVisibility(View.GONE);
             return;
@@ -699,43 +683,42 @@ public class EventDetailsFragment extends Fragment {
 
     private void showLeaveButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
-        if (btnLeaveWaitlist != null) { btnLeaveWaitlist.setVisibility(View.VISIBLE); btnLeaveWaitlist.setEnabled(true); }
-        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
     }
 
     private void showAcceptDeclineButtons() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept        != null) { btnAccept.setVisibility(View.VISIBLE); btnAccept.setEnabled(true); }
-        if (btnDecline       != null) { btnDecline.setVisibility(View.VISIBLE); btnDecline.setEnabled(true); }
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setVisibility(View.VISIBLE);
+        if (btnDecline != null) btnDecline.setVisibility(View.VISIBLE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnAccept != null) btnAccept.setEnabled(true);
+        if (btnDecline != null) btnDecline.setEnabled(true);
     }
 
     private void showStatusMessage(String status) {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.VISIBLE);
+        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.VISIBLE);
 
-        if (tvStatusMessage == null) return;
         switch (status) {
             case WaitlistEntry.STATUS_ACCEPTED:
                 tvStatusMessage.setText("Congratulations! You are going to this event.");
-                tvStatusMessage.setTextColor(
-                        ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
                 break;
             case WaitlistEntry.STATUS_DECLINED:
                 tvStatusMessage.setText("You have declined your invitation to this event.");
-                tvStatusMessage.setTextColor(
-                        ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
                 break;
             case WaitlistEntry.STATUS_CANCELLED:
                 tvStatusMessage.setText("Sorry, your invitation to this event has been cancelled.");
-                tvStatusMessage.setTextColor(
-                        ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
+                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
                 break;
         }
     }
@@ -753,15 +736,17 @@ public class EventDetailsFragment extends Fragment {
         if (currentUserId != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
             ownsEvent = true;
         } else {
-            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             if (firebaseUser != null && firebaseUser.getUid().equals(loadedEvent.getOrganizerId())) {
                 ownsEvent = true;
             }
         }
 
+        // Co-organizer check — coOrganizers stores Firebase UID
         boolean isCoOrganizer = false;
         if (loadedEvent.getCoOrganizers() != null) {
-            FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+            com.google.firebase.auth.FirebaseUser fbUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             if (fbUser != null && loadedEvent.getCoOrganizers().contains(fbUser.getUid())) {
                 isCoOrganizer = true;
             }
@@ -775,50 +760,19 @@ public class EventDetailsFragment extends Fragment {
         if (!isEditing) {
             isEditing = true;
             btnJoinWaitlist.setText("Save Changes");
-            if (tvTitle       != null) tvTitle.setVisibility(View.GONE);
+            if (tvTitle != null) tvTitle.setVisibility(View.GONE);
             if (tvDescription != null) tvDescription.setVisibility(View.GONE);
-
             if (etTitle != null) {
                 etTitle.setVisibility(View.VISIBLE);
                 etTitle.setText(loadedEvent.getTitle());
-                // Single-line with Done button on keyboard
-                etTitle.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-                etTitle.setSingleLine(true);
-                etTitle.setOnEditorActionListener((v, actionId, event) -> {
-                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                        saveChanges();
-                        return true;
-                    }
-                    return false;
-                });
             }
-
             if (etDescription != null) {
                 etDescription.setVisibility(View.VISIBLE);
                 etDescription.setText(loadedEvent.getDescription());
-                // Multi-line description gets Done button that submits rather than newline
-                etDescription.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-                etDescription.setOnEditorActionListener((v, actionId, event) -> {
-                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                        saveChanges();
-                        return true;
-                    }
-                    return false;
-                });
             }
-
             if (etPosterUrl != null) {
                 etPosterUrl.setVisibility(View.VISIBLE);
                 etPosterUrl.setText(loadedEvent.getPosterImageUrl());
-                etPosterUrl.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-                etPosterUrl.setSingleLine(true);
-                etPosterUrl.setOnEditorActionListener((v, actionId, event) -> {
-                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                        saveChanges();
-                        return true;
-                    }
-                    return false;
-                });
             }
         } else {
             saveChanges();
@@ -837,42 +791,17 @@ public class EventDetailsFragment extends Fragment {
             Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Dismiss keyboard immediately
-        View focusedView = requireActivity().getCurrentFocus();
-        if (focusedView != null) {
-            android.view.inputmethod.InputMethodManager imm =
-                    (android.view.inputmethod.InputMethodManager)
-                            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(focusedView.getWindowToken(), 0);
-        }
-
         loadedEvent.setTitle(newTitle);
         loadedEvent.setDescription(newDescription);
         loadedEvent.setPosterImageUrl(newPosterUrl);
-
         db.collection("events").document(currentEventId).set(loadedEvent)
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(requireContext(),
                             "Event updated successfully", Toast.LENGTH_SHORT).show();
                     isEditing = false;
                     exitEditMode();
-
-                    // Update UI immediately with new values — no reload needed
-                    if (tvTitle != null) tvTitle.setText(newTitle);
-                    if (tvDescription != null) tvDescription.setText(newDescription);
-                    if (ivPoster != null && newPosterUrl != null && !newPosterUrl.isEmpty()) {
-                        Glide.with(this).load(newPosterUrl)
-                                .placeholder(R.drawable.ic_event_poster)
-                                .error(R.drawable.ic_event_poster)
-                                .centerCrop().into(ivPoster);
-                    } else if (ivPoster != null) {
-                        ivPoster.setImageResource(R.drawable.ic_event_poster);
-                    }
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(requireContext(),
-                                "Failed to save changes. Please try again.", Toast.LENGTH_SHORT).show());
+                    loadEventDetails();
+                });
     }
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
@@ -884,22 +813,24 @@ public class EventDetailsFragment extends Fragment {
                 .document(currentEventId)
                 .update("isDeleted", true)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(requireContext(), "Event deleted.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(),
+                            "Event deleted.", Toast.LENGTH_SHORT).show();
                     if (!Navigation.findNavController(requireView()).popBackStack()) {
                         ((MainActivity) requireActivity()).showHome();
                     }
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(requireContext(),
-                                "Failed to delete event.", Toast.LENGTH_SHORT).show());
+                                "Failed to delete event.", Toast.LENGTH_SHORT).show()
+                );
     }
 
     private void exitEditMode() {
-        if (btnJoinWaitlist != null) btnJoinWaitlist.setText("Edit");
-        if (tvTitle         != null) tvTitle.setVisibility(View.VISIBLE);
-        if (tvDescription   != null) tvDescription.setVisibility(View.VISIBLE);
-        if (etTitle         != null) etTitle.setVisibility(View.GONE);
-        if (etDescription   != null) etDescription.setVisibility(View.GONE);
-        if (etPosterUrl     != null) etPosterUrl.setVisibility(View.GONE);
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setText("Edit");
+        if (tvTitle          != null) tvTitle.setVisibility(View.VISIBLE);
+        if (tvDescription    != null) tvDescription.setVisibility(View.VISIBLE);
+        if (etTitle          != null) etTitle.setVisibility(View.GONE);
+        if (etDescription    != null) etDescription.setVisibility(View.GONE);
+        if (etPosterUrl      != null) etPosterUrl.setVisibility(View.GONE);
     }
 }

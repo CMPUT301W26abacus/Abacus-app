@@ -31,9 +31,23 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Inbox screen — combines status-based notifications from registrations
- * and custom messages from the notifications collection.
- * For Admins, provides a toggle to view all notification logs in the system.
+ * MainInboxFragment.java
+ *
+ * This fragment provides the central hub for users to receive and manage notifications.
+ * It aggregates notifications from two primary sources:
+ * 1. Status-based: Derived from the user's 'registrations' for events (e.g., Selected/Waitlisted).
+ * 2. Custom: Direct messages stored in the 'notifications' collection.
+ *
+ * For administrators, it includes a toggle switch to view a global audit log of all 
+ * notifications sent within the system.
+ *
+ * Role: View (Fragment) in the MVVM pattern.
+ *
+ * Outstanding Issues:
+ * - Refresh logic: swipeRefresh currently triggers a full reload of the user profile 
+ *   and listeners, which might be overkill compared to just refreshing data.
+ * - Invitation cleanup: accepting/declining an invitation should ideally update 
+ *   both the UI and the remote database atomically.
  */
 public class MainInboxFragment extends Fragment {
 
@@ -115,6 +129,10 @@ public class MainInboxFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Loads the current user's profile to determine role-based UI (Admin toggle) 
+     * and starts the real-time data listeners.
+     */
     private void loadUserAndStart() {
         if (currentUserId != null) {
             UserLocalDataSource local = new UserLocalDataSource(requireContext());
@@ -139,6 +157,10 @@ public class MainInboxFragment extends Fragment {
         }
     }
 
+    /**
+     * Configures the click listeners for the notification adapter, including
+     * accept/decline actions and navigation to event details.
+     */
     private void setupNotificationActions() {
         adapter.setOnNotificationActionListener(new NotificationAdapter.OnNotificationActionListener() {
             @Override
@@ -173,8 +195,30 @@ public class MainInboxFragment extends Fragment {
                 }
             }
         });
+
+        adapter.setOnItemClickListener(new NotificationAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(String eventId) {
+                Bundle args = new Bundle();
+                args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
+                // show event details page with no nav-bar
+                ((MainActivity) requireActivity())
+                        .showFragment(
+                                R.id.eventDetailsFragment,
+                                false,
+                                args
+                        );
+            }
+        });
     }
 
+    /**
+     * Processes the acceptance of an invitation. Handles logic for co-organizers
+     * and private event auto-enrollment.
+     * 
+     * @param n     The notification object.
+     * @param docId The document ID of the notification in Firestore.
+     */
     private void acceptInvite(Notification n, String docId) {
         if (n.getEventId() == null) return;
         String eventId = n.getEventId();
@@ -219,6 +263,11 @@ public class MainInboxFragment extends Fragment {
         });
     }
 
+    /**
+     * Processes the decline of an invitation by updating the notification status in Firestore.
+     * 
+     * @param docId The document ID of the notification in Firestore.
+     */
     private void declineInvite(String docId) {
         db.collection("notifications").document(docId)
                 .update("status", Notification.STATUS_DECLINED)
@@ -227,6 +276,9 @@ public class MainInboxFragment extends Fragment {
                 });
     }
 
+    /**
+     * Starts real-time listeners for all notification sources.
+     */
     private void startListening() {
         registrationListener = db.collection("registrations")
                 .whereEqualTo("userId", currentUserId)
@@ -253,12 +305,18 @@ public class MainInboxFragment extends Fragment {
         }
     }
 
+    /**
+     * Removes all active Firestore snapshot listeners.
+     */
     private void stopListening() {
         if (registrationListener != null) registrationListener.remove();
         if (customNotificationListener != null) customNotificationListener.remove();
         if (allLogsListener != null) allLogsListener.remove();
     }
 
+    /**
+     * Converts raw registration documents into displayable Notification objects.
+     */
     private void processRegistrations(List<DocumentSnapshot> docs) {
         for (DocumentSnapshot doc : docs) {
             String eventId = doc.getString("eventId");
@@ -281,6 +339,9 @@ public class MainInboxFragment extends Fragment {
         }
     }
 
+    /**
+     * Processes custom message documents from the 'notifications' collection.
+     */
     private void processCustomNotifications(List<DocumentSnapshot> docs) {
         for (DocumentSnapshot doc : docs) {
             Notification n = doc.toObject(Notification.class);
@@ -291,6 +352,9 @@ public class MainInboxFragment extends Fragment {
         if (!showAllLogs) updateUI();
     }
 
+    /**
+     * Processes all system notifications for the administrator's global audit log.
+     */
     private void processAllLogs(List<DocumentSnapshot> docs) {
         allLogs.clear();
         Set<String> newOrganizerIds = new HashSet<>();
@@ -323,6 +387,9 @@ public class MainInboxFragment extends Fragment {
         if (showAllLogs) updateUI();
     }
 
+    /**
+     * Updates the RecyclerView UI based on the current toggle selection (Inbox vs Admin Log).
+     */
     private void updateUI() {
         List<Notification> list;
         if (showAllLogs) {
@@ -348,6 +415,9 @@ public class MainInboxFragment extends Fragment {
         }
     }
 
+    /**
+     * Helper to create a human-readable notification message from a registration status.
+     */
     private Notification createFromStatus(String eventId, String title, String status, boolean drawn, long time, String organizerId) {
         String msg = null;
         if ("invited".equals(status) || "accepted".equals(status)) {

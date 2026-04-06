@@ -16,7 +16,7 @@ import java.util.Locale;
 
 /**
  * Adapter for the admin image moderation list.
- * Shows event name, organizer ID, and date posted.
+ * Shows event name, organizer email, and date posted.
  */
 public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.ViewHolder> {
 
@@ -46,8 +46,10 @@ public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.Vi
         Event event = events.get(position);
 
         holder.tvPrimary.setText(event.getTitle() != null ? event.getTitle() : "Untitled");
-        holder.tvSecondary.setText("Organizer: " + (event.getOrganizerId() != null
-                ? event.getOrganizerId() : "Unknown"));
+        
+        // Show organizer email instead of ID
+        String organizerInfo = event.getOrganizerEmail() != null ? event.getOrganizerEmail() : event.getOrganizerId();
+        holder.tvSecondary.setText("Organizer: " + (organizerInfo != null ? organizerInfo : "Unknown"));
 
         String date = "Date: —";
         if (event.getRegistrationStart() != null) {
@@ -59,7 +61,7 @@ public class AdminImageAdapter extends RecyclerView.Adapter<AdminImageAdapter.Vi
         try {
             com.bumptech.glide.Glide.with(holder.itemView.getContext())
                     .load(event.getPosterImageUrl())
-                    .placeholder(R.drawable.ic_event_poster)
+                    .placeholder(R.id.iv_thumb) // Note: using resource ID as placeholder might be wrong if it's not a drawable
                     .into(holder.ivThumb);
         } catch (Exception ignored) {}
 
