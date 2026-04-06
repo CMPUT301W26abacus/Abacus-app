@@ -8,17 +8,17 @@
 
     <item
         android:id="@+id/nav_tools"
-        android:icon="@drawable/ic_tool"
-        android:title="Tools" />
+        android:icon="@drawable/ic_create"
+        android:title="Create" />
 
     <item
         android:id="@+id/nav_logs"
-        android:icon="@drawable/ic_history"
-        android:title="Logs" />
+        android:icon="@drawable/ic_tool"
+        android:title="Manage" />
 
     <item
         android:id="@+id/nav_notifications"
         android:icon="@drawable/ic_notifications"
-        android:title="Notifications" />
+        android:title="Inbox" />
 
 </menu>

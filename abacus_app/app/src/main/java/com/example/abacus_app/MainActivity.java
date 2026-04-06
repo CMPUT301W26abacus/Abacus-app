@@ -375,14 +375,31 @@ public class MainActivity extends AppCompatActivity {
      * unnecessary menu inflation and listener resets.
      */
     private void setupBottomNav() {
-        String roleGroup = ("organizer".equals(userRole) || "admin".equals(userRole))
-                ? "organizer" : "entrant";
+        String roleGroup = "admin".equals(userRole) ? "admin" :
+                "organizer".equals(userRole) ? "organizer" : "entrant";
         if (roleGroup.equals(bottomNavRole)) return;
         bottomNavRole = roleGroup;
         bottomNav.setOnItemSelectedListener(null);
         bottomNav.getMenu().clear();
 
-        if ("organizer".equals(userRole) || "admin".equals(userRole)) {
+        if ("admin".equals(userRole)) {
+            bottomNav.inflateMenu(R.menu.menu_bottom_nav_admin);
+            bottomNav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    showHome();
+                    return true;
+                } else if (id == R.id.nav_admin_logs) {
+                    showFragment(R.id.adminLogsFragment, true);
+                    return true;
+                } else if (id == R.id.nav_notifications) {
+                    showFragment(R.id.nav_inbox, true);
+                    return true;
+                }
+                return false;
+            });
+
+        } else if ("organizer".equals(userRole)) {
             bottomNav.inflateMenu(R.menu.menu_bottom_nav_organizer);
             bottomNav.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
@@ -393,11 +410,7 @@ public class MainActivity extends AppCompatActivity {
                     showFragment(R.id.organizerCreateFragment, true);
                     return true;
                 } else if (id == R.id.nav_logs) {
-                    if ("admin".equals(userRole)) {
-                        showFragment(R.id.adminLogsFragment, true);
-                    } else {
-                        showFragment(R.id.organizerManageFragment, true);
-                    }
+                    showFragment(R.id.organizerManageFragment, true);
                     return true;
                 } else if (id == R.id.nav_notifications) {
                     showFragment(R.id.nav_inbox, true);
@@ -414,7 +427,7 @@ public class MainActivity extends AppCompatActivity {
                     showHome();
                     return true;
                 } else if (id == R.id.nav_saved) {
-                    if ("entrant".equals(userRole)) showFragment(R.id.nav_saved, true);
+                    showFragment(R.id.nav_saved, true);
                     return true;
                 } else if (id == R.id.nav_history) {
                     showFragment(R.id.nav_history, true);

@@ -100,6 +100,14 @@ public class MainSavedFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setBottomNavVisible(true);
+        }
+    }
+
     /**
      * Switches the displayed list to {@code mode}, updates button highlight styles,
      * and triggers the appropriate Firestore load.
@@ -281,6 +289,7 @@ public class MainSavedFragment extends Fragment {
                         args.putString(EventDetailsFragment.ARG_EVENT_TITLE, title);
                         args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
 
+                        ((MainActivity) getActivity()).setBottomNavVisible(false);
                         ((MainActivity) getActivity()).showFragment(R.id.eventDetailsFragment, false, args);
                     },
                     null,

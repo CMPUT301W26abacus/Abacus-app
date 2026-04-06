@@ -9,11 +9,16 @@
  * the fragment fires joinWaitlist() or openGuestSignUp() automatically as
  * soon as the user ID is resolved — no extra tap needed.
  *
- * Admin delete: When the effective role is "admin", a red Delete Event button
- * is shown above the join/leave buttons. Tapping it shows a confirmation
- * dialog and performs a soft delete (sets isDeleted=true in Firestore).
- * The waitlist join/leave buttons are hidden for admins since they manage
- * rather than participate.
+ * Admin delete: When the effective role is "admin", btnJoinWaitlist is
+ * repurposed as a red DELETE button. Tapping it shows a confirmation dialog
+ * and performs a soft delete (sets isDeleted=true in Firestore).
+ *
+ * Organizer edit: When the current user is the organizer or co-organizer,
+ * btnJoinWaitlist is repurposed as an orange Edit button. Tapping it toggles
+ * inline edit mode for title, description, and poster URL.
+ *
+ * The waitlist join/leave buttons are hidden for admins and organizers since
+ * they manage rather than participate.
  */
 package com.example.abacus_app;
 
@@ -48,41 +53,30 @@ import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.CancellationTokenSource;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
 
-    /** Bundle key for the event title string passed from the previous screen. */
     public static final String ARG_EVENT_TITLE = "eventTitle";
-
-    /** Bundle key for the Firestore event document ID. */
     public static final String ARG_EVENT_ID    = "eventId";
 
-    /**
-     * Optional boolean arg. When true, the fragment immediately triggers the
-     * join flow (or guest sign-up) as soon as the user ID is resolved.
-     * Set by EventAdapter when the user taps the Join button on a home card.
-     */
     public static final String ARG_AUTO_JOIN = "autoJoin";
 
-    private String currentEventId = null;
-    private String currentUserId  = null;
+    private String currentEventId         = null;
+    private String currentUserId          = null;
     private String currentRegistrationKey = null;
-    private Event  loadedEvent    = null;
-    private String eventTitle     = "Event Details";
-    private boolean isGuest       = false;
-    private boolean autoJoin      = false;
-    private boolean isEditing     = false;
+    private Event  loadedEvent            = null;
+    private String eventTitle             = "Event Details";
+    private boolean isGuest               = false;
+    private boolean autoJoin              = false;
+    private boolean isEditing             = false;
 
     private FirebaseFirestore db;
+
     private Button btnJoinWaitlist;
     private Button btnLeaveWaitlist;
     private Button btnAccept;
@@ -94,15 +88,12 @@ public class EventDetailsFragment extends Fragment {
 
     private EventRepository eventRepository;
     private RegistrationRepository registrationRepository;
-    private NotificationRepository notificationRepository;
 
     private EditText etTitle, etDescription, etPosterUrl;
     private TextView tvTitle, tvDescription;
     private ImageView ivPoster;
 
     private FusedLocationProviderClient fusedLocationClient;
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Nullable
     @Override
@@ -123,9 +114,7 @@ public class EventDetailsFragment extends Fragment {
         db                     = FirebaseFirestore.getInstance();
         eventRepository        = new EventRepository();
         registrationRepository = new RegistrationRepository();
-        notificationRepository = new NotificationRepository();
 
-        // ── Back ───────────────────────────────────────────────────────────────
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> {
             if (!Navigation.findNavController(view).popBackStack()) {
@@ -133,7 +122,6 @@ public class EventDetailsFragment extends Fragment {
             }
         });
 
-        // ── Args ───────────────────────────────────────────────────────────────
         eventTitle = getArguments() != null
                 ? getArguments().getString(ARG_EVENT_TITLE, "Event Details")
                 : "Event Details";
@@ -144,7 +132,6 @@ public class EventDetailsFragment extends Fragment {
         tvTitle = view.findViewById(R.id.tv_event_title);
         if (tvTitle != null) tvTitle.setText(eventTitle);
 
-        // ── QR button ─────────────────────────────────────────────────────────
         btnViewQr = view.findViewById(R.id.btn_view_qr);
         btnViewQr.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -153,7 +140,6 @@ public class EventDetailsFragment extends Fragment {
             Navigation.findNavController(view).navigate(R.id.eventQrFragment, args);
         });
 
-        // ── Comment Button ─────────────────────────────────────────────────────
         Button btnViewComments = view.findViewById(R.id.btn_view_comments);
         btnViewComments.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -163,7 +149,6 @@ public class EventDetailsFragment extends Fragment {
             commentsFragment.show(getParentFragmentManager(), "comments");
         });
 
-        // ── Lottery Guidelines ─────────────────────────────────────────────────
         Button btnLotteryGuidelines = view.findViewById(R.id.btn_lottery_guidelines);
         btnLotteryGuidelines.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -178,14 +163,11 @@ public class EventDetailsFragment extends Fragment {
         etDescription = view.findViewById(R.id.et_edit_description);
         etPosterUrl   = view.findViewById(R.id.et_edit_poster_url);
 
-        if (currentEventId != null) loadEventDetails();
-
-        // ── Waitlist setup ─────────────────────────────────────────────────────
         btnJoinWaitlist  = view.findViewById(R.id.btn_join_waitlist);
         btnLeaveWaitlist = view.findViewById(R.id.btn_leave_waitlist);
-        btnAccept = view.findViewById(R.id.btn_accept_invitation);
-        btnDecline = view.findViewById(R.id.btn_decline_invitation);
-        tvStatusMessage = view.findViewById(R.id.tv_event_waitlist_status_message);
+        btnAccept        = view.findViewById(R.id.btn_accept_invitation);
+        btnDecline       = view.findViewById(R.id.btn_decline_invitation);
+        tvStatusMessage  = view.findViewById(R.id.tv_event_waitlist_status_message);
         tvWaitlistCount  = view.findViewById(R.id.tv_waitlist_count);
         btnViewMap       = view.findViewById(R.id.btn_view_map);
 
@@ -198,32 +180,13 @@ public class EventDetailsFragment extends Fragment {
             btnViewMap.setVisibility(View.GONE);
             btnViewMap.setOnClickListener(v -> {
                 Bundle args = new Bundle();
-                args.putString(EventMapFragment.ARG_EVENT_ID, currentEventId);
+                args.putString(EventMapFragment.ARG_EVENT_ID,   currentEventId);
                 args.putString(EventMapFragment.ARG_EVENT_NAME, eventTitle);
                 Navigation.findNavController(view).navigate(R.id.eventMapFragment, args);
             });
         }
 
-        // ── Delete button ─────────────────────────────────────────────────────────
-        // Shown to: admins (any event) or organizers (their own events)
-        boolean isAdmin = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
-        boolean isOrganizerOfThisEvent = canEditCurrentEvent();
-
-        if (isAdmin || isOrganizerOfThisEvent) {
-            btnLeaveWaitlist.setVisibility(View.GONE);
-            btnJoinWaitlist.setEnabled(true);
-            btnJoinWaitlist.setText("Delete");
-            btnJoinWaitlist.setBackgroundTintList(
-                    ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_red)));
-            btnJoinWaitlist.setOnClickListener(v ->
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle("Delete Event")
-                            .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
-                            .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
-                            .setNegativeButton("Cancel", null)
-                            .show());
-            return; // skip all waitlist setup below
-        }
+        if (currentEventId != null) loadEventDetails();
 
         if (isGuest) {
             setupGuestWaitlist(view);
@@ -234,22 +197,20 @@ public class EventDetailsFragment extends Fragment {
         loadWaitlistCount();
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        ((MainActivity) requireActivity()).showBottomNav(true);
+    // ── Role helper ───────────────────────────────────────────────────────────
+
+    /**
+     * Returns true if the current user has the organizer or admin role.
+     * Used to suppress waitlist buttons for organizers on events they don't own.
+     */
+    private boolean isOrganizerRole() {
+        if (getActivity() == null) return false;
+        String role = ((MainActivity) getActivity()).getEffectiveRole();
+        return "organizer".equals(role) || "admin".equals(role);
     }
 
     // ── Guest waitlist ────────────────────────────────────────────────────────
 
-    /**
-     * Sets up waitlist interaction for unauthenticated (guest) users.
-     * If a guest email is already stored in SharedPreferences, checks whether
-     * the guest is already on the waitlist and shows the appropriate button.
-     * If no email is stored, shows the Join button which navigates to sign-up.
-     *
-     * @param view the fragment's root view, needed to navigate to GuestSignUpFragment
-     */
     private void setupGuestWaitlist(@NonNull View view) {
         String savedEmail = requireContext()
                 .getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
@@ -259,13 +220,11 @@ public class EventDetailsFragment extends Fragment {
             showJoinButton();
             btnJoinWaitlist.setEnabled(true);
             btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
-            // Auto-join for guests with no email goes straight to sign-up form
             if (autoJoin) openGuestSignUp(view);
             return;
         }
 
         String guestKey = GuestSignUpFragment.emailToKey(savedEmail);
-
         registrationRepository.isOnWaitlist(guestKey, currentEventId, isOn -> {
             if (isOn) {
                 showLeaveButton();
@@ -276,7 +235,6 @@ public class EventDetailsFragment extends Fragment {
                 showJoinButton();
                 btnJoinWaitlist.setEnabled(true);
                 btnJoinWaitlist.setOnClickListener(v -> openGuestSignUp(view));
-                // Auto-join: go straight to guest sign-up form
                 if (autoJoin) openGuestSignUp(view);
             }
         });
@@ -284,17 +242,10 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Authenticated waitlist ────────────────────────────────────────────────
 
-    /**
-     * Sets up waitlist interaction for authenticated users.
-     * Resolves the user's UUID asynchronously, then determines whether to
-     * show the Edit button (for organizers/co-organizers) or check waitlist
-     * status and show the appropriate join/leave/accept/decline button.
-     */
     private void setupAuthenticatedWaitlist() {
         UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
-        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(
-                FirebaseFirestore.getInstance());
-        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository         = new UserRepository(localDataSource, remoteDataSource);
 
         userRepository.getCurrentUserId(uuid -> {
             currentUserId = uuid;
@@ -305,14 +256,14 @@ public class EventDetailsFragment extends Fragment {
                 currentRegistrationKey = GuestSignUpFragment.emailToKey(
                         email.trim().toLowerCase(Locale.US));
             } else {
-                // Fallback if auth email is unavailable.
                 currentRegistrationKey = uuid;
             }
 
-            // Re-check now that IDs are resolved — co-organizer needs Edit not Join
-            if (canEditCurrentEvent()) {
-                showJoinButton(); // showJoinButton checks canEditCurrentEvent and shows "Edit"
-            } else {
+            // Only call checkWaitlistStatus() if:
+            // 1. loadedEvent is already set (so canEditCurrentEvent() is accurate)
+            // 2. The user is not the organizer/owner of this event
+            // 3. The user does not have the organizer/admin role at all
+            if (loadedEvent != null && !canEditCurrentEvent() && !isOrganizerRole()) {
                 checkWaitlistStatus();
             }
         });
@@ -330,16 +281,15 @@ public class EventDetailsFragment extends Fragment {
     }
 
     /**
-     * Checks registration status via RegistrationRepository and shows
-     * the correct button. If autoJoin is set and the user is NOT yet on the
-     * waitlist, immediately fires handleJoinFlow().
+     * Checks registration status and shows the correct button.
+     * If autoJoin is set and the user is NOT yet on the waitlist,
+     * immediately fires handleJoinFlow().
      */
     private void checkWaitlistStatus() {
         if (currentEventId == null || currentRegistrationKey == null) return;
         registrationRepository.isOnWaitlist(currentRegistrationKey, currentEventId, isOn -> {
             if (isOn) {
                 registrationRepository.getUserEntry(currentRegistrationKey, currentEventId, entry -> {
-                    // show correct button/text depending on waitlist status
                     switch (entry.getStatus()) {
                         case WaitlistEntry.STATUS_WAITLISTED:
                             showLeaveButton();
@@ -360,7 +310,6 @@ public class EventDetailsFragment extends Fragment {
                 });
             } else {
                 showJoinButton();
-                // Auto-join: fire immediately, no extra tap needed
                 if (autoJoin && btnJoinWaitlist.getVisibility() == View.VISIBLE) handleJoinFlow();
             }
         });
@@ -368,12 +317,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Guest routing ─────────────────────────────────────────────────────────
 
-    /**
-     * Navigates to GuestSignUpFragment so the guest can register their email
-     * before joining the waitlist. Blocks navigation if registration has already ended.
-     *
-     * @param view the fragment's root view used to find the NavController
-     */
     private void openGuestSignUp(@NonNull View view) {
         if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null &&
                 loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
@@ -386,11 +329,6 @@ public class EventDetailsFragment extends Fragment {
         Navigation.findNavController(view).navigate(R.id.guestSignUpFragment, args);
     }
 
-    /**
-     * Shows a confirmation dialog before a guest leaves the waitlist.
-     *
-     * @param guestEmail the stored guest email used to identify the Firestore document
-     */
     private void showGuestLeaveConfirmationDialog(@NonNull String guestEmail) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -400,28 +338,16 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
-    /**
-     * Removes a guest from the waitlist using their sanitised email key,
-     * notifies the organizer, and resets the UI to the Join state.
-     *
-     * @param guestEmail the stored guest email used to derive the Firestore document key
-     */
     private void leaveGuestWaitlist(@NonNull String guestEmail) {
         if (currentEventId == null) return;
         String guestKey = GuestSignUpFragment.emailToKey(guestEmail);
         registrationRepository.leaveWaitlist(guestKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(),
-                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
-
-            // Notify organizer that entrant left
-            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, guestKey);
-
+            Toast.makeText(requireContext(), "You have left the waiting list.", Toast.LENGTH_SHORT).show();
             View root = getView();
             if (root != null) {
                 showJoinButton();
@@ -434,10 +360,12 @@ public class EventDetailsFragment extends Fragment {
     // ── Event details ─────────────────────────────────────────────────────────
 
     /**
-     * Fetches the full event document from Firestore and populates all UI fields:
-     * poster image, description, event date, registration period, waitlist capacity,
-     * and organizer name. Also re-checks waitlist status once the event is loaded
-     * so the correct button state is shown for authenticated users.
+     * Loads the event from Firestore and populates all UI fields.
+     * Determines which action button to show based on role:
+     * - Admin     → btnJoinWaitlist repurposed as red DELETE button
+     * - Organizer (owner/co-organizer) → btnJoinWaitlist repurposed as orange Edit button
+     * - Organizer (not owner) → all waitlist buttons hidden
+     * - Regular   → normal waitlist buttons via checkWaitlistStatus()
      */
     private void loadEventDetails() {
         FirebaseFirestore.getInstance()
@@ -469,13 +397,26 @@ public class EventDetailsFragment extends Fragment {
                     if (tvDescription != null && event.getDescription() != null)
                         tvDescription.setText(event.getDescription());
 
-                    TextView tvDateTime = getView() != null
+                    SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
+
+                    TextView tvEventDateTime = getView() != null
+                            ? getView().findViewById(R.id.tv_event_date_time) : null;
+                    if (tvEventDateTime != null) {
+                        if (event.getEventStart() != null) {
+                            String start = sdf.format(event.getEventStart().toDate());
+                            tvEventDateTime.setText(event.getEventEnd() != null
+                                    ? start + " – " + sdf.format(event.getEventEnd().toDate())
+                                    : start);
+                        } else {
+                            tvEventDateTime.setText("Not set");
+                        }
+                    }
+
+                    TextView tvRegDateTime = getView() != null
                             ? getView().findViewById(R.id.tv_date_time) : null;
-                    if (tvDateTime != null && event.getRegistrationStart() != null) {
-                        SimpleDateFormat sdf =
-                                new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+                    if (tvRegDateTime != null && event.getRegistrationStart() != null) {
                         String start = sdf.format(event.getRegistrationStart().toDate());
-                        tvDateTime.setText(event.getRegistrationEnd() != null
+                        tvRegDateTime.setText(event.getRegistrationEnd() != null
                                 ? start + " – " + sdf.format(event.getRegistrationEnd().toDate())
                                 : start);
                     }
@@ -486,15 +427,57 @@ public class EventDetailsFragment extends Fragment {
                                 ? "Unlimited spots" : "Capacity: " + capacity);
                     }
 
-                    if (btnViewMap != null && event.isGeoRequired()
-                            && canEditCurrentEvent()) {
+                    if (btnViewMap != null && event.isGeoRequired() && canEditCurrentEvent()) {
                         btnViewMap.setVisibility(View.VISIBLE);
                     }
 
-                    // Re-apply join button visibility based on loaded event privacy
-                    if (currentUserId != null) checkWaitlistStatus();
+                    // ── Role-based action button ───────────────────────────────
+                    boolean isAdminRole       = "admin".equals(((MainActivity) requireActivity()).getEffectiveRole());
+                    boolean isOrganizerOfThis = canEditCurrentEvent();
 
-                    // Organizer name — direct Firestore read used here intentionally.
+                    if (isAdminRole) {
+                        hideAllActionButtons();
+                        btnJoinWaitlist.setVisibility(View.VISIBLE);
+                        btnJoinWaitlist.setEnabled(true);
+                        btnJoinWaitlist.setText("DELETE");
+                        btnJoinWaitlist.setTextColor(
+                                ContextCompat.getColor(requireContext(), R.color.white));
+                        btnJoinWaitlist.setBackgroundTintList(
+                                ColorStateList.valueOf(
+                                        ContextCompat.getColor(requireContext(), R.color.error_red)));
+                        btnJoinWaitlist.setOnClickListener(v ->
+                                new AlertDialog.Builder(requireContext())
+                                        .setTitle("Delete Event")
+                                        .setMessage("Remove \"" + eventTitle + "\"? This cannot be undone.")
+                                        .setPositiveButton("Delete", (d, w) -> softDeleteFromDetails())
+                                        .setNegativeButton("Cancel", null)
+                                        .show());
+
+                    } else if (isOrganizerOfThis) {
+                        // Owner/co-organizer of this event: show Edit button
+                        hideAllActionButtons();
+                        btnJoinWaitlist.setVisibility(View.VISIBLE);
+                        btnJoinWaitlist.setEnabled(true);
+                        btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
+                        btnJoinWaitlist.setTextColor(
+                                ContextCompat.getColor(requireContext(), R.color.white));
+                        btnJoinWaitlist.setBackgroundTintList(
+                                ColorStateList.valueOf(
+                                        ContextCompat.getColor(requireContext(), R.color.orange)));
+                        btnJoinWaitlist.setOnClickListener(v -> toggleEditMode());
+
+                    } else if (isOrganizerRole()) {
+                        // Organizer role but does NOT own this event: hide everything
+                        hideAllActionButtons();
+
+                    } else if (currentRegistrationKey != null) {
+                        // Regular user: show waitlist buttons
+                        checkWaitlistStatus();
+                    }
+                    // If currentRegistrationKey is still null here, the getUserId
+                    // callback in setupAuthenticatedWaitlist() will call
+                    // checkWaitlistStatus() once it resolves.
+
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
                         FirebaseFirestore.getInstance()
@@ -515,11 +498,6 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Waitlist count ────────────────────────────────────────────────────────
 
-    /**
-     * Fetches the current waitlist count from Firestore and updates {@code tvWaitlistCount}.
-     * If the waitlist is full and the Join button is visible, disables it and
-     * changes its text to "Event Full" to prevent further joins.
-     */
     private void loadWaitlistCount() {
         if (currentEventId == null) return;
         eventRepository.getEventByIdAsync(currentEventId, event -> {
@@ -531,9 +509,10 @@ public class EventDetailsFragment extends Fragment {
             } else {
                 long spotsLeft = Math.max(0, capacity - count);
                 tvWaitlistCount.setText(count + " on waiting list · " + spotsLeft + " spots left");
+                // Only disable join button for regular users — not for admins/organizers
                 if (spotsLeft == 0 && btnJoinWaitlist != null
                         && btnJoinWaitlist.getVisibility() == View.VISIBLE
-                        && !"admin".equals(((MainActivity) requireActivity()).getEffectiveRole())) {
+                        && !isOrganizerRole()) {
                     btnJoinWaitlist.setEnabled(false);
                     btnJoinWaitlist.setText("Event Full");
                 }
@@ -543,18 +522,12 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Join / leave (authenticated) ──────────────────────────────────────────
 
-    /**
-     * Entry point for the join flow. If the event requires geolocation,
-     * checks for location permission and either requests it or proceeds
-     * to fetch the location. Otherwise joins immediately with no location.
-     */
     private void handleJoinFlow() {
         if (loadedEvent != null && loadedEvent.isGeoRequired()) {
             if (ActivityCompat.checkSelfPermission(requireContext(),
                     Manifest.permission.ACCESS_FINE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
             } else {
                 fetchLocationAndJoin();
             }
@@ -563,11 +536,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * Fetches the device's current location using high-accuracy GPS,
-     * falling back to last known location if the current fix is unavailable.
-     * Calls joinWaitlist() with the resolved location (or null on failure).
-     */
     private void fetchLocationAndJoin() {
         if (ActivityCompat.checkSelfPermission(requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION)
@@ -596,14 +564,6 @@ public class EventDetailsFragment extends Fragment {
                 .addOnFailureListener(e -> joinWaitlist(null));
     }
 
-    /**
-     * Handles the result of the location permission request.
-     * Proceeds to fetchLocationAndJoin() if granted, or shows an error toast if denied.
-     *
-     * @param requestCode  the request code passed to requestPermissions()
-     * @param permissions  the requested permissions
-     * @param grantResults the grant result for each permission
-     */
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
@@ -618,39 +578,23 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * Adds the current user to the event's waitlist in Firestore via
-     * RegistrationRepository. On success, switches the UI to the Leave button
-     * and refreshes the waitlist count.
-     *
-     * @param location the user's current location, or null if geo is not required
-     */
     private void joinWaitlist(Location location) {
         if (currentRegistrationKey == null || currentEventId == null) {
             Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         registrationRepository.joinWaitlist(currentRegistrationKey, currentEventId, location, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            Toast.makeText(requireContext(),
-                    "You have joined the waiting list!",
-                    Toast.LENGTH_SHORT).show();
-
+            Toast.makeText(requireContext(), "You have joined the waiting list!", Toast.LENGTH_SHORT).show();
             showLeaveButton();
             loadWaitlistCount();
         });
     }
 
-    /**
-     * Shows a confirmation dialog before an authenticated user leaves the waitlist.
-     */
     private void showLeaveConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -660,112 +604,85 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
-    /**
-     * Removes the authenticated user from the waitlist in Firestore,
-     * notifies the organizer, and resets the UI to the Join state.
-     */
     private void leaveWaitlist() {
         if (currentRegistrationKey == null || currentEventId == null) return;
-
         registrationRepository.leaveWaitlist(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(),
-                    "You have left the waiting list.", Toast.LENGTH_SHORT).show();
-
-            // Notify organizer that entrant left
-            notificationRepository.notifyOrganizerLeftWaitlist(currentEventId, currentRegistrationKey);
-
+            Toast.makeText(requireContext(), "You have left the waiting list.", Toast.LENGTH_SHORT).show();
             showJoinButton();
             loadWaitlistCount();
         });
     }
 
-    /**
-     * Shows a confirmation dialog before the user declines their lottery invitation.
-     * Warns that the decision is irreversible.
-     */
     private void showDeclineConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Decline Invitation?")
                 .setMessage("Are you sure you want to decline your invitation to this event? Once you do, you cannot change your mind.")
                 .setPositiveButton("YES",  (dialog, which) -> declineInvitation())
-                .setNegativeButton("NO", (dialog, which) -> dialog.dismiss())
+                .setNegativeButton("NO",   (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
-    /**
-     * Records the user's decision to decline their lottery invitation in Firestore,
-     * notifies the organizer, and updates the UI to show the declined status message.
-     */
     private void declineInvitation() {
         if (currentRegistrationKey == null || currentEventId == null) return;
         registrationRepository.declineInvitation(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(),
-                    "Declined.", Toast.LENGTH_SHORT).show();
-
-            // Notify organizer that entrant declined
-            notificationRepository.notifyOrganizerDecline(currentEventId, currentRegistrationKey);
-
+            Toast.makeText(requireContext(), "Declined.", Toast.LENGTH_SHORT).show();
             showStatusMessage(WaitlistEntry.STATUS_DECLINED);
             loadWaitlistCount();
         });
     }
 
-    /**
-     * Records the user's decision to accept their lottery invitation in Firestore
-     * and updates the UI to show the accepted status message.
-     */
     private void acceptInvitation() {
         if (currentRegistrationKey == null || currentEventId == null) return;
         registrationRepository.acceptInvitation(currentRegistrationKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),
-                        "Something went wrong. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                        "Something went wrong. Please try again.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(requireContext(),
-                    "Accepted.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Accepted.", Toast.LENGTH_SHORT).show();
             showStatusMessage(WaitlistEntry.STATUS_ACCEPTED);
             loadWaitlistCount();
         });
     }
 
-    // ── Button visibility ─────────────────────────────────────────────────────
+    // ── Button visibility helpers ─────────────────────────────────────────────
+
+    private void hideAllActionButtons() {
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+    }
 
     /**
-     * Shows the Join Waiting List button and hides all others.
-     * If the current user is the organizer or co-organizer, shows "Edit" instead.
-     * If registration has ended, disables the button and shows "Registration Ended".
-     * If the event is private and the user is not the organizer, hides the button.
+     * Shows the Join Waiting List button for regular users only.
+     * Admins and organizers are blocked here as a safety net in case
+     * checkWaitlistStatus() is somehow reached for those roles.
      */
     private void showJoinButton() {
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
-        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
-
-        if (canEditCurrentEvent()) {
-            if (btnJoinWaitlist != null) {
-                btnJoinWaitlist.setEnabled(true);
-                btnJoinWaitlist.setText(isEditing ? "Save Changes" : "Edit");
-            }
+        // Safety net: admins and organizers should never see the join button
+        if (isOrganizerRole()) {
+            hideAllActionButtons();
             return;
         }
 
-        // US: Private events are invite-only. If not already on waitlist/invited, hide join button.
+        if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
+        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
+        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+
         if (loadedEvent != null && loadedEvent.isPrivate()) {
             if (btnJoinWaitlist != null) btnJoinWaitlist.setVisibility(View.GONE);
             return;
@@ -780,72 +697,51 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * Shows the Leave Waiting List button and hides all others.
-     */
     private void showLeaveButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
-        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
-        if (btnLeaveWaitlist != null) btnLeaveWaitlist.setEnabled(true);
-        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
+        if (btnLeaveWaitlist != null) { btnLeaveWaitlist.setVisibility(View.VISIBLE); btnLeaveWaitlist.setEnabled(true); }
+        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
     }
 
-    /**
-     * Shows the Accept and Decline invitation buttons and hides all others.
-     * Used when the user's waitlist status is STATUS_INVITED.
-     */
     private void showAcceptDeclineButtons() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept != null) btnAccept.setVisibility(View.VISIBLE);
-        if (btnDecline != null) btnDecline.setVisibility(View.VISIBLE);
-        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
-        if (btnAccept != null) btnAccept.setEnabled(true);
-        if (btnDecline != null) btnDecline.setEnabled(true);
+        if (btnAccept        != null) { btnAccept.setVisibility(View.VISIBLE); btnAccept.setEnabled(true); }
+        if (btnDecline       != null) { btnDecline.setVisibility(View.VISIBLE); btnDecline.setEnabled(true); }
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
     }
 
-    /**
-     * Hides all action buttons and displays a coloured status message.
-     * Used for terminal states: accepted, declined, or cancelled.
-     *
-     * @param status one of {@link WaitlistEntry#STATUS_ACCEPTED},
-     *               {@link WaitlistEntry#STATUS_DECLINED}, or
-     *               {@link WaitlistEntry#STATUS_CANCELLED}
-     */
     private void showStatusMessage(String status) {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
-        if (btnAccept != null) btnAccept.setVisibility(View.GONE);
-        if (btnDecline != null) btnDecline.setVisibility(View.GONE);
-        if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.VISIBLE);
+        if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
+        if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
+        if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.VISIBLE);
 
+        if (tvStatusMessage == null) return;
         switch (status) {
             case WaitlistEntry.STATUS_ACCEPTED:
                 tvStatusMessage.setText("Congratulations! You are going to this event.");
-                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
+                tvStatusMessage.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.color_status_accepted_green));
                 break;
             case WaitlistEntry.STATUS_DECLINED:
                 tvStatusMessage.setText("You have declined your invitation to this event.");
-                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
+                tvStatusMessage.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.color_status_declined_red));
                 break;
             case WaitlistEntry.STATUS_CANCELLED:
                 tvStatusMessage.setText("Sorry, your invitation to this event has been cancelled.");
-                tvStatusMessage.setTextColor(ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
+                tvStatusMessage.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.color_status_canceled_black));
                 break;
         }
     }
 
     // ── Edit mode (organizer) ─────────────────────────────────────────────────
 
-    /**
-     * Returns true if the current user is allowed to edit this event.
-     * Editing is permitted for: the event's organizer (matched by UUID or Firebase UID)
-     * when they hold the organizer or admin role, or any co-organizer by Firebase UID.
-     *
-     * @return true if the user can edit the event, false otherwise
-     */
     private boolean canEditCurrentEvent() {
         if (loadedEvent == null || getActivity() == null) return false;
         if (!(getActivity() instanceof MainActivity)) return false;
@@ -857,17 +753,15 @@ public class EventDetailsFragment extends Fragment {
         if (currentUserId != null && currentUserId.equals(loadedEvent.getOrganizerId())) {
             ownsEvent = true;
         } else {
-            com.google.firebase.auth.FirebaseUser firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
             if (firebaseUser != null && firebaseUser.getUid().equals(loadedEvent.getOrganizerId())) {
                 ownsEvent = true;
             }
         }
 
-        // Co-organizer check — coOrganizers stores Firebase UID
         boolean isCoOrganizer = false;
         if (loadedEvent.getCoOrganizers() != null) {
-            com.google.firebase.auth.FirebaseUser fbUser =
-                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
             if (fbUser != null && loadedEvent.getCoOrganizers().contains(fbUser.getUid())) {
                 isCoOrganizer = true;
             }
@@ -876,41 +770,61 @@ public class EventDetailsFragment extends Fragment {
         return (hasOrganizerRole && ownsEvent) || isCoOrganizer;
     }
 
-    /**
-     * Toggles the event details screen between view mode and edit mode.
-     * In edit mode, text fields replace the read-only TextViews and the
-     * bottom button changes to "Save Changes". Calling again while editing
-     * triggers saveChanges().
-     */
     private void toggleEditMode() {
         if (loadedEvent == null) return;
         if (!isEditing) {
             isEditing = true;
             btnJoinWaitlist.setText("Save Changes");
-            if (tvTitle != null) tvTitle.setVisibility(View.GONE);
+            if (tvTitle       != null) tvTitle.setVisibility(View.GONE);
             if (tvDescription != null) tvDescription.setVisibility(View.GONE);
+
             if (etTitle != null) {
                 etTitle.setVisibility(View.VISIBLE);
                 etTitle.setText(loadedEvent.getTitle());
+                // Single-line with Done button on keyboard
+                etTitle.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+                etTitle.setSingleLine(true);
+                etTitle.setOnEditorActionListener((v, actionId, event) -> {
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        saveChanges();
+                        return true;
+                    }
+                    return false;
+                });
             }
+
             if (etDescription != null) {
                 etDescription.setVisibility(View.VISIBLE);
                 etDescription.setText(loadedEvent.getDescription());
+                // Multi-line description gets Done button that submits rather than newline
+                etDescription.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+                etDescription.setOnEditorActionListener((v, actionId, event) -> {
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        saveChanges();
+                        return true;
+                    }
+                    return false;
+                });
             }
+
             if (etPosterUrl != null) {
                 etPosterUrl.setVisibility(View.VISIBLE);
                 etPosterUrl.setText(loadedEvent.getPosterImageUrl());
+                etPosterUrl.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+                etPosterUrl.setSingleLine(true);
+                etPosterUrl.setOnEditorActionListener((v, actionId, event) -> {
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        saveChanges();
+                        return true;
+                    }
+                    return false;
+                });
             }
         } else {
             saveChanges();
         }
     }
 
-    /**
-     * Persists the organizer's edits (title, description, poster URL) to Firestore.
-     * Validates that the title is non-empty before saving. On success, exits edit
-     * mode and reloads the event details.
-     */
     private void saveChanges() {
         if (loadedEvent == null || currentEventId == null) return;
         String newTitle = etTitle != null
@@ -923,26 +837,46 @@ public class EventDetailsFragment extends Fragment {
             Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // Dismiss keyboard immediately
+        View focusedView = requireActivity().getCurrentFocus();
+        if (focusedView != null) {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager)
+                            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(focusedView.getWindowToken(), 0);
+        }
+
         loadedEvent.setTitle(newTitle);
         loadedEvent.setDescription(newDescription);
         loadedEvent.setPosterImageUrl(newPosterUrl);
+
         db.collection("events").document(currentEventId).set(loadedEvent)
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(requireContext(),
                             "Event updated successfully", Toast.LENGTH_SHORT).show();
                     isEditing = false;
                     exitEditMode();
-                    loadEventDetails();
-                });
+
+                    // Update UI immediately with new values — no reload needed
+                    if (tvTitle != null) tvTitle.setText(newTitle);
+                    if (tvDescription != null) tvDescription.setText(newDescription);
+                    if (ivPoster != null && newPosterUrl != null && !newPosterUrl.isEmpty()) {
+                        Glide.with(this).load(newPosterUrl)
+                                .placeholder(R.drawable.ic_event_poster)
+                                .error(R.drawable.ic_event_poster)
+                                .centerCrop().into(ivPoster);
+                    } else if (ivPoster != null) {
+                        ivPoster.setImageResource(R.drawable.ic_event_poster);
+                    }
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(requireContext(),
+                                "Failed to save changes. Please try again.", Toast.LENGTH_SHORT).show());
     }
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
 
-    /**
-     * Performs a soft delete of the current event by setting isDeleted=true in Firestore.
-     * The real-time snapshot listener in MainActivity automatically removes the event
-     * from the browse list on next update. Navigates back on success.
-     */
     private void softDeleteFromDetails() {
         if (currentEventId == null) return;
         FirebaseFirestore.getInstance()
@@ -950,28 +884,22 @@ public class EventDetailsFragment extends Fragment {
                 .document(currentEventId)
                 .update("isDeleted", true)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(requireContext(),
-                            "Event deleted.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), "Event deleted.", Toast.LENGTH_SHORT).show();
                     if (!Navigation.findNavController(requireView()).popBackStack()) {
                         ((MainActivity) requireActivity()).showHome();
                     }
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(requireContext(),
-                                "Failed to delete event.", Toast.LENGTH_SHORT).show()
-                );
+                                "Failed to delete event.", Toast.LENGTH_SHORT).show());
     }
 
-    /**
-     * Restores the event details screen to view mode after editing is complete.
-     * Hides the edit text fields and shows the read-only TextViews.
-     */
     private void exitEditMode() {
-        if (btnJoinWaitlist  != null) btnJoinWaitlist.setText("Edit");
-        if (tvTitle          != null) tvTitle.setVisibility(View.VISIBLE);
-        if (tvDescription    != null) tvDescription.setVisibility(View.VISIBLE);
-        if (etTitle          != null) etTitle.setVisibility(View.GONE);
-        if (etDescription    != null) etDescription.setVisibility(View.GONE);
-        if (etPosterUrl      != null) etPosterUrl.setVisibility(View.GONE);
+        if (btnJoinWaitlist != null) btnJoinWaitlist.setText("Edit");
+        if (tvTitle         != null) tvTitle.setVisibility(View.VISIBLE);
+        if (tvDescription   != null) tvDescription.setVisibility(View.VISIBLE);
+        if (etTitle         != null) etTitle.setVisibility(View.GONE);
+        if (etDescription   != null) etDescription.setVisibility(View.GONE);
+        if (etPosterUrl     != null) etPosterUrl.setVisibility(View.GONE);
     }
 }
