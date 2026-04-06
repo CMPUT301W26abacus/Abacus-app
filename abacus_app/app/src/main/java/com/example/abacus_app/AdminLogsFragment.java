@@ -24,14 +24,41 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
-import com.google.android.material.tabs.TabLayoutMediator.TabConfigurationStrategy;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Admin-only logs screen with two tabs: Images and Profiles.
+ * Admin-only fragment that surfaces two moderation tabs — "Images" and "Profiles" — inside
+ * a {@link ViewPager2} with a shared {@link TabLayout}.
+ *
+ * <p><b>Role in the application:</b> This is the main entry point for the moderation workflow.
+ * Administrators land here after passing the role check in the navigation graph. The two tabs
+ * allow them to (a) remove inappropriate poster images from events and (b) soft-delete user
+ * profiles that violate community guidelines.
+ *
+ * <p><b>Design pattern:</b> The fragment acts as a thin host. All data and business logic live
+ * in {@link AdminViewModel}, which is scoped to the Activity so that both the outer fragment
+ * and its child {@link AdminTabFragment} instances share the same instance. The search bar in
+ * this fragment writes to {@link AdminViewModel#setSearchQuery(String)}, and both child tabs
+ * observe that query to re-filter their own lists reactively.
+ *
+ * <p><b>Navigation bar insets:</b> Bottom padding is applied at runtime using
+ * {@link WindowInsetsCompat} so the last list item is never hidden behind the system nav bar.
+ * No hardcoded pixel values are used.
+ *
+ * <p><b>Known issues / outstanding work:</b>
+ * <ul>
+ *   <li>The search bar is not reset when the user navigates away and returns. Consider saving
+ *       and restoring the query text via {@code onSaveInstanceState}.</li>
+ *   <li>{@link AdminViewModel#getError()} fires again after rotation because it is a plain
+ *       {@link androidx.lifecycle.MutableLiveData}, not a {@code SingleLiveEvent}. Duplicate
+ *       Toast messages may appear on device rotation during an active error state.</li>
+ *   <li>Access control is enforced by the navigation graph, but this fragment does not
+ *       independently verify the user's role at runtime. A middleware check would add
+ *       defence-in-depth.</li>
+ * </ul>
  */
 public class AdminLogsFragment extends Fragment {
 
@@ -49,18 +76,21 @@ public class AdminLogsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // ViewModel is scoped to the Activity so child tabs share the same instance.
         viewModel = new ViewModelProvider(requireActivity()).get(AdminViewModel.class);
 
+        // Debug observers — confirm LiveData emissions reach this fragment. Safe to remove in prod.
         viewModel.getProfiles().observe(getViewLifecycleOwner(), users ->
                 Log.d("AdminLogsFragment", "Profiles LiveData fired, size=" + (users != null ? users.size() : "null")));
         viewModel.getImages().observe(getViewLifecycleOwner(), events ->
                 Log.d("AdminLogsFragment", "Images LiveData fired, size=" + (events != null ? events.size() : "null")));
 
+        // Pull-to-refresh reloads both collections from Firestore.
         SwipeRefreshLayout swipeRefresh = view.findViewById(R.id.admin_logs_swipe_refresh);
         swipeRefresh.setOnRefreshListener(() -> {
             viewModel.loadImages();
             viewModel.loadProfiles();
-            swipeRefresh.setRefreshing(false);
+            swipeRefresh.setRefreshing(false); // spinner is hidden immediately; data streams asynchronously
         });
 
         ViewPager2 viewPager = view.findViewById(R.id.view_pager);
@@ -68,11 +98,12 @@ public class AdminLogsFragment extends Fragment {
 
         viewPager.setAdapter(new AdminPagerAdapter(this));
 
+        // Attach tab titles to ViewPager2 pages.
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             tab.setText(position == 0 ? "Images" : "Profiles");
         }).attach();
 
-        // Apply actual nav bar height as bottom padding at runtime — no hardcoded values
+        // Apply the real navigation-bar height as bottom padding so no content is occluded.
         ViewCompat.setOnApplyWindowInsetsListener(viewPager, (v, insets) -> {
             int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
             v.setPadding(0, 0, 0, navBarHeight);
@@ -80,7 +111,8 @@ public class AdminLogsFragment extends Fragment {
             return insets;
         });
 
-        // ── Search bar — filters whichever tab is active via shared ViewModel ──
+        // Shared search bar: pushes lowercase, trimmed query into the ViewModel.
+        // Both child tabs observe getSearchQuery() and re-filter their lists on each change.
         TextInputEditText searchBar = view.findViewById(R.id.search_bar);
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -90,6 +122,7 @@ public class AdminLogsFragment extends Fragment {
             @Override public void afterTextChanged(Editable s) {}
         });
 
+        // Hide the soft keyboard when the user submits the search.
         searchBar.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
                 android.view.inputmethod.InputMethodManager imm =
@@ -102,9 +135,11 @@ public class AdminLogsFragment extends Fragment {
             return false;
         });
 
+        // Kick off the initial data loads.
         viewModel.loadImages();
         viewModel.loadProfiles();
 
+        // Surface any Firestore errors as a short Toast.
         viewModel.getError().observe(getViewLifecycleOwner(), err -> {
             if (err != null) Toast.makeText(getContext(), err, Toast.LENGTH_SHORT).show();
         });
@@ -112,6 +147,13 @@ public class AdminLogsFragment extends Fragment {
 
     // ── Pager adapter ─────────────────────────────────────────────────────────
 
+    /**
+     * Two-page adapter for the admin {@link ViewPager2}.
+     *
+     * <p>Page 0 is the Images tab; page 1 is the Profiles tab. Each page is an
+     * {@link AdminTabFragment} with a {@code tab} argument that determines which
+     * data source and adapter it wires up.
+     */
     private class AdminPagerAdapter extends FragmentStateAdapter {
         AdminPagerAdapter(Fragment f) {
             super(f.getChildFragmentManager(), f.getViewLifecycleOwner().getLifecycle());
@@ -130,12 +172,29 @@ public class AdminLogsFragment extends Fragment {
 
     // ── Tab fragment ──────────────────────────────────────────────────────────
 
+    /**
+     * A single tab page inside the admin logs {@link ViewPager2}.
+     *
+     * <p>Constructed via the {@link #newImagesTab()} or {@link #newProfilesTab()} factory
+     * methods, which embed a {@code tab} argument that selects either the image or profile
+     * dataset. The fragment shares the parent Activity's {@link AdminViewModel} so it
+     * automatically reflects search queries typed in the outer {@link AdminLogsFragment}.
+     *
+     * <p>Filtering is done in-memory on the main thread (see {@link #applyImageFilter} and
+     * {@link #applyProfileFilter}). For datasets larger than a few hundred rows this should
+     * be moved to a background thread or replaced with a Firestore server-side query.
+     */
     public static class AdminTabFragment extends Fragment {
 
         private static final String ARG_TAB      = "tab";
         private static final int    TAB_IMAGES   = 0;
         private static final int    TAB_PROFILES = 1;
 
+        /**
+         * Creates a new tab fragment pre-configured for the Images dataset.
+         *
+         * @return a new {@link AdminTabFragment} with {@code tab=TAB_IMAGES}
+         */
         public static AdminTabFragment newImagesTab() {
             AdminTabFragment f = new AdminTabFragment();
             Bundle args = new Bundle();
@@ -144,6 +203,11 @@ public class AdminLogsFragment extends Fragment {
             return f;
         }
 
+        /**
+         * Creates a new tab fragment pre-configured for the Profiles dataset.
+         *
+         * @return a new {@link AdminTabFragment} with {@code tab=TAB_PROFILES}
+         */
         public static AdminTabFragment newProfilesTab() {
             AdminTabFragment f = new AdminTabFragment();
             Bundle args = new Bundle();
@@ -183,13 +247,11 @@ public class AdminLogsFragment extends Fragment {
                                 () -> vm.deleteImage(event.getEventId())));
                 rv.setAdapter(adapter);
 
-                // Observe both images and search query so the list re-filters on either change
-                vm.getImages().observe(getViewLifecycleOwner(), events -> {
-                    applyImageFilter(vm, imageList, adapter, layoutEmpty, rv);
-                });
-                vm.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
-                    applyImageFilter(vm, imageList, adapter, layoutEmpty, rv);
-                });
+                // Re-filter whenever the data OR the search query changes.
+                vm.getImages().observe(getViewLifecycleOwner(), events ->
+                        applyImageFilter(vm, imageList, adapter, layoutEmpty, rv));
+                vm.getSearchQuery().observe(getViewLifecycleOwner(), query ->
+                        applyImageFilter(vm, imageList, adapter, layoutEmpty, rv));
 
             } else {
                 List<User> profileList = new ArrayList<>();
@@ -200,17 +262,28 @@ public class AdminLogsFragment extends Fragment {
                                 () -> vm.deleteProfile(user.getUid())));
                 rv.setAdapter(adapter);
 
-                // Observe both profiles and search query so the list re-filters on either change
-                vm.getProfiles().observe(getViewLifecycleOwner(), users -> {
-                    applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv);
-                });
-                vm.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
-                    applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv);
-                });
+                // Re-filter whenever the data OR the search query changes.
+                vm.getProfiles().observe(getViewLifecycleOwner(), users ->
+                        applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv));
+                vm.getSearchQuery().observe(getViewLifecycleOwner(), query ->
+                        applyProfileFilter(vm, profileList, adapter, layoutEmpty, rv));
             }
         }
 
-        /** Filters the images list by the current search query (organizer name or email). */
+        /**
+         * Filters the full images list from the ViewModel by the current search query and
+         * updates the adapter. Matching is case-insensitive against the event title,
+         * organizer ID, and organizer email.
+         *
+         * <p>An empty query shows all events. The empty-state view is shown/hidden based
+         * on whether the filtered list is empty.
+         *
+         * @param vm          the shared ViewModel providing images and the search query
+         * @param imageList   the mutable backing list for the RecyclerView adapter
+         * @param adapter     the adapter to notify after modifying {@code imageList}
+         * @param layoutEmpty the empty-state view to toggle
+         * @param rv          the RecyclerView to toggle
+         */
         private void applyImageFilter(AdminViewModel vm, List<Event> imageList,
                                       AdminImageAdapter adapter, View layoutEmpty, RecyclerView rv) {
             List<Event> source = vm.getImages().getValue();
@@ -222,11 +295,10 @@ public class AdminLogsFragment extends Fragment {
                     if (query.isEmpty()) {
                         imageList.add(e);
                     } else {
-                        // Match against organizer ID, email, title, or description
                         boolean match =
-                                (e.getTitle() != null && e.getTitle().toLowerCase().contains(query))
-                                        || (e.getOrganizerId() != null && e.getOrganizerId().toLowerCase().contains(query))
-                                        || (e.getOrganizerEmail() != null && e.getOrganizerEmail().toLowerCase().contains(query));
+                                (e.getTitle()        != null && e.getTitle().toLowerCase().contains(query))
+                                        || (e.getOrganizerId()  != null && e.getOrganizerId().toLowerCase().contains(query))
+                                        || (e.getOrganizerEmail()!= null && e.getOrganizerEmail().toLowerCase().contains(query));
                         if (match) imageList.add(e);
                     }
                 }
@@ -236,7 +308,20 @@ public class AdminLogsFragment extends Fragment {
             rv.setVisibility(imageList.isEmpty() ? View.GONE : View.VISIBLE);
         }
 
-        /** Filters the profiles list by name, email, or role. */
+        /**
+         * Filters the full profiles list from the ViewModel by the current search query and
+         * updates the adapter. Already-deleted users are excluded unconditionally; remaining
+         * users are matched case-insensitively against name, email, and role.
+         *
+         * <p>An empty query shows all active (non-deleted) profiles. The empty-state view
+         * is shown/hidden based on whether the filtered list is empty.
+         *
+         * @param vm          the shared ViewModel providing profiles and the search query
+         * @param profileList the mutable backing list for the RecyclerView adapter
+         * @param adapter     the adapter to notify after modifying {@code profileList}
+         * @param layoutEmpty the empty-state view to toggle
+         * @param rv          the RecyclerView to toggle
+         */
         private void applyProfileFilter(AdminViewModel vm, List<User> profileList,
                                         AdminProfileAdapter adapter, View layoutEmpty, RecyclerView rv) {
             List<User> source = vm.getProfiles().getValue();
@@ -245,10 +330,7 @@ public class AdminLogsFragment extends Fragment {
             profileList.clear();
             if (source != null) {
                 for (User u : source) {
-                    // If the profile is already deactivated, don't show it in the logs list
-                    if (u.isDeleted()) {
-                        continue;
-                    }
+                    if (u.isDeleted()) continue; // never show deactivated accounts in this list
                     if (query.isEmpty()) {
                         profileList.add(u);
                     } else {
@@ -265,6 +347,13 @@ public class AdminLogsFragment extends Fragment {
             rv.setVisibility(profileList.isEmpty() ? View.GONE : View.VISIBLE);
         }
 
+        /**
+         * Shows a standard {@link AlertDialog} asking the admin to confirm a destructive action.
+         *
+         * @param title     the dialog title (e.g. "Delete this profile?")
+         * @param message   the explanatory message shown below the title
+         * @param onConfirm runnable invoked only if the admin taps "Delete"; not called on cancel
+         */
         private void confirmDelete(String title, String message, Runnable onConfirm) {
             new AlertDialog.Builder(requireContext())
                     .setTitle(title)

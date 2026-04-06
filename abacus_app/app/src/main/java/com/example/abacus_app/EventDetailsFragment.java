@@ -234,6 +234,12 @@ public class EventDetailsFragment extends Fragment {
         loadWaitlistCount();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        ((MainActivity) requireActivity()).showBottomNav(true);
+    }
+
     // ── Guest waitlist ────────────────────────────────────────────────────────
 
     /**
