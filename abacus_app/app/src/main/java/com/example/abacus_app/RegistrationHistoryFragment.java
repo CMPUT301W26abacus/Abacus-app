@@ -100,6 +100,9 @@ public class RegistrationHistoryFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setBottomNavVisible(true);
+        }
         // Keep history in sync with join/leave actions done in EventDetailsFragment.
         if (viewModel != null) {
             viewModel.refresh();
@@ -113,6 +116,7 @@ public class RegistrationHistoryFragment extends Fragment {
             args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
 
             // show event details page with no nav-bar
+            ((MainActivity) requireActivity()).setBottomNavVisible(false);
             ((MainActivity) requireActivity())
                     .showFragment(
                             R.id.eventDetailsFragment,
