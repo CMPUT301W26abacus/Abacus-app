@@ -191,6 +191,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
         EventRepository eventRepository = new EventRepository();
         // in case user is an admin
         String role = ((MainActivity) requireActivity()).getEffectiveRole();
+        Log.d("mytag", "role: " + role);
         eventRepository.getEventByIdAsync(eventId, new EventRepository.EventCallback() {
             @Override
             public void onResult(Event event) {
@@ -200,6 +201,8 @@ public class CommentsFragment extends BottomSheetDialogFragment {
                     canDelete = true;
                     adapter.setCanDelete(canDelete);
                 } else if (role.equals("organizer")) {
+                    Log.d("mytag", "event org id: " + event.getOrganizerId());
+                    Log.d("mytag", "user id: " + currentUser.getUid());
                     // check if user is organizer of this event
                     if (event.getOrganizerId().equals(currentUser.getUid())) {
                         canDelete = true;

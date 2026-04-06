@@ -6,6 +6,7 @@ import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,7 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -54,6 +56,8 @@ public class OrganizerCreateFragment extends Fragment {
     private Timestamp startTimestamp, endTimestamp;
     private Timestamp eventStartTimestamp, eventEndTimestamp;
     private Uri selectedImageUri;
+    private User currentUser;
+    private Integer waitlistLimit;
 
     private final ActivityResultLauncher<Intent> imagePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -245,7 +249,7 @@ public class OrganizerCreateFragment extends Fragment {
             return;
         }
 
-        Integer waitlistLimit = null;
+
         if (cbLimit.isChecked()) {
             try {
                 waitlistLimit = Integer.parseInt(etLimit.getText().toString());
@@ -267,21 +271,49 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
-            Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String organizerId = currentUser.getUid();
+        // get current user id
+        // get current user info
+        UserLocalDataSource localDataSource = new UserLocalDataSource(requireContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        UserRepository userRepository = new UserRepository(localDataSource, remoteDataSource);
+        userRepository.getProfile(new UserRepository.UserCallback() {
+            @Override
+            public void onResult(User user) {
+                // Use Firebase Auth as the source of truth — if no authenticated
+                // (non-anonymous) Firebase user exists, treat as guest regardless of
+                // any device UUID profile that may linger in Firestore after logout.
+                com.google.firebase.auth.FirebaseUser fbUser =
+                        com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                boolean isGuest = fbUser == null || fbUser.isAnonymous();
 
-        Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
-                waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
-        event.setIsPrivate(switchPrivate.isChecked());
-        event.setTags(selectedTags);
-        event.setEventStart(eventStartTimestamp);
-        event.setEventEnd(eventEndTimestamp);
-        event.setLocation(etLocation.getText().toString().trim());
+                if (!isGuest) {
+                    currentUser = user;
+                    //inputContainer.setVisibility(android.view.View.VISIBLE);
+                } else {
+                    currentUser = null;
+                    //inputContainer.setVisibility(android.view.View.GONE);
+                }
 
-        viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
+                Log.d("mytag", "currentuser: " + currentUser);
+                if (currentUser == null) {
+                    Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String organizerId = currentUser.getUid();
+                Log.d("mytag", "orgid: " + organizerId);
+
+                Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
+                        waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
+                event.setIsPrivate(switchPrivate.isChecked());
+                event.setTags(selectedTags);
+                event.setEventStart(eventStartTimestamp);
+                event.setEventEnd(eventEndTimestamp);
+                event.setLocation(etLocation.getText().toString().trim());
+
+                viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
+            }
+        });
+
+
     }
 }
