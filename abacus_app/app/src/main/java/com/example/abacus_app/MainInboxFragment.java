@@ -130,6 +130,14 @@ public class MainInboxFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setBottomNavVisible(true);
+        }
+    }
+
     /**
      * Loads the current user's profile to determine role-based UI (Admin toggle) 
      * and starts the real-time data listeners.
@@ -203,6 +211,7 @@ public class MainInboxFragment extends Fragment {
                 Bundle args = new Bundle();
                 args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
                 // show event details page with no nav-bar
+                ((MainActivity) getActivity()).setBottomNavVisible(false);
                 ((MainActivity) requireActivity())
                         .showFragment(
                                 R.id.eventDetailsFragment,
