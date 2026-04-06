@@ -702,6 +702,15 @@ public class EventDetailsFragment extends Fragment {
         if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
         if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
         if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+
+        // Disable leave if registration has ended — entrant is locked in
+        if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null
+                && loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
+            if (btnLeaveWaitlist != null) {
+                btnLeaveWaitlist.setEnabled(false);
+                btnLeaveWaitlist.setText("Registration Ended");
+            }
+        }
     }
 
     private void showAcceptDeclineButtons() {
@@ -710,6 +719,19 @@ public class EventDetailsFragment extends Fragment {
         if (btnAccept        != null) { btnAccept.setVisibility(View.VISIBLE); btnAccept.setEnabled(true); }
         if (btnDecline       != null) { btnDecline.setVisibility(View.VISIBLE); btnDecline.setEnabled(true); }
         if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+
+        // Disable accept/decline if registration has ended
+        if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null
+                && loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
+            if (btnAccept  != null) btnAccept.setVisibility(View.GONE);
+            if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+            if (tvStatusMessage != null) {
+                tvStatusMessage.setVisibility(View.VISIBLE);
+                tvStatusMessage.setText("Registration has ended for this event.");
+                tvStatusMessage.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.grey));
+            }
+        }
     }
 
     private void showStatusMessage(String status) {
