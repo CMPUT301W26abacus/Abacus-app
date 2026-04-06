@@ -77,6 +77,7 @@ public class OrganizerManageFragment extends Fragment {
     private int selectedEventWaitlistSize;
     private boolean isDirectAccess = false;
     private View rootView;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefresh;
     private OnBackPressedCallback callback;
 
     private List<WaitlistEntry> allEntries      = new ArrayList<>();
@@ -91,6 +92,7 @@ public class OrganizerManageFragment extends Fragment {
         rootView = inflater.inflate(R.layout.organizer_manage_fragment, container, false);
 
         viewModel          = new ViewModelProvider(this).get(ManageEventViewModel.class);
+        swipeRefresh       = rootView.findViewById(R.id.swipe_refresh);
         tvEventName        = rootView.findViewById(R.id.tv_event_name);
         tvCount            = rootView.findViewById(R.id.tv_waitlist_count);
         recyclerView       = rootView.findViewById(R.id.rv_waitlist);
@@ -218,6 +220,17 @@ public class OrganizerManageFragment extends Fragment {
         } else {
             tvCount.setText("Could not load events");
         }
+
+        swipeRefresh.setOnRefreshListener(() -> {
+            String refreshUuid = new UserLocalDataSource(requireContext()).getUUIDSync();
+            String refreshUid  = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid()
+                    : null;
+            if (refreshUuid != null || refreshUid != null) {
+                viewModel.loadOrganizerEvents(refreshUuid, refreshUid);
+            }
+            swipeRefresh.setRefreshing(false);
+        });
     }
 
     private void showWaitlist(String eventTitle, String eventId) {
