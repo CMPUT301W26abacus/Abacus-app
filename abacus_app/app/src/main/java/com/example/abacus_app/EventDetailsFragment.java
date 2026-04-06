@@ -104,6 +104,12 @@ public class EventDetailsFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        ((MainActivity) requireActivity()).showBottomNav(false);
+    }
+
+    @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
@@ -224,8 +230,10 @@ public class EventDetailsFragment extends Fragment {
             return;
         }
 
-        String guestKey = GuestSignUpFragment.emailToKey(savedEmail);
-        registrationRepository.isOnWaitlist(guestKey, currentEventId, isOn -> {
+        String deviceId = new com.example.abacus_app.UserLocalDataSource(requireContext()).getUUIDSync();
+        // Doc key matches GuestSignUpFragment.performJoin(): {deviceId}_{eventId}
+        String waitlistKey = (deviceId != null ? deviceId : GuestSignUpFragment.emailToKey(savedEmail)) + "_" + currentEventId;
+        registrationRepository.isOnWaitlist(waitlistKey, currentEventId, isOn -> {
             if (isOn) {
                 showLeaveButton();
                 btnLeaveWaitlist.setEnabled(true);
@@ -322,7 +330,7 @@ public class EventDetailsFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString(GuestSignUpFragment.ARG_EVENT_ID,    currentEventId != null ? currentEventId : "");
         args.putString(GuestSignUpFragment.ARG_EVENT_TITLE, eventTitle);
-        Navigation.findNavController(view).navigate(R.id.guestSignUpFragment, args);
+        Navigation.findNavController(view).navigate(R.id.action_eventDetailsFragment_to_guestSignUpFragment, args);
     }
 
     private void showGuestLeaveConfirmationDialog(@NonNull String guestEmail) {
@@ -336,7 +344,8 @@ public class EventDetailsFragment extends Fragment {
 
     private void leaveGuestWaitlist(@NonNull String guestEmail) {
         if (currentEventId == null) return;
-        String guestKey = GuestSignUpFragment.emailToKey(guestEmail);
+        String deviceId = new com.example.abacus_app.UserLocalDataSource(requireContext()).getUUIDSync();
+        String guestKey = (deviceId != null ? deviceId : GuestSignUpFragment.emailToKey(guestEmail)) + "_" + currentEventId;
         registrationRepository.leaveWaitlist(guestKey, currentEventId, error -> {
             if (error != null) {
                 Toast.makeText(requireContext(),

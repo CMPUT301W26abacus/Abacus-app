@@ -299,9 +299,22 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         // ── Join status check ──────────────────────────────────────────────────
         String eventId = event.getEventId();
 
+        // For guests with no resolved userKey, check join status by guestEmail
+        // This ensures button state matches what history shows (consistent across devices)
+        if (userKey == null && isGuest && eventId != null && !eventId.isEmpty()) {
+            String guestEmail = holder.itemView.getContext()
+                    .getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, android.content.Context.MODE_PRIVATE)
+                    .getString(GuestSignUpFragment.PREF_GUEST_EMAIL, null);
+            if (guestEmail != null) {
+                checkGuestJoinStatusByEmail(holder, event, guestEmail, holder.itemView.getContext());
+                return;
+            }
+        }
+
         if (userKey == null || eventId == null || eventId.isEmpty()) {
             applyButtonState(holder, ButtonState.JOIN, holder.itemView.getContext());
             holder.btnJoinStatus.setOnClickListener(v -> {
+                // Always require guests to go through signup — don't auto-join
                 if (clickListener != null) clickListener.onEventClick(event.getTitle(), false);
             });
             return;
@@ -329,6 +342,15 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         if (canManageEvents) {
             holder.btnJoinStatus.setVisibility(View.GONE);
             holder.btnFavourite.setVisibility(View.GONE);
+            return;
+        }
+
+        // Check if event is at capacity
+        Integer capacity = event.getWaitlistCapacity();
+        Integer count    = event.getWaitlistCount();
+        if (capacity != null && count != null && count >= capacity) {
+            applyButtonState(holder, ButtonState.FULL, holder.itemView.getContext());
+            holder.btnJoinStatus.setOnClickListener(null);
             return;
         }
 
@@ -368,6 +390,51 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                 });
     }
 
+    // ── Guest join status check ───────────────────────────────────────────────
+
+    /**
+     * Checks if a guest has joined a specific event by querying the waitlist
+     * collection group filtered by guestEmail and eventId. This ensures consistency
+     * with the history view, which also queries by email.
+     *
+     * @param holder     the ViewHolder containing the button
+     * @param event      the event being checked
+     * @param guestEmail the guest's email address
+     * @param context    used for resource resolution
+     */
+    private void checkGuestJoinStatusByEmail(@NonNull EventViewHolder holder,
+                                             @NonNull Event event,
+                                             @NonNull String guestEmail,
+                                             @NonNull Context context) {
+        String eventId = event.getEventId();
+
+        // Reset to Join while async check runs
+        applyButtonState(holder, ButtonState.JOIN, context);
+        holder.btnJoinStatus.setOnClickListener(null);
+
+        // Query all waitlist subcollections filtered by guestEmail and eventId
+        // This matches how the history view retrieves guest data
+        FirebaseFirestore.getInstance()
+                .collectionGroup("waitlist")
+                .whereEqualTo("guestEmail", guestEmail)
+                .whereEqualTo("eventId", eventId)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    int pos = holder.getBindingAdapterPosition();
+                    if (pos == RecyclerView.NO_POSITION || pos < 0 || pos >= events.size()) return;
+                    if (!eventId.equals(events.get(pos).getEventId())) return;
+
+                    boolean joined = !snapshot.isEmpty();
+                    applyButtonState(holder, joined ? ButtonState.JOINED : ButtonState.JOIN, context);
+
+                    holder.btnJoinStatus.setOnClickListener(v -> {
+                        if (clickListener != null)
+                            clickListener.onEventClick(event.getTitle(), false);
+                    });
+                });
+    }
+
     // ── Save / heart button ───────────────────────────────────────────────────
 
     /**
@@ -383,15 +450,21 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
      * @param event  the event to check saved status for
      */
     private void setupSaveButton(@NonNull EventViewHolder holder, @NonNull Event event) {
-        // Use Firebase UID if available, otherwise fall back to device UUID (guest)
+        // Use Firebase UID if available, otherwise use device UUID for guests
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        String uid = currentUser != null ? currentUser.getUid() : userKey;
+        String uidTemp = currentUser != null ? currentUser.getUid() : userKey;
 
-        if (uid == null) {
+        // For guests without userKey, get device UUID
+        if (uidTemp == null && isGuest) {
+            uidTemp = new UserLocalDataSource(holder.itemView.getContext()).getUUIDSync();
+        }
+
+        if (uidTemp == null) {
             holder.btnFavourite.setVisibility(View.GONE);
             return;
         }
 
+        final String uid = uidTemp;
         String eventId = event.getEventId();
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
@@ -480,8 +553,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     // ── Button appearance ─────────────────────────────────────────────────────
 
-    /** Represents the three visual states of the join/status button on each card. */
-    private enum ButtonState { JOIN, JOINED, MANAGE }
+    /** Represents the four visual states of the join/status button on each card. */
+    private enum ButtonState { JOIN, JOINED, MANAGE, FULL }
 
     /**
      * Applies one of the three standard button visual states to the join/status button.
@@ -510,6 +583,14 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                 btn.setBackgroundTintList(ColorStateList.valueOf(
                         ContextCompat.getColor(context, R.color.orange)));
                 btn.setStrokeWidth(0);
+                break;
+            case FULL:
+                btn.setText("Full");
+                btn.setTextColor(ContextCompat.getColor(context, R.color.grey));
+                btn.setBackgroundTintList(ColorStateList.valueOf(
+                        ContextCompat.getColor(context, R.color.light_grey)));
+                btn.setStrokeWidth(0);
+                btn.setEnabled(false);
                 break;
             case JOIN:
             default:

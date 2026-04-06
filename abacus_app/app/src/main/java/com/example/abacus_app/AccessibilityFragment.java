@@ -101,7 +101,10 @@ public class AccessibilityFragment extends Fragment {
 
     private float clampScale(float scale, boolean isLargeTextEnabled) {
         float maxScale = isLargeTextEnabled ? 1.9f : 1.6f;
-        return Math.max(0.8f, Math.min(maxScale, scale));
+        float clamped = Math.max(0.8f, Math.min(maxScale, scale));
+        // Round to nearest 0.1 step to avoid floating-point imprecision crashing the Slider
+        // e.g. 0.8 + 6*0.1 = 1.4599999 which fails stepSize validation
+        return Math.round(clamped * 10) / 10f;
     }
 
     private void updateTextScaleUI(float scale, TextView tvScaleValue, TextView tvPreview) {

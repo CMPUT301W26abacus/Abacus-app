@@ -377,8 +377,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupBottomNav() {
         String roleGroup = "admin".equals(userRole) ? "admin" :
                 "organizer".equals(userRole) ? "organizer" : "entrant";
-        if (roleGroup.equals(bottomNavRole)) return;
-        bottomNavRole = roleGroup;
+        if (roleGroup.equals(bottomNavRole) && isGuest == (bottomNavRole.equals("entrant_guest"))) return;
+        bottomNavRole = isGuest && "entrant".equals(roleGroup) ? "entrant_guest" : roleGroup;
         bottomNav.setOnItemSelectedListener(null);
         bottomNav.getMenu().clear();
 
@@ -420,7 +420,13 @@ public class MainActivity extends AppCompatActivity {
             });
 
         } else {
-            bottomNav.inflateMenu(R.menu.menu_bottom_nav);
+            // Entrant flow: guest users get 3 tabs (home, saved, history), authenticated get 4 (+ inbox)
+            if (isGuest) {
+                bottomNav.inflateMenu(R.menu.menu_bottom_nav_guest);
+            } else {
+                bottomNav.inflateMenu(R.menu.menu_bottom_nav);
+            }
+
             bottomNav.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_home) {
@@ -500,6 +506,12 @@ public class MainActivity extends AppCompatActivity {
      *   <li>{@code filterHasSpots} — excludes events where waitlistCount &gt;= waitlistCapacity</li>
      * </ul>
      */
+    public void refreshEventAdapter() {
+        if (!allEvents.isEmpty()) {
+            applyFilters();
+        }
+    }
+
     private void applyFilters() {
         List<Event> filtered = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
