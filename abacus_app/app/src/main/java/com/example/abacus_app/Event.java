@@ -21,6 +21,7 @@ public class Event implements Serializable {
     private String description;
     private String organizerId;
     private String organizerEmail;
+    private String location;
     private Timestamp registrationStart;
     private Timestamp registrationEnd;
     private Timestamp eventStart;
@@ -49,6 +50,7 @@ public class Event implements Serializable {
      * @param registrationStart When entrants can start joining the waitlist.
      * @param registrationEnd   When registration closes.
      * @param waitlistCapacity  Max entrants allowed (null if unlimited).
+     * @param eventCapacity     Max attendees for the event.
      * @param geoRequired       Whether entrants must provide geolocation.
      * @param lotteryDrawn      Whether the lottery has been run.
      */
@@ -66,70 +68,53 @@ public class Event implements Serializable {
         this.geoRequired = geoRequired;
         this.lotteryDrawn = lotteryDrawn;
         this.coOrganizers = new ArrayList<>();
-        this.isPrivate = false; // Default to public
+        this.isPrivate = false;
     }
 
-    /**
-     * @return the unique ID of the event.
-     */
+    /** @return the unique ID of the event. */
     public String getEventId() { return eventId; }
-
-    /**
-     * @param eventId sets the unique ID of the event.
-     */
+    /** @param eventId sets the unique ID of the event. */
     public void setEventId(String eventId) { this.eventId = eventId; }
 
-    /**
-     * @return the display title.
-     */
+    /** @return the display title. */
     public String getTitle() { return title; }
-
-    /**
-     * @param title sets the display title.
-     */
+    /** @param title sets the display title. */
     public void setTitle(String title) { this.title = title; }
 
-    /**
-     * @return the event description.
-     */
+    /** @return the event description. */
     public String getDescription() { return description; }
-    
-    /**
-     * @param description sets the event description.
-     */
+    /** @param description sets the event description. */
     public void setDescription(String description) { this.description = description; }
 
-    /**
-     * @return the organizer's ID.
-     */
+    /** @return the organizer's ID. */
     public String getOrganizerId() { return organizerId; }
-    
-    /**
-     * @param organizerId sets the organizer's ID.
-     */
+    /** @param organizerId sets the organizer's ID. */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
 
     public String getOrganizerEmail() { return organizerEmail; }
     public void setOrganizerEmail(String organizerEmail) { this.organizerEmail = organizerEmail; }
 
     /**
-     * @return start of registration period.
+     * The venue or address where the event takes place.
+     * Displayed on the Event Details screen under the LOCATION label.
+     *
+     * @return the event location string, or null if not set
      */
-    public Timestamp getRegistrationStart() { return registrationStart; }
-    
-    /**
-     * @param registrationStart sets registration start time.
-     */
-    public void setRegistrationStart(Timestamp registrationStart) { this.registrationStart = registrationStart; }
+    public String getLocation() { return location; }
 
     /**
-     * @return end of registration period.
+     * @param location the venue or address to display on the event details screen
      */
+    public void setLocation(String location) { this.location = location; }
+
+    /** @return start of registration period. */
+    public Timestamp getRegistrationStart() { return registrationStart; }
+    /** @param registrationStart sets registration start time. */
+    public void setRegistrationStart(Timestamp registrationStart) { this.registrationStart = registrationStart; }
+
+    /** @return end of registration period. */
     public Timestamp getRegistrationEnd() { return registrationEnd; }
-    
-    /**
-     * @param registrationEnd sets registration end time.
-     */
+    /** @param registrationEnd sets registration end time. */
     public void setRegistrationEnd(Timestamp registrationEnd) { this.registrationEnd = registrationEnd; }
 
     /** When the event itself starts (shown to entrants). */
@@ -157,7 +142,6 @@ public class Event implements Serializable {
 
     @PropertyName("isPrivate")
     public boolean isPrivate() { return isPrivate; }
-
     @PropertyName("isPrivate")
     public void setIsPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
     public String getPosterImageUrl() { return posterImageUrl; }

@@ -267,10 +267,6 @@ public class EventDetailsFragment extends Fragment {
                 currentRegistrationKey = uuid;
             }
 
-            // Only call checkWaitlistStatus() if:
-            // 1. loadedEvent is already set (so canEditCurrentEvent() is accurate)
-            // 2. The user is not the organizer/owner of this event
-            // 3. The user does not have the organizer/admin role at all
             if (loadedEvent != null && !canEditCurrentEvent() && !isOrganizerRole()) {
                 checkWaitlistStatus();
             }
@@ -409,6 +405,14 @@ public class EventDetailsFragment extends Fragment {
                     if (tvDescription != null && event.getDescription() != null)
                         tvDescription.setText(event.getDescription());
 
+                    // ── Populate location from Firestore ──────────────────────
+                    TextView tvLocation = getView() != null
+                            ? getView().findViewById(R.id.tv_location) : null;
+                    if (tvLocation != null) {
+                        String loc = event.getLocation();
+                        tvLocation.setText(loc != null && !loc.isEmpty() ? loc : "No location set");
+                    }
+
                     SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
 
                     TextView tvEventDateTime = getView() != null
@@ -466,7 +470,6 @@ public class EventDetailsFragment extends Fragment {
                                         .show());
 
                     } else if (isOrganizerOfThis) {
-                        // Owner/co-organizer of this event: show Edit button
                         hideAllActionButtons();
                         btnJoinWaitlist.setVisibility(View.VISIBLE);
                         btnJoinWaitlist.setEnabled(true);
@@ -479,16 +482,11 @@ public class EventDetailsFragment extends Fragment {
                         btnJoinWaitlist.setOnClickListener(v -> toggleEditMode());
 
                     } else if (isOrganizerRole()) {
-                        // Organizer role but does NOT own this event: hide everything
                         hideAllActionButtons();
 
                     } else if (currentRegistrationKey != null) {
-                        // Regular user: show waitlist buttons
                         checkWaitlistStatus();
                     }
-                    // If currentRegistrationKey is still null here, the getUserId
-                    // callback in setupAuthenticatedWaitlist() will call
-                    // checkWaitlistStatus() once it resolves.
 
                     String organizerId = event.getOrganizerId();
                     if (organizerId != null) {
@@ -521,7 +519,6 @@ public class EventDetailsFragment extends Fragment {
             } else {
                 long spotsLeft = Math.max(0, capacity - count);
                 tvWaitlistCount.setText(count + " on waiting list · " + spotsLeft + " spots left");
-                // Only disable join button for regular users — not for admins/organizers
                 if (spotsLeft == 0 && btnJoinWaitlist != null
                         && btnJoinWaitlist.getVisibility() == View.VISIBLE
                         && !isOrganizerRole()) {
@@ -683,7 +680,6 @@ public class EventDetailsFragment extends Fragment {
      * checkWaitlistStatus() is somehow reached for those roles.
      */
     private void showJoinButton() {
-        // Safety net: admins and organizers should never see the join button
         if (isOrganizerRole()) {
             hideAllActionButtons();
             return;
@@ -715,6 +711,15 @@ public class EventDetailsFragment extends Fragment {
         if (btnAccept        != null) btnAccept.setVisibility(View.GONE);
         if (btnDecline       != null) btnDecline.setVisibility(View.GONE);
         if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+
+        // Disable leave if registration has ended — entrant is locked in
+        if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null
+                && loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
+            if (btnLeaveWaitlist != null) {
+                btnLeaveWaitlist.setEnabled(false);
+                btnLeaveWaitlist.setText("Registration Ended");
+            }
+        }
     }
 
     private void showAcceptDeclineButtons() {
@@ -723,6 +728,19 @@ public class EventDetailsFragment extends Fragment {
         if (btnAccept        != null) { btnAccept.setVisibility(View.VISIBLE); btnAccept.setEnabled(true); }
         if (btnDecline       != null) { btnDecline.setVisibility(View.VISIBLE); btnDecline.setEnabled(true); }
         if (tvStatusMessage  != null) tvStatusMessage.setVisibility(View.GONE);
+
+        // Disable accept/decline if registration has ended
+        if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null
+                && loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
+            if (btnAccept  != null) btnAccept.setVisibility(View.GONE);
+            if (btnDecline != null) btnDecline.setVisibility(View.GONE);
+            if (tvStatusMessage != null) {
+                tvStatusMessage.setVisibility(View.VISIBLE);
+                tvStatusMessage.setText("Registration has ended for this event.");
+                tvStatusMessage.setTextColor(
+                        ContextCompat.getColor(requireContext(), R.color.grey));
+            }
+        }
     }
 
     private void showStatusMessage(String status) {
@@ -793,7 +811,6 @@ public class EventDetailsFragment extends Fragment {
             if (etTitle != null) {
                 etTitle.setVisibility(View.VISIBLE);
                 etTitle.setText(loadedEvent.getTitle());
-                // Single-line with Done button on keyboard
                 etTitle.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
                 etTitle.setSingleLine(true);
                 etTitle.setOnEditorActionListener((v, actionId, event) -> {
@@ -808,7 +825,6 @@ public class EventDetailsFragment extends Fragment {
             if (etDescription != null) {
                 etDescription.setVisibility(View.VISIBLE);
                 etDescription.setText(loadedEvent.getDescription());
-                // Multi-line description gets Done button that submits rather than newline
                 etDescription.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
                 etDescription.setOnEditorActionListener((v, actionId, event) -> {
                     if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
@@ -850,7 +866,6 @@ public class EventDetailsFragment extends Fragment {
             return;
         }
 
-        // Dismiss keyboard immediately
         View focusedView = requireActivity().getCurrentFocus();
         if (focusedView != null) {
             android.view.inputmethod.InputMethodManager imm =
@@ -870,7 +885,6 @@ public class EventDetailsFragment extends Fragment {
                     isEditing = false;
                     exitEditMode();
 
-                    // Update UI immediately with new values — no reload needed
                     if (tvTitle != null) tvTitle.setText(newTitle);
                     if (tvDescription != null) tvDescription.setText(newDescription);
                     if (ivPoster != null && newPosterUrl != null && !newPosterUrl.isEmpty()) {

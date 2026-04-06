@@ -498,7 +498,7 @@ public class MainActivity extends AppCompatActivity {
      * then binds the result to the RecyclerView via EventAdapter.
      *
      * <ul>
-     *   <li>{@code activeKeyword} — search bar, matches title + description, applied on keystroke</li>
+     *   <li>{@code activeKeyword} — search bar, matches title + description + location, applied on keystroke</li>
      *   <li>{@code activeFilterTags} — comma-separated chip selections, matches event.tags then text</li>
      *   <li>{@code activeDate} — checked against eventStart/eventEnd (the actual event dates,
      *       not the registration window — more intuitive for entrants)</li>
@@ -523,13 +523,15 @@ public class MainActivity extends AppCompatActivity {
 
         for (Event event : allEvents) {
 
-            String title = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+            String title       = event.getTitle()       != null ? event.getTitle().toLowerCase()       : "";
             String description = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
+            String location    = event.getLocation()    != null ? event.getLocation().toLowerCase()    : "";
 
-            // ── Search bar match (title + description) ────────────────────────
+            // ── Search bar match (title + description + location) ─────────────
             boolean searchMatch = activeKeyword.isEmpty()
                     || title.contains(activeKeyword)
-                    || description.contains(activeKeyword);
+                    || description.contains(activeKeyword)
+                    || location.contains(activeKeyword);
 
             // ── Filter sheet: category chip match ─────────────────────────────
             boolean tagMatch = true;
@@ -1006,12 +1008,9 @@ public class MainActivity extends AppCompatActivity {
      * @param args          optional arguments Bundle passed to the destination, or null
      */
     public void showFragment(int destinationId, boolean showBottomNav, Bundle args) {
-        // Clear back stack for top-level tabs to ensure clean navigation between tabs
         if (showBottomNav) clearBackStack();
         bottomNav.setVisibility(showBottomNav ? View.VISIBLE : View.GONE);
         if (navHostFragment.getVisibility() != View.VISIBLE) {
-            // Transitioning from home to NavHost — clear back stack so pressing back
-            // naturally returns to home without landing on start destination
             clearBackStack();
             navHostFragment.setAlpha(0f);
             navHostFragment.setVisibility(View.VISIBLE);
@@ -1040,8 +1039,6 @@ public class MainActivity extends AppCompatActivity {
     public void showHome() {
         clearBackStack();
         bottomNav.setVisibility(View.VISIBLE);
-        // Update the visual highlight without firing the item-selected listener
-        // (setSelectedItemId would trigger showHome() recursively → StackOverflowError)
         MenuItem homeItem = bottomNav.getMenu().findItem(R.id.nav_home);
         if (homeItem != null) homeItem.setChecked(true);
         if (homeContent.getVisibility() != View.VISIBLE) {
@@ -1091,9 +1088,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Configures the one-handed mode gesture detection and the bottom nav touch listener.
-     * The bottom nav touch listener consumes vertical swipes to prevent them from leaking
-     * into the SwipeRefreshLayout behind it. Gesture detection itself is handled in
-     * dispatchTouchEvent() using raw coordinates for emulator compatibility.
      */
     private void setupOneHandedMode() {
         View rootView = findViewById(R.id.main);
@@ -1195,8 +1189,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Starts a looping brightness-wave animation on the four chevron children of the handle.
-     * The wave travels bottom-to-top (child 3 → 0) with 120 ms stagger and repeats after
-     * a 350 ms pause. Stops automatically if the handle is detached from the window.
      *
      * @param handle the LinearLayout containing four chevron ImageViews
      */
@@ -1255,8 +1247,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Configures a left-edge swipe-right gesture to navigate back.
-     * The edge zone is 64 dp from the left side of the screen. Swipes starting
-     * inside the bottom nav bar are ignored (handled by the one-handed detector).
      */
     private void setupNavSwipeGesture() {
         float edgePx = 64 * getResources().getDisplayMetrics().density;
@@ -1298,7 +1288,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Cycles the bottom nav selection by {@code delta} positions.
-     * No-ops if the resulting index would be out of bounds.
      *
      * @param delta positive to move forward, negative to move backward
      */
@@ -1381,7 +1370,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Recursively sets the text and hint colour on all TextViews within a ViewGroup.
-     * Used to ensure the search bar text is always visible regardless of theme.
      *
      * @param viewGroup the root ViewGroup to traverse
      */
@@ -1405,7 +1393,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Called by ProfileFragment when an admin switches their view mode.
-     * Updates the bottom nav and event adapter to reflect the chosen role.
      *
      * @param role "entrant" | "organizer" | "admin"
      */
@@ -1425,8 +1412,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Called by ProfileFragment when the user signs out.
-     * Resets role and guest state, clears the stored guest email, rebuilds the
-     * bottom nav as entrant, and returns to the home screen.
      */
     public void onUserLoggedOut() {
         userRole = "entrant";
@@ -1448,7 +1433,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Called by EventAdapter when a guest attempts to join an event.
-     * Shows a sign-in prompt instead of proceeding with the join flow.
      */
     public void onGuestJoinAttempt() {
         showLoginPrompt("Sign in to join events.");
@@ -1473,7 +1457,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Redirects to SplashActivity and clears the back stack.
-     * Used when an unauthenticated non-guest session is detected on launch.
      */
     private void goToSplash() {
         Intent intent = new Intent(this, SplashActivity.class);
@@ -1484,7 +1467,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Sets the bottom navigation bar visibility.
-     * Used by fragments that need to temporarily hide the nav bar (e.g. full-screen views).
      *
      * @param visible true to show the bottom nav, false to hide it
      */
