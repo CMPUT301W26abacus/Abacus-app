@@ -25,10 +25,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.materialswitch.MaterialSwitch;
-import com.google.android.material.timepicker.MaterialTimePicker;
-import com.google.android.material.timepicker.TimeFormat;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -38,17 +35,15 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 
 /**
  * UI Controller for the event creation screen.
- * Handles event details, registration period, and poster selection.
- * Fixed Activity.RESULT_OK compilation issue.
+ * Handles event details, registration period, location, and poster selection.
  */
 public class OrganizerCreateFragment extends Fragment {
 
     private CreateEventViewModel viewModel;
-    private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity;
+    private EditText etTitle, etDescription, etLimit, etPosterUrl, etEventCapacity, etLocation;
     private Button btnSetStart, btnSetEnd, btnCreate, btnSelectPoster;
     private Button btnSetEventStart, btnSetEventEnd;
     private MaterialSwitch switchGeo, switchPrivate;
@@ -65,7 +60,7 @@ public class OrganizerCreateFragment extends Fragment {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     selectedImageUri = result.getData().getData();
                     ivPosterPreview.setImageURI(selectedImageUri);
-                    etPosterUrl.setText(""); // Clear URL if image is selected from gallery
+                    etPosterUrl.setText("");
                 }
             });
 
@@ -81,6 +76,7 @@ public class OrganizerCreateFragment extends Fragment {
         etLimit             = view.findViewById(R.id.et_waitlist_limit);
         etEventCapacity     = view.findViewById(R.id.et_event_capacity);
         etPosterUrl         = view.findViewById(R.id.et_poster_url);
+        etLocation          = view.findViewById(R.id.et_location);
         btnSetStart         = view.findViewById(R.id.btn_set_start);
         btnSetEnd           = view.findViewById(R.id.btn_set_end);
         btnSetEventStart    = view.findViewById(R.id.btn_set_event_start);
@@ -92,7 +88,6 @@ public class OrganizerCreateFragment extends Fragment {
         switchPrivate       = view.findViewById(R.id.switch_private);
         cbLimit             = view.findViewById(R.id.cb_limit_waitlist);
         chipGroupTags       = view.findViewById(R.id.chip_group_tags);
-
 
         cbLimit.setOnCheckedChangeListener((v, isChecked) -> {
             etLimit.setEnabled(isChecked);
@@ -152,7 +147,6 @@ public class OrganizerCreateFragment extends Fragment {
                         Toast.makeText(getContext(), "Registration start must be before registration end", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    // Registration start cannot be after the event ends
                     if (eventEndTimestamp != null && ts.compareTo(eventEndTimestamp) > 0) {
                         Toast.makeText(getContext(), "Registration cannot start after the event ends", Toast.LENGTH_SHORT).show();
                         return;
@@ -164,7 +158,6 @@ public class OrganizerCreateFragment extends Fragment {
                         Toast.makeText(getContext(), "Registration end must be after registration start", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    // Registration end cannot be after the event ends
                     if (eventEndTimestamp != null && ts.compareTo(eventEndTimestamp) > 0) {
                         Toast.makeText(getContext(), "Registration cannot close after the event ends", Toast.LENGTH_SHORT).show();
                         return;
@@ -205,7 +198,6 @@ public class OrganizerCreateFragment extends Fragment {
                     eventEndTimestamp = ts;
                     btnSetEventEnd.setText("Ends: " + formatTimestamp(calendar));
 
-                    // If registration dates are already set and now fall after event end, clear them
                     boolean clearedReg = false;
                     if (endTimestamp != null && endTimestamp.compareTo(ts) > 0) {
                         endTimestamp = null;
@@ -267,7 +259,6 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        // Collect selected category tags from chip group
         List<String> selectedTags = new ArrayList<>();
         for (int i = 0; i < chipGroupTags.getChildCount(); i++) {
             Chip chip = (Chip) chipGroupTags.getChildAt(i);
@@ -276,7 +267,6 @@ public class OrganizerCreateFragment extends Fragment {
             }
         }
 
-        // Use Firebase UID (authenticated account) as organizerId, not device UUID
         com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {
             Toast.makeText(getContext(), "Not authenticated. Please sign in.", Toast.LENGTH_SHORT).show();
@@ -288,8 +278,9 @@ public class OrganizerCreateFragment extends Fragment {
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
         event.setPrivate(switchPrivate.isChecked());
         event.setTags(selectedTags);
-        event.setEventStart(eventStartTimestamp); // null if organizer left blank — that's fine
+        event.setEventStart(eventStartTimestamp);
         event.setEventEnd(eventEndTimestamp);
+        event.setLocation(etLocation.getText().toString().trim());
 
         viewModel.createEvent(event, etPosterUrl.getText().toString().trim(), selectedImageUri);
     }
