@@ -27,6 +27,10 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
     private boolean canDelete;
     private final CommentRepository repo = new CommentRepository();
 
+    /**
+     * Constructs the adapter.
+     * @param comments the list of comments to display
+     */
     public CommentAdapter(List<Comment> comments) {
         this.comments = comments;
         this.canDelete = false;
@@ -92,6 +96,10 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
         });
     }
 
+    /**
+     * Gets the number of comments in the list.
+     * @return the number of comments in the list
+     */
     @Override
     public int getItemCount() {
         return comments.size();
