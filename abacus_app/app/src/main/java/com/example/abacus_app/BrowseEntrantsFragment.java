@@ -149,16 +149,17 @@ public class BrowseEntrantsFragment extends Fragment {
     // ── Invite logic ──────────────────────────────────────────────────────────
 
     private void showInviteOptions(User user) {
-        String[] options = isPrivate
+        boolean canInviteAsEntrant = isPrivate && !"organizer".equals(user.getRole());
+
+        String[] options = canInviteAsEntrant
                 ? new String[]{"Invite as Entrant", "Invite as Co-Organizer"}
                 : new String[]{"Invite as Co-Organizer"};
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("Invite " + (user.getName() != null ? user.getName() : "User"))
                 .setItems(options, (dialog, which) -> {
-                    if (isPrivate) {
-                        if (which == 0) confirmEntrantInvite(user);
-                        else confirmCoOrganizerInvite(user);
+                    if (canInviteAsEntrant && which == 0) {
+                        confirmEntrantInvite(user);
                     } else {
                         confirmCoOrganizerInvite(user);
                     }
