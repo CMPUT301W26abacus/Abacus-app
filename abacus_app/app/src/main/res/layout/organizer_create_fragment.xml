@@ -184,6 +184,48 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Location -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="8dp"
+                android:letterSpacing="0.1"
+                android:text="LOCATION"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="@color/grey" />
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Venue or address (optional)">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_location"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/black"
+                            android:inputType="textPostalAddress" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Event date & time -->
             <TextView
                 android:layout_width="match_parent"
