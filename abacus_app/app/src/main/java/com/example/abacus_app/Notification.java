@@ -23,6 +23,8 @@ public class Notification {
     public static final String TYPE_CO_ORGANIZER_INVITE = "CO_ORGANIZER_INVITE";
     /** Type for cancelled event invitations. */
     public static final String TYPE_CANCELED = "CANCELED";
+    /** Type for when an accepted entrant cancels/leaves the event. */
+    public static final String TYPE_ENTRANT_CANCELLED = "ENTRANT_CANCELLED";
     /** Type for custom manual messages sent by organizers. */
     public static final String TYPE_MANUAL = "MANUAL";
 

@@ -276,7 +276,7 @@ public class OrganizerCreateFragment extends Fragment {
 
         Event event = new Event(null, title, desc, organizerId, startTimestamp, endTimestamp,
                 waitlistLimit, eventCapacity, switchGeo.isChecked(), false);
-        event.setPrivate(switchPrivate.isChecked());
+        event.setIsPrivate(switchPrivate.isChecked());
         event.setTags(selectedTags);
         event.setEventStart(eventStartTimestamp);
         event.setEventEnd(eventEndTimestamp);

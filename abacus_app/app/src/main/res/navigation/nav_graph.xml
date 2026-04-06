@@ -27,7 +27,11 @@
     <fragment
         android:id="@+id/eventDetailsFragment"
         android:name="com.example.abacus_app.EventDetailsFragment"
-        android:label="Event Details" />
+        android:label="Event Details" >
+        <action
+            android:id="@+id/action_eventDetailsFragment_to_guestSignUpFragment"
+            app:destination="@id/guestSignUpFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/mainProfileFragment"

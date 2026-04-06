@@ -213,6 +213,10 @@ public class GuestSignUpFragment extends Fragment {
             if (error == null) {
                 saveGuestEmail(email);
                 Toast.makeText(requireContext(), "You've joined!", Toast.LENGTH_SHORT).show();
+                // Refresh the event adapter to show updated join status
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).refreshEventAdapter();
+                }
                 Navigation.findNavController(view).popBackStack();
             } else {
                 resetJoinButton();

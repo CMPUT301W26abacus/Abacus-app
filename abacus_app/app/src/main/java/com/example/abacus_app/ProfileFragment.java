@@ -476,7 +476,14 @@ public class ProfileFragment extends Fragment {
         btnPreferences.setVisibility(isOrganizer ? View.GONE : View.VISIBLE);
 
         // Role-specific stats labels
-        if (isOrganizer) {
+        String effectiveRole = ((MainActivity) getActivity()).getEffectiveRole();
+        if ("admin".equals(effectiveRole)) {
+            tvStatLabel1.setText("Accounts Deleted");
+            tvStatLabel2.setText("Events Deleted");
+            // Admin stats are tracked in user document but not yet fully implemented
+            if (tvStatCount1 != null) tvStatCount1.setText("0");
+            if (tvStatCount2 != null) tvStatCount2.setText("0");
+        } else if (isOrganizer) {
             tvStatLabel1.setText("Events Created");
             tvStatLabel2.setText("Total Registrations");
         } else {

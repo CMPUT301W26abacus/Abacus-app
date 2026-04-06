@@ -76,6 +76,13 @@ public class AdminLogsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Role guard: only admins can access this fragment
+        String role = ((MainActivity) requireActivity()).getEffectiveRole();
+        if (!"admin".equals(role)) {
+            requireActivity().onBackPressed();
+            return;
+        }
+
         // ViewModel is scoped to the Activity so child tabs share the same instance.
         viewModel = new ViewModelProvider(requireActivity()).get(AdminViewModel.class);
 

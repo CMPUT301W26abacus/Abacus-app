@@ -102,16 +102,22 @@ public class MainInboxFragment extends Fragment {
         UserRepository userRepository = new UserRepository(local, userRemoteDataSource);
 
         userRepository.getProfile(user -> {
-            if (user != null) {
+            // Check Firebase auth first — if guest/anonymous, always use device UUID
+            com.google.firebase.auth.FirebaseUser fbUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            boolean isGuest = fbUser == null || fbUser.isAnonymous();
+
+            if (user != null && !isGuest) {
                 currentUser = user;
                 currentUserId = user.getUid();
                 currentUserEmail = user.getEmail();
             } else {
-                // Guest user — use device UUID
+                // Guest user or anonymous — use device UUID
                 currentUserId = local.getUUIDSync();
+                currentUserEmail = null;
             }
 
-            Log.d(TAG, "Loading notifications for UID: " + currentUserId);
+            Log.d(TAG, "Loading notifications for UID: " + currentUserId + " (isGuest=" + isGuest + ")");
             loadUserAndStart();
         });
 
