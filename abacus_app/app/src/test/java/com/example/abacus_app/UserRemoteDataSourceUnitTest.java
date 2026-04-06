@@ -160,6 +160,28 @@ public class UserRemoteDataSourceUnitTest {
     }
 
     /**
+     * US 01.02.04 — deleteUserSync writes only the soft-delete fields ({@code isDeleted},
+     * {@code deletedAt}) and does NOT overwrite other profile fields (name, email, etc.).
+     */
+    @Test
+    public void deleteUserSync_writesSoftDeleteFieldsOnly() throws Exception {
+        when(mockDocument.set(anyMap(), any(SetOptions.class)))
+                .thenReturn(Tasks.forResult(null));
+
+        runBg(() -> dataSource.deleteUserSync(UUID));
+
+        verify(mockDocument).set(
+                argThat(map -> {
+                    Map<?, ?> m = (Map<?, ?>) map;
+                    // Must contain exactly isDeleted and deletedAt — nothing else
+                    return m.size() == 2
+                            && m.containsKey("isDeleted")
+                            && m.containsKey("deletedAt");
+                }),
+                any(SetOptions.class));
+    }
+
+    /**
      * US 01.02.04 — deleteUserSync also writes a {@code deletedAt} epoch timestamp.
      */
     @Test

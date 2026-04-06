@@ -44,10 +44,25 @@ public class UserRemoteDataSource {
         this.db = db;
     }
 
+    /**
+     * Creates a new document at {@code users/{uuid}} with the supplied field map.
+     * Overwrites any existing document at that path.
+     *
+     * @param uuid the document ID (stable device UUID)
+     * @param data field map to write (must include at minimum "deviceId", "createdAt")
+     * @throws Exception if the Firestore write fails
+     */
     public void createUserSync(String uuid, Map<String, Object> data) throws Exception {
         Tasks.await(db.collection(COLLECTION).document(uuid).set(data));
     }
 
+    /**
+     * Reads the {@code users/{uuid}} document asynchronously.
+     * Returns {@code null} via callback if the document does not exist or is soft-deleted.
+     *
+     * @param uuid     the document ID to look up
+     * @param callback receives the parsed {@link User}, or {@code null}
+     */
     public void getUser(String uuid, UserCallback callback) {
         db.collection(COLLECTION).document(uuid).get()
                 .addOnSuccessListener(snap -> {
@@ -68,6 +83,15 @@ public class UserRemoteDataSource {
                 });
     }
 
+    /**
+     * Reads the {@code users/{uuid}} document synchronously (blocking).
+     * Must be called on a background thread.
+     * Returns {@code null} if the document does not exist or is soft-deleted.
+     *
+     * @param uuid the document ID to look up
+     * @return the parsed {@link User}, or {@code null} if not found or deleted
+     * @throws Exception if the Firestore read fails
+     */
     public User getUserSync(String uuid) throws Exception {
         DocumentSnapshot snap = Tasks.await(
                 db.collection(COLLECTION).document(uuid).get());
@@ -80,6 +104,30 @@ public class UserRemoteDataSource {
             return null;
         }
         return user;
+    }
+
+    /**
+     * Reads a user document by email (first match) for flows where foreign docs
+     * are keyed by a normalized email rather than UUID.
+     * Must be called on a background thread.
+     *
+     * @param email the email address to search for
+     * @return the parsed {@link User}, or {@code null} if not found
+     * @throws Exception if the Firestore read fails
+     */
+    public User getUserByEmailSync(String email) throws Exception {
+        if (email == null || email.trim().isEmpty()) return null;
+
+        QuerySnapshot snapshot = Tasks.await(
+                db.collection(COLLECTION)
+                        .whereEqualTo("email", email)
+                        .limit(1)
+                        .get()
+        );
+
+        if (snapshot.isEmpty()) return null;
+        DocumentSnapshot snap = snapshot.getDocuments().get(0);
+        return parseUser(snap);
     }
 
     private User parseUser(DocumentSnapshot snap) {
@@ -106,9 +154,8 @@ public class UserRemoteDataSource {
         user.setOrganizationName(getString(snap, "organizationName"));
 
         Object prefsRaw = snap.get("preferences");
-        if (prefsRaw instanceof Map) {
-            //noinspection unchecked
-            user.setPreferences((Map<String, Object>) prefsRaw);
+        if (prefsRaw instanceof Map<?, ?>) {
+            user.setPreferences(toStringObjectMap((Map<?, ?>) prefsRaw));
         }
 
         try {
@@ -135,12 +182,30 @@ public class UserRemoteDataSource {
         return user;
     }
 
+    /**
+     * Merges {@code data} into the {@code users/{uuid}} document using
+     * {@code SetOptions.merge()}, preserving fields not included in the map.
+     *
+     * @param uuid the document ID to update
+     * @param data fields to merge; only these keys are written
+     * @throws Exception if the Firestore write fails
+     * Ref: US 01.02.01, US 01.02.02
+     */
     public void updateUserSync(String uuid, Map<String, Object> data) throws Exception {
         Tasks.await(
                 db.collection(COLLECTION).document(uuid)
                         .set(data, SetOptions.merge()));
     }
 
+    /**
+     * Soft-deletes the {@code users/{uuid}} document by setting
+     * {@code isDeleted = true} and {@code deletedAt = System.currentTimeMillis()}.
+     * The document is retained in Firestore for audit purposes.
+     *
+     * @param uuid the document ID to soft-delete
+     * @throws Exception if the Firestore write fails
+     * Ref: US 01.02.04
+     */
     public void deleteUserSync(String uuid) throws Exception {
         Map<String, Object> data = new java.util.HashMap<>();
         data.put("isDeleted", true);
@@ -151,7 +216,13 @@ public class UserRemoteDataSource {
     }
 
     /**
-     * Hard-deletes all waitlist entries in the flat 'registrations' collection for the given user.
+     * Hard-deletes all documents in the flat {@code registrations/} collection
+     * where {@code userId} equals the supplied value, using a write batch for
+     * atomicity. Called as part of the full profile deletion flow.
+     *
+     * @param userId the user whose registration records should be removed
+     * @throws Exception if the query or batch delete fails
+     * Ref: US 01.02.04
      */
     public void deleteWaitlistEntriesForUser(String userId) throws Exception {
         QuerySnapshot snapshot = Tasks.await(
@@ -168,20 +239,37 @@ public class UserRemoteDataSource {
         Tasks.await(batch.commit());
     }
 
+    /** Returns the string value of {@code key}, or {@code ""} if absent or null. */
     private String getString(DocumentSnapshot snap, String key) {
         Object v = snap.get(key);
         return v != null ? v.toString() : "";
     }
 
+    /** Returns the boolean value of {@code key}, or {@code false} if absent or not a Boolean. */
     private boolean getBoolean(DocumentSnapshot snap, String key) {
         Object v = snap.get(key);
         return v instanceof Boolean && (Boolean) v;
     }
 
+    /** Returns the long value of {@code key}, or {@code 0} if absent or not a number. */
     private long getLong(DocumentSnapshot snap, String key) {
         Object v = snap.get(key);
         if (v instanceof Long)   return (Long) v;
         if (v instanceof Number) return ((Number) v).longValue();
         return 0L;
+    }
+
+    /**
+     * Converts an unknown map into a {@code Map<String, Object>} without unchecked casts.
+     * Non-string keys are ignored.
+     */
+    private Map<String, Object> toStringObjectMap(Map<?, ?> raw) {
+        Map<String, Object> out = new java.util.HashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            if (entry.getKey() instanceof String) {
+                out.put((String) entry.getKey(), entry.getValue());
+            }
+        }
+        return out;
     }
 }

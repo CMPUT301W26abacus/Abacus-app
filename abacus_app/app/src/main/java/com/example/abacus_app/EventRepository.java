@@ -6,6 +6,8 @@ import android.os.Looper;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,6 +37,10 @@ public class EventRepository {
         return remoteDataSource.getEventsByOrganizer(organizerId);
     }
 
+    public Task<QuerySnapshot> getEventsByOrganizerIds(List<String> organizerIds) {
+        return remoteDataSource.getEventsByOrganizerIds(organizerIds);
+    }
+
     /** Async callback version — use from UI/ViewModel. */
     public void getEventByIdAsync(String eventId, EventCallback callback) {
         executor.submit(() -> {
@@ -61,6 +67,14 @@ public class EventRepository {
 
     public Task<Void> deleteEvent(String eventId) {
         return remoteDataSource.deleteEvent(eventId);
+    }
+
+    /**
+     * Shuts down the background executor. Call from the owning lifecycle component's
+     * onDestroy() / onTerminate() to prevent thread leaks.
+     */
+    public void shutdown() {
+        executor.shutdown();
     }
 
     public interface EventCallback {

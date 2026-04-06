@@ -13,6 +13,9 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -168,6 +171,57 @@ public class RegistrationRemoteDataSource {
     }
 
     /**
+     * Atomically joins the waitlist using a Firestore transaction.
+     *
+     * <p>Performs three checks inside the transaction (read-then-write, no TOCTOU race):
+     * <ol>
+     *   <li>Duplicate check — throws {@link IllegalArgumentException} if the user is
+     *       already on the waitlist.</li>
+     *   <li>Capacity check — throws {@link IllegalStateException} if
+     *       {@code waitlistCapacity} is set and the waitlist is already full.</li>
+     *   <li>Atomic write — adds the waitlist entry document and increments
+     *       {@code Event.waitlistCount} in the same transaction commit.</li>
+     * </ol>
+     *
+     * <p>Use this method instead of {@link #joinWaitlistSync} whenever the event
+     * has a capacity limit, to prevent over-subscription under concurrent load.
+     *
+     * @param eventID the unique ID of the event in the database
+     * @param entry   the {@link WaitlistEntry} to add (must have a non-null userId)
+     * @throws IllegalArgumentException if the user is already on the waitlist
+     * @throws IllegalStateException    if the waitlist is at capacity
+     * @throws Exception                if the Firestore transaction fails for any other reason
+     */
+    public void joinWaitlistAtomicSync(String eventID, WaitlistEntry entry) throws Exception {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference eventRef   = db.collection("events").document(eventID);
+        DocumentReference entrantRef = getCollectionRef(eventID).document(entry.getUserID());
+
+        Tasks.await(db.runTransaction(transaction -> {
+            DocumentSnapshot eventSnap   = transaction.get(eventRef);
+            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+            // 1. Duplicate check
+            if (entrantSnap.exists()) {
+                throw new IllegalArgumentException("User is already on the waitlist.");
+            }
+
+            // 2. Capacity check (null waitlistCapacity = unlimited)
+            Long capacity = eventSnap.getLong("waitlistCapacity");
+            Long count    = eventSnap.getLong("waitlistCount");
+            long current  = count != null ? count : 0L;
+            if (capacity != null && capacity > 0 && current >= capacity) {
+                throw new IllegalStateException("Waitlist is full.");
+            }
+
+            // 3. Atomic write
+            transaction.set(entrantRef, entry);
+            transaction.update(eventRef, "waitlistCount", FieldValue.increment(1));
+            return null;
+        }));
+    }
+
+    /**
      * Removes a user's entry from the waitlist subcollection.
      *
      * @param eventId the unique ID of the event in the database
@@ -175,11 +229,21 @@ public class RegistrationRemoteDataSource {
      * @throws Exception something went wrong
      */
     public void removeWaitlistEntrySync(String eventId, String userId) throws Exception {
-        DocumentReference docRef = getCollectionRef(eventId).document(userId);
-        Tasks.await(docRef.delete());
-        
-        // Decrement waitlistCount in the event document
-        Tasks.await(getEventDocRef(eventId).update("waitlistCount", FieldValue.increment(-1)));
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference eventRef = getEventDocRef(eventId);
+        DocumentReference entrantRef = getCollectionRef(eventId).document(userId);
+
+        Tasks.await(db.runTransaction(transaction -> {
+            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+            if (!entrantSnap.exists()) {
+                return null;
+            }
+
+            transaction.delete(entrantRef);
+            transaction.update(eventRef, "waitlistCount", FieldValue.increment(-1));
+            return null;
+        }));
     }
 
     /**
@@ -242,17 +306,43 @@ public class RegistrationRemoteDataSource {
      */
     public ArrayList<WaitlistEntry> getHistoryForUserSync(String userID) throws ExecutionException, InterruptedException {
         try {
-            QuerySnapshot snapshot = Tasks.await(
+            Map<String, WaitlistEntry> merged = new LinkedHashMap<>();
+
+            // Fast indexed collection group query: find all waitlist entries for this user across all events
+            QuerySnapshot primarySnapshot = Tasks.await(
+                    firestore.collectionGroup("waitlist")
+                            .whereEqualTo("userId", userID)
+                            .get()
+            );
+            for (DocumentSnapshot doc : primarySnapshot.getDocuments()) {
+                WaitlistEntry entry = mapDocument(doc);
+                if (entry != null) merged.put(doc.getReference().getPath(), entry);
+            }
+
+            // Legacy fallback: older docs may have used userID (uppercase) instead of userId
+            QuerySnapshot legacySnapshot = Tasks.await(
                     firestore.collectionGroup("waitlist")
                             .whereEqualTo("userID", userID)
                             .get()
             );
+            for (DocumentSnapshot doc : legacySnapshot.getDocuments()) {
+                WaitlistEntry entry = mapDocument(doc);
+                if (entry != null) merged.put(doc.getReference().getPath(), entry);
+            }
+
+            // Backward compatibility for older flows that wrote only to flat registrations collection
+            QuerySnapshot registrationsSnapshot = Tasks.await(
+                    firestore.collection("registrations")
+                            .whereEqualTo("userId", userID)
+                            .get()
+            );
+            for (DocumentSnapshot doc : registrationsSnapshot.getDocuments()) {
+                WaitlistEntry entry = mapDocument(doc);
+                if (entry != null) merged.put(doc.getReference().getPath(), entry);
+            }
 
             ArrayList<WaitlistEntry> history = new ArrayList<>();
-            for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                WaitlistEntry entry = mapDocument(doc);
-                history.add(entry);
-            }
+            history.addAll(merged.values());
             return history;
 
         } catch (Exception e) {
@@ -289,5 +379,21 @@ public class RegistrationRemoteDataSource {
             Log.e("RDS", "getHistoryForGuestSync failed", e);
         }
         return new ArrayList<>();
+    }
+
+    public void addGuestFields(String eventId, String guestId, String guestEmail, String guestName) throws Exception {
+        DocumentReference docRef = getCollectionRef(eventId).document(guestId);
+
+        // Data to add
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("guestEmail", guestEmail);
+        updates.put("guestName", guestName);
+        updates.put("isGuest", true);
+
+        // Update only if document exists
+        DocumentSnapshot snapshot = Tasks.await(docRef.get());
+        if (snapshot.exists()) {
+            Tasks.await(docRef.update(updates));
+        }
     }
 }

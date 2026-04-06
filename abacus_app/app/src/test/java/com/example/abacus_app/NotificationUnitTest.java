@@ -28,7 +28,7 @@ public class NotificationUnitTest {
 
     @Test
     public void testSetters() {
-        Notification notification = new Notification();
+        Notification notification = new Notification("user123", "test@example.com", "event456", "Congratulations!", "SELECTED");
         notification.setUserId("new_user");
         notification.setUserEmail("new@example.com");
         notification.setEventId("new_event");

@@ -49,6 +49,7 @@ public class AdminViewModel extends ViewModel {
                         try {
                             Event e = doc.toObject(Event.class);
                             if (e != null
+                                    && !Boolean.TRUE.equals(e.getIsDeleted())
                                     && e.getPosterImageUrl() != null
                                     && !e.getPosterImageUrl().isEmpty()) {
                                 list.add(e);

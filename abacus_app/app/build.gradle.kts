@@ -1,5 +1,7 @@
 import java.util.Properties
 
+
+
 plugins {
     alias(libs.plugins.android.application)
 
@@ -8,12 +10,6 @@ plugins {
 
 }
 
-// Load local.properties for API keys
-val mapsApiKey: String by lazy {
-    val props = Properties()
-    rootProject.file("local.properties").inputStream().use { stream -> props.load(stream) }
-    props.getProperty("MAPS_API_KEY") ?: ""
-}
 
 
 android {
@@ -28,6 +24,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+
+        if (localPropertiesFile.exists()) {
+            localProperties.load(localPropertiesFile.inputStream())
+        }
+
+        val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: "placeholder"
+
         // Load local.properties for API keys
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
@@ -88,6 +93,9 @@ dependencies {
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Security — EncryptedSharedPreferences (OWASP M2)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")

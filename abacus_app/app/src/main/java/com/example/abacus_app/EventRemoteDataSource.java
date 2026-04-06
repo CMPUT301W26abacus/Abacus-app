@@ -18,6 +18,10 @@ public class EventRemoteDataSource {
     private final FirebaseFirestore db;
     private final CollectionReference eventsRef;
 
+    public interface EventCallback {
+        void onCallback(Event event);
+    }
+
     public EventRemoteDataSource() {
         db = FirebaseFirestore.getInstance();
         eventsRef = db.collection("events");
@@ -37,12 +41,32 @@ public class EventRemoteDataSource {
         return null;
     }
 
+    public void getEventByIdAsync(String eventId, EventCallback callback) {
+        eventsRef.document(eventId).get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        callback.onCallback(doc.toObject(Event.class));
+                    } else {
+                        callback.onCallback(null);
+                    }
+                })
+                .addOnFailureListener(e -> callback.onCallback(null));
+    }
+
     public Task<QuerySnapshot> getAllEvents() {
         return eventsRef.get();
     }
 
     public Task<QuerySnapshot> getEventsByOrganizer(String organizerId) {
         return eventsRef.whereEqualTo("organizerId", organizerId).get();
+    }
+
+    public Task<QuerySnapshot> getEventsByOrganizerIds(java.util.List<String> organizerIds) {
+        if (organizerIds == null || organizerIds.isEmpty()) {
+            // Return empty query result
+            return eventsRef.limit(0).get();
+        }
+        return eventsRef.whereIn("organizerId", organizerIds).get();
     }
 
     public void updateEvent(Event event) throws ExecutionException, InterruptedException {

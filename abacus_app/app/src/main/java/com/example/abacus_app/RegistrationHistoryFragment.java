@@ -5,8 +5,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.app.AlertDialog;
 import android.widget.ImageButton;
-import com.google.android.material.chip.ChipGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -25,8 +25,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
@@ -34,9 +35,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -62,8 +66,7 @@ public class RegistrationHistoryFragment extends Fragment {
     private ProgressBar progressBar;
     private TextView tvDateRangeLabel;
 
-    // "all" | "active" | "closed"
-    private String activeTabGroup = "all";
+    private final Set<String> activeStatusFilter = new HashSet<>();
     private long[] activeDateRange = null;
 
     @Nullable
@@ -82,9 +85,8 @@ public class RegistrationHistoryFragment extends Fragment {
         setupRecyclerView();
         setupViewModel();
         setupSwipeRefresh();
-        setupTabs(root);
         setupDateFilter(root);
-        setupChipFilter(root);
+        setupStatusFilter(root);
 
         return root;
     }
@@ -95,13 +97,28 @@ public class RegistrationHistoryFragment extends Fragment {
         viewModel.loadRegistrationHistory();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Keep history in sync with join/leave actions done in EventDetailsFragment.
+        if (viewModel != null) {
+            viewModel.refresh();
+        }
+    }
+
     private void setupRecyclerView() {
         adapter = new HistoryAdapter((eventId, eventTitle) -> {
             Bundle args = new Bundle();
             args.putString(EventDetailsFragment.ARG_EVENT_ID,    eventId);
             args.putString(EventDetailsFragment.ARG_EVENT_TITLE, eventTitle);
-            Navigation.findNavController(requireView())
-                    .navigate(R.id.action_nav_history_to_eventDetailsFragment, args);
+
+            // show event details page with no nav-bar
+            ((MainActivity) requireActivity())
+                    .showFragment(
+                            R.id.eventDetailsFragment,
+                            false,
+                            args
+                    );
         });
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);
@@ -111,8 +128,8 @@ public class RegistrationHistoryFragment extends Fragment {
         FirebaseRegistrationRepository repository =
                 new FirebaseRegistrationRepository(requireContext());
         viewModel = new ViewModelProvider(this,
-                new RegistrationHistoryViewModel.Factory(repository))
-                .get(RegistrationHistoryViewModel.class);
+        new RegistrationHistoryViewModel.Factory(repository))
+        .get(RegistrationHistoryViewModel.class);
 
         viewModel.getRegistrations().observe(getViewLifecycleOwner(), registrations -> {
             adapter.setItems(registrations);
@@ -136,24 +153,46 @@ public class RegistrationHistoryFragment extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(() -> viewModel.refresh());
     }
 
-    private void setupTabs(View root) {
-        TabLayout tabLayout = root.findViewById(R.id.tab_layout_history);
-        tabLayout.addTab(tabLayout.newTab().setText("All"));
-        tabLayout.addTab(tabLayout.newTab().setText("Active"));
-        tabLayout.addTab(tabLayout.newTab().setText("Closed"));
+    private void setupStatusFilter(View root) {
+        ImageButton btnStatusFilter = root.findViewById(R.id.btnStatusFilter);
+        final String[] statusLabels = {"Waitlisted", "Invited", "Accepted", "Declined", "Cancelled"};
+        final boolean[] checked = new boolean[statusLabels.length];
 
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                switch (tab.getPosition()) {
-                    case 1:  activeTabGroup = "active"; break;
-                    case 2:  activeTabGroup = "closed"; break;
-                    default: activeTabGroup = "all";    break;
-                }
-                applyCurrentFilter();
+        btnStatusFilter.setOnClickListener(v -> {
+            for (int i = 0; i < statusLabels.length; i++) {
+                // empty filter = all showing, so pre-check everything
+                checked[i] = activeStatusFilter.isEmpty()
+                        || activeStatusFilter.contains(statusLabels[i]);
             }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Filter by status")
+                    .setMultiChoiceItems(statusLabels, checked,
+                            (dialog, which, isChecked) -> checked[which] = isChecked)
+                    .setPositiveButton("Apply", (dialog, which) -> {
+                        activeStatusFilter.clear();
+                        boolean allChecked = true;
+                        for (int i = 0; i < statusLabels.length; i++) {
+                            if (checked[i]) activeStatusFilter.add(statusLabels[i]);
+                            else allChecked = false;
+                        }
+                        // all selected = same as no filter
+                        if (allChecked) activeStatusFilter.clear();
+                        applyCurrentFilter();
+                        if (!activeStatusFilter.isEmpty()) {
+                            btnStatusFilter.setColorFilter(
+                                    ContextCompat.getColor(requireContext(), R.color.black));
+                        } else {
+                            btnStatusFilter.clearColorFilter();
+                        }
+                    })
+                    .setNeutralButton("Clear all", (dialog, which) -> {
+                        activeStatusFilter.clear();
+                        Arrays.fill(checked, false);
+                        applyCurrentFilter();
+                        btnStatusFilter.clearColorFilter();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
     }
 
@@ -193,27 +232,8 @@ public class RegistrationHistoryFragment extends Fragment {
         });
     }
 
-    private void setupChipFilter(View root) {
-        ChipGroup cgStatusFilter = root.findViewById(R.id.cgStatusFilter);
-        if (cgStatusFilter == null) return;
-        cgStatusFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds.isEmpty()) {
-                activeTabGroup = "all";
-            } else {
-                int id = checkedIds.get(0);
-                if      (id == R.id.chipWaitlist)  activeTabGroup = "waitlisted";
-                else if (id == R.id.chipSelected)   activeTabGroup = "selected";
-                else if (id == R.id.chipEnrolled)   activeTabGroup = "enrolled";
-                else if (id == R.id.chipDeclined)   activeTabGroup = "closed";
-                else if (id == R.id.chipCancelled)  activeTabGroup = "closed";
-                else                                activeTabGroup = "all";
-            }
-            applyCurrentFilter();
-        });
-    }
-
     private void applyCurrentFilter() {
-        adapter.setFilter(activeTabGroup, activeDateRange);
+        adapter.setFilter(activeStatusFilter, activeDateRange);
         boolean empty = adapter.getItemCount() == 0;
         emptyStateLayout.setVisibility(empty ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(empty ? View.GONE : View.VISIBLE);
@@ -221,15 +241,15 @@ public class RegistrationHistoryFragment extends Fragment {
         TextView tvTitle    = emptyStateLayout.findViewById(R.id.tv_empty_state_title);
         TextView tvSubtitle = emptyStateLayout.findViewById(R.id.tv_empty_state_subtitle);
         if (tvTitle != null && tvSubtitle != null) {
-            if (activeDateRange != null) {
+            if (activeDateRange != null && !activeStatusFilter.isEmpty()) {
+                tvTitle.setText("No results");
+                tvSubtitle.setText("No registrations match the selected filters and date range.");
+            } else if (activeDateRange != null) {
                 tvTitle.setText("No results in this date range");
                 tvSubtitle.setText("Try expanding the range or clearing the filter.");
-            } else if ("active".equals(activeTabGroup)) {
-                tvTitle.setText("No active registrations");
-                tvSubtitle.setText("Events you're on the waitlist for or have been selected to will appear here.");
-            } else if ("closed".equals(activeTabGroup)) {
-                tvTitle.setText("No closed registrations");
-                tvSubtitle.setText("Declined and cancelled registrations will appear here.");
+            } else if (!activeStatusFilter.isEmpty()) {
+                tvTitle.setText("No matching registrations");
+                tvSubtitle.setText("No registrations match the selected status filters.");
             } else {
                 tvTitle.setText("No Registration History");
                 tvSubtitle.setText("You haven't registered for any events yet.");
@@ -242,11 +262,6 @@ public class RegistrationHistoryFragment extends Fragment {
     private static class HistoryAdapter
             extends RecyclerView.Adapter<HistoryAdapter.ViewHolder> {
 
-        // Status groups
-        private static final List<String> ACTIVE_STATUSES =
-                Arrays.asList("On Waitlist", "Selected!", "Enrolled");
-        private static final List<String> CLOSED_STATUSES =
-                Arrays.asList("Declined", "Cancelled", "Not Selected");
 
         interface OnEventClickListener {
             void onEventClick(String eventId, String eventTitle);
@@ -269,21 +284,15 @@ public class RegistrationHistoryFragment extends Fragment {
         }
 
         /**
-         * @param groupFilter "all" | "active" | "closed"
-         * @param dateRange   [startMs, endMs] or null
+         * @param selectedStatuses set of status labels to show; empty means show all
+         * @param dateRange        [startMs, endMs] or null
          */
-        void setFilter(String groupFilter, long[] dateRange) {
+        void setFilter(Set<String> selectedStatuses, long[] dateRange) {
             List<RegistrationHistoryViewModel.RegistrationHistoryItem> filtered =
                     new ArrayList<>();
             for (RegistrationHistoryViewModel.RegistrationHistoryItem item : masterItems) {
-                boolean groupOk;
-                if ("active".equals(groupFilter)) {
-                    groupOk = ACTIVE_STATUSES.contains(item.getStatusLabel());
-                } else if ("closed".equals(groupFilter)) {
-                    groupOk = CLOSED_STATUSES.contains(item.getStatusLabel());
-                } else {
-                    groupOk = true;
-                }
+                boolean statusOk = selectedStatuses.isEmpty()
+                        || selectedStatuses.contains(item.getStatusLabel());
 
                 boolean dateOk = true;
                 if (dateRange != null && dateRange.length == 2) {
@@ -291,7 +300,7 @@ public class RegistrationHistoryFragment extends Fragment {
                     dateOk = ts >= dateRange[0] && ts <= (dateRange[1] + 86_400_000L);
                 }
 
-                if (groupOk && dateOk) filtered.add(item);
+                if (statusOk && dateOk) filtered.add(item);
             }
             items = filtered;
             notifyDataSetChanged();
@@ -316,7 +325,7 @@ public class RegistrationHistoryFragment extends Fragment {
         public int getItemCount() { return items.size(); }
 
         static class ViewHolder extends RecyclerView.ViewHolder {
-            private final TextView titleView, dateTimeView, locationView;
+            private final TextView titleView, dateTimeView, descriptionView;
             private final com.google.android.material.button.MaterialButton statusButton;
             private final ImageView posterView;
             private final OnEventClickListener clickListener;
@@ -326,7 +335,7 @@ public class RegistrationHistoryFragment extends Fragment {
                 this.clickListener = clickListener;
                 titleView    = itemView.findViewById(R.id.tv_event_title);
                 dateTimeView = itemView.findViewById(R.id.tv_event_datetime);
-                locationView = itemView.findViewById(R.id.tv_event_location);
+                descriptionView = itemView.findViewById(R.id.tv_event_description);
                 statusButton = itemView.findViewById(R.id.btn_join_status);
                 posterView   = itemView.findViewById(R.id.iv_event_poster);
             }
@@ -334,11 +343,12 @@ public class RegistrationHistoryFragment extends Fragment {
             void bind(RegistrationHistoryViewModel.RegistrationHistoryItem item) {
                 titleView.setText(item.getEventTitle());
                 dateTimeView.setText(item.getStatusLabel());
-                locationView.setText("Registered " + new SimpleDateFormat(
+                descriptionView.setText("Registered " + new SimpleDateFormat(
                         "MMM dd, yyyy", Locale.getDefault())
                         .format(new Date(item.getTimestamp())));
 
                 statusButton.setText(item.getStatusLabel());
+                statusButton.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.white));
                 statusButton.setEnabled(false);
                 statusButton.setBackgroundTintList(
                         android.content.res.ColorStateList.valueOf(
@@ -363,17 +373,18 @@ public class RegistrationHistoryFragment extends Fragment {
                     if (clickListener != null)
                         clickListener.onEventClick(item.getEventId(), item.getEventTitle());
                 });
+                itemView.findViewById(R.id.imageButton2).setVisibility(View.GONE);
+                itemView.findViewById(R.id.btn_admin_delete).setVisibility(View.GONE);
             }
 
             private int statusColor(String status) {
                 if (status == null) return android.R.color.darker_gray;
                 switch (status) {
-                    case "Selected!":    return android.R.color.holo_green_light;
-                    case "Enrolled":     return android.R.color.holo_blue_bright;
-                    case "On Waitlist":  return android.R.color.holo_orange_light;
-                    case "Declined":
-                    case "Not Selected":
-                    case "Cancelled":    return android.R.color.holo_red_light;
+                    case "Invited":    return R.color.color_status_invited_blue;
+                    case "Accepted":     return R.color.color_status_accepted_green;
+                    case "Waitlisted":  return R.color.color_status_waitlisted_orange;
+                    case "Declined": return R.color.color_status_declined_red;
+                    case "Cancelled":    return R.color.color_status_canceled_black;
                     default:             return android.R.color.darker_gray;
                 }
             }
@@ -401,10 +412,12 @@ public class RegistrationHistoryFragment extends Fragment {
 
         @Override
         public void getHistoryForUser(
-                RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+        RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
 
             boolean isGuest = false;
-            if (context instanceof android.app.Activity) {
+            if (context instanceof MainActivity) {
+                isGuest = ((MainActivity) context).isGuestSession();
+            } else if (context instanceof android.app.Activity) {
                 isGuest = ((android.app.Activity) context)
                         .getIntent().getBooleanExtra("isGuest", false);
             }
@@ -437,43 +450,66 @@ public class RegistrationHistoryFragment extends Fragment {
                 return;
             }
 
-            UserLocalDataSource localDataSource   = new UserLocalDataSource(context);
-            UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(firestore);
-            UserRepository userRepository         =
-                    new UserRepository(localDataSource, remoteDataSource);
+            FirebaseUser authUser = FirebaseAuth.getInstance().getCurrentUser();
+            String email = authUser != null ? authUser.getEmail() : null;
+            final String emailKey = (email != null && !email.trim().isEmpty())
+                    ? GuestSignUpFragment.emailToKey(email.trim().toLowerCase(Locale.US))
+                    : null;
 
-            userRepository.getCurrentUserId(userId -> {
-                if (userId == null) {
-                    callback.onResult(new ArrayList<>(), null);
-                    return;
-                }
+            UserLocalDataSource localDataSource = new UserLocalDataSource(context);
+            final String uuidKey = localDataSource.getUUIDSync();
 
-                executor.execute(() -> {
-                    try {
-                        ArrayList<WaitlistEntry> waitlistEntries =
-                                dataSource.getHistoryForUserSync(userId);
-                        if (waitlistEntries == null || waitlistEntries.isEmpty()) {
-                            callback.onResult(new ArrayList<>(), null);
-                            return;
+            final List<String> userKeys = new ArrayList<>();
+            if (emailKey != null && !emailKey.trim().isEmpty()) {
+                userKeys.add(emailKey);
+            }
+            if (uuidKey != null && !uuidKey.trim().isEmpty() && !uuidKey.equals(emailKey)) {
+                userKeys.add(uuidKey);
+            }
+
+            if (userKeys.isEmpty()) {
+                callback.onResult(new ArrayList<>(), null);
+                return;
+            }
+
+            executor.execute(() -> {
+                try {
+                    Map<String, WaitlistEntry> mergedByEventId = new LinkedHashMap<>();
+                    for (String key : userKeys) {
+                        ArrayList<WaitlistEntry> entriesForKey = dataSource.getHistoryForUserSync(key);
+                        if (entriesForKey == null) continue;
+
+                        for (WaitlistEntry entry : entriesForKey) {
+                            if (entry == null || entry.getEventId() == null) continue;
+                            // One registration history record per event per user.
+                            mergedByEventId.put(entry.getEventId(), entry);
                         }
-                        buildRegistrationList(waitlistEntries, callback);
-                    } catch (Exception e) {
-                        callback.onResult(new ArrayList<>(), e);
                     }
-                });
+
+                    if (mergedByEventId.isEmpty()) {
+                        callback.onResult(new ArrayList<>(), null);
+                        return;
+                    }
+
+                    ArrayList<WaitlistEntry> waitlistEntries =
+                            new ArrayList<>(mergedByEventId.values());
+                    buildRegistrationList(waitlistEntries, callback);
+                } catch (Exception e) {
+                    callback.onResult(new ArrayList<>(), e);
+                }
             });
         }
 
         private void buildRegistrationList(
                 ArrayList<WaitlistEntry> entries,
-                RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
+        RegistrationHistoryViewModel.RegistrationRepository.HistoryCallback callback) {
 
             List<String> eventIds = new ArrayList<>();
             for (WaitlistEntry entry : entries) {
                 if (entry.getEventId() != null) eventIds.add(entry.getEventId());
             }
 
-            fetchEventData(eventIds, (eventTitles, eventPosters) -> {
+            fetchEventData(eventIds, (eventTitles, eventPosters, deletedEvents) -> {
                 List<RegistrationHistoryViewModel.Registration> registrations = new ArrayList<>();
                 for (WaitlistEntry entry : entries) {
                     String title = eventTitles.containsKey(entry.getEventId())
@@ -481,11 +517,17 @@ public class RegistrationHistoryFragment extends Fragment {
                             : "Event " + entry.getEventId();
                     String posterUrl = eventPosters.get(entry.getEventId());
 
-                    registrations.add(new RegistrationHistoryViewModel.Registration(
+                    // If event is deleted, override status to "cancelled"
+                    String status = entry.getStatus();
+                    if (deletedEvents.contains(entry.getEventId())) {
+                        status = "cancelled";
+                    }
+
+            registrations.add(new RegistrationHistoryViewModel.Registration(
                             entry.getEventId(),
                             title,
                             posterUrl,
-                            entry.getStatus(),
+                            status,
                             entry.getTimestamp() != null
                                     ? entry.getTimestamp()
                                     : System.currentTimeMillis()
@@ -498,8 +540,9 @@ public class RegistrationHistoryFragment extends Fragment {
         private void fetchEventData(List<String> eventIds, EventDataCallback callback) {
             Map<String, String> eventTitles  = new HashMap<>();
             Map<String, String> eventPosters = new HashMap<>();
+            Set<String> deletedEvents = new HashSet<>();
             if (eventIds.isEmpty()) {
-                callback.onResult(eventTitles, eventPosters);
+                callback.onResult(eventTitles, eventPosters, deletedEvents);
                 return;
             }
 
@@ -512,17 +555,23 @@ public class RegistrationHistoryFragment extends Fragment {
                                 if (title != null) eventTitles.put(eventId, title);
                                 String posterUrl = doc.getString("posterImageUrl");
                                 if (posterUrl != null) eventPosters.put(eventId, posterUrl);
+
+                                // Check if event is deleted
+                                Boolean isDeleted = doc.getBoolean("isDeleted");
+                                if (isDeleted != null && isDeleted) {
+                                    deletedEvents.add(eventId);
+                                }
                             }
-                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters);
+                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters, deletedEvents);
                         })
                         .addOnFailureListener(e -> {
-                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters);
+                            if (--pending[0] == 0) callback.onResult(eventTitles, eventPosters, deletedEvents);
                         });
             }
         }
 
         private interface EventDataCallback {
-            void onResult(Map<String, String> eventTitles, Map<String, String> eventPosters);
+            void onResult(Map<String, String> eventTitles, Map<String, String> eventPosters, Set<String> deletedEvents);
         }
     }
 }

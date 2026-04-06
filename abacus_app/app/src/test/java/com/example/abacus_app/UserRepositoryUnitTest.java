@@ -88,17 +88,41 @@ public class UserRepositoryUnitTest {
     }
 
     /**
-     * US 01.07.01 — Null is delivered when no UUID is stored (fresh install).
+     * US 01.07.01 — Fresh install: when no UUID is stored, the repository generates
+     * a new one (using ANDROID_ID or random UUID) and returns it via callback.
+     * The result must be non-null.
      */
     @Test
-    public void getCurrentUserId_noUUID_returnsNullViaCallback() throws Exception {
+    public void getCurrentUserId_noUUIDStored_generatesAndReturnsNewUUID() throws Exception {
+        // No UUID in local storage; ANDROID_ID mock returns null (emulator behaviour)
         when(mockLocal.getUUIDSync()).thenReturn(null);
+        when(mockLocal.getStableDeviceID()).thenReturn(null);
 
-        String[] result = {"SENTINEL"};
-        repo.getCurrentUserId(uuid -> result[0] = uuid);
+        String[] result = {null};
+        boolean[] done  = {false};
+        repo.getCurrentUserId(uuid -> { result[0] = uuid; done[0] = true; });
 
-        drainUntil(() -> !"SENTINEL".equals(result[0]));
-        assertNull(result[0]);
+        drainUntil(() -> done[0]);
+        assertNotNull("Generated UUID must not be null", result[0]);
+        assertFalse("Generated UUID must not be empty", result[0].isEmpty());
+    }
+
+    /**
+     * US 01.07.01 — When ANDROID_ID is available, it is used as the stable UUID
+     * on first launch (survives reinstall).
+     */
+    @Test
+    public void getCurrentUserId_androidIdAvailable_usesAndroidId() throws Exception {
+        String androidId = "abcdef1234567890";
+        when(mockLocal.getUUIDSync()).thenReturn(null); // not yet stored
+        when(mockLocal.getStableDeviceID()).thenReturn(androidId);
+
+        String[] result = {null};
+        boolean[] done  = {false};
+        repo.getCurrentUserId(uuid -> { result[0] = uuid; done[0] = true; });
+
+        drainUntil(() -> done[0]);
+        assertEquals(androidId, result[0]);
     }
 
     // ── getProfile — US 01.02.02 ─────────────────────────────────────────────
@@ -316,6 +340,54 @@ public class UserRepositoryUnitTest {
 
         drainUntil(() -> done[0]);
         assertNotNull("Expected an error", error[0]);
+    }
+
+    // ── initializeUser — US 01.07.01 ─────────────────────────────────────────
+
+    /**
+     * US 01.07.01 — First launch: when no Firestore document exists for the UUID,
+     * {@code createUserSync} must be called to bootstrap the user record.
+     */
+    @Test
+    public void initializeUser_firstLaunch_createsFirestoreDocument() throws Exception {
+        when(mockLocal.getUUIDSync()).thenReturn(ALICE_UUID);
+        when(mockRemote.getUserSync(ALICE_UUID)).thenReturn(null); // no document yet
+
+        repo.initializeUser();
+
+        // Allow background executor + Firebase anonymous sign-in (no-op in Robolectric)
+        // then ensureFirestoreDocumentExists to run
+        long deadline = System.currentTimeMillis() + 3_000;
+        // Poll until createUserSync is invoked or timeout
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                verify(mockRemote).createUserSync(eq(ALICE_UUID), anyMap());
+                return; // verified — test passes
+            } catch (org.mockito.exceptions.base.MockitoAssertionError ignored) {
+                ShadowLooper.idleMainLooper();
+                TimeUnit.MILLISECONDS.sleep(50);
+            }
+        }
+        verify(mockRemote).createUserSync(eq(ALICE_UUID), anyMap());
+    }
+
+    /**
+     * US 01.07.01 — Subsequent launch: when a Firestore document already exists
+     * for the UUID, {@code createUserSync} must NOT be called again.
+     */
+    @Test
+    public void initializeUser_uuidExists_doesNotCreateDuplicateDocument() throws Exception {
+        User existing = new User(ALICE_UUID, "alice@ualberta.ca", "Alice", "2026-01-01");
+        when(mockLocal.getUUIDSync()).thenReturn(ALICE_UUID);
+        when(mockRemote.getUserSync(ALICE_UUID)).thenReturn(existing);
+
+        repo.initializeUser();
+
+        // Wait for executor to drain
+        Thread.sleep(500);
+        ShadowLooper.idleMainLooper();
+
+        verify(mockRemote, never()).createUserSync(anyString(), anyMap());
     }
 
     // ── clearLocalSession ────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,12 +31,24 @@ import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * ProfileFragment
+ * ProfileFragment - User profile screen
  *
- * The profile screen UI. Displays input fields and observes LiveData
- * from ProfileViewModel. Contains no business logic or data access.
+ * Shows user profile info and settings. Displays input fields and observes
+ * data from ProfileViewModel. Contains UI only, no business logic.
  *
- * Ref: US 01.02.01–04
+ * What it does:
+ * - Shows user name, email, avatar
+ * - Lets user edit name and email
+ * - Lets user upload profile picture
+ * - Shows accessibility settings
+ * - Handles logout confirmation dialog
+ *
+ * Logout Handling:
+ * - When user confirms logout, calls viewModel.logout() to clear session
+ * - Then calls MainActivity.onUserLoggedOut() to immediately update UI
+ * - Bottom nav switches back to entrant menu, no waiting needed
+ *
+ * @author Dyna
  */
 public class ProfileFragment extends Fragment {
 
@@ -126,11 +139,6 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        // Apply high-contrast styling if enabled
-        if (new AccessibilityHelper(requireContext()).isHighContrast()) {
-            AccessibilityHelper.applyHighContrast(view);
-        }
-
         // Bind views
         btnBack          = view.findViewById(R.id.btnBack);
         avatarContainer  = view.findViewById(R.id.avatarContainer);
@@ -179,7 +187,10 @@ public class ProfileFragment extends Fragment {
         viewModel = new ViewModelProvider(requireActivity()).get(ProfileViewModel.class);
 
         boolean isGuest = true;
-        if (getActivity() != null) {
+        if (getActivity() instanceof MainActivity) {
+            isGuest = ((MainActivity) getActivity()).isGuestSession();
+        } else if (getActivity() != null) {
+            // Fallback for non-MainActivity hosts.
             isGuest = getActivity().getIntent().getBooleanExtra("isGuest", true);
         }
 
@@ -236,6 +247,8 @@ public class ProfileFragment extends Fragment {
             Boolean guestNow = viewModel.getIsGuest().getValue();
             if (guestNow == null || guestNow) return;
             refreshUIForCurrentRole();
+            // Load stats based on role
+            loadUserStats(role);
         });
 
         viewModel.getBio().observe(getViewLifecycleOwner(), bio -> {
@@ -263,6 +276,14 @@ public class ProfileFragment extends Fragment {
         });
 
         viewModel.getTotalRegistrations().observe(getViewLifecycleOwner(), count -> {
+            if (tvStatCount2 != null) tvStatCount2.setText(String.valueOf(count));
+        });
+
+        viewModel.getEventsJoined().observe(getViewLifecycleOwner(), count -> {
+            if (tvStatCount1 != null) tvStatCount1.setText(String.valueOf(count));
+        });
+
+        viewModel.getEventsWon().observe(getViewLifecycleOwner(), count -> {
             if (tvStatCount2 != null) tvStatCount2.setText(String.valueOf(count));
         });
 
@@ -314,7 +335,11 @@ public class ProfileFragment extends Fragment {
             }
         });
 
-        btnSave.setOnClickListener(v -> viewModel.saveProfile());
+        btnSave.setOnClickListener(v -> {
+            if (validateProfileInputs()) {
+                viewModel.saveProfile();
+            }
+        });
 
         btnDelete.setOnClickListener(v ->
                 new AlertDialog.Builder(requireContext())
@@ -328,7 +353,12 @@ public class ProfileFragment extends Fragment {
                 new AlertDialog.Builder(requireContext())
                         .setTitle("Log out")
                         .setMessage("Are you sure you want to log out?")
-                        .setPositiveButton("Log out", (dialog, which) -> viewModel.logout())
+                        .setPositiveButton("Log out", (dialog, which) -> {
+                            viewModel.logout();
+                            if (getActivity() instanceof MainActivity) {
+                                ((MainActivity) getActivity()).onUserLoggedOut();
+                            }
+                        })
                         .setNegativeButton("Cancel", null)
                         .show());
 
@@ -409,10 +439,10 @@ public class ProfileFragment extends Fragment {
         cardStats.setVisibility(View.VISIBLE);
         tvGuestBanner.setVisibility(View.GONE);
         btnLinkAccount.setVisibility(View.GONE);
+        btnAccessibility.setVisibility(View.VISIBLE);
         btnSave.setVisibility(View.VISIBLE);
         btnLogout.setVisibility(View.VISIBLE);
         btnDelete.setVisibility(View.VISIBLE);
-        btnAccessibility.setVisibility(View.VISIBLE);
         dangerDivider.setVisibility(View.VISIBLE);
         labelDanger.setVisibility(View.VISIBLE);
         viewModeDot.setVisibility(View.VISIBLE);
@@ -476,6 +506,59 @@ public class ProfileFragment extends Fragment {
                 ((MainActivity) getActivity()).setEffectiveRole(mode);
             }
         });
+    }
+
+    /**
+     * Loads user stats based on their role.
+     * For entrants: loads events joined and events won
+     * For organizers: loads events created and total registrations
+     */
+    private void loadUserStats(String role) {
+        UserLocalDataSource local = new UserLocalDataSource(requireContext());
+        String userId = local.getUUIDSync();
+        if (userId == null) return;
+
+        if ("entrant".equals(role)) {
+            RegistrationRepository registrationRepo = new RegistrationRepository();
+            viewModel.loadEntrantStats(userId, registrationRepo);
+        } else if ("organizer".equals(role)) {
+            EventRepository eventRepo = new EventRepository();
+            viewModel.loadOrganizerStats(userId, eventRepo);
+        }
+    }
+
+    /**
+     * Simple, local validation before save.
+     */
+    private boolean validateProfileInputs() {
+        String name = etName != null ? etName.getText().toString().trim() : "";
+        String email = etEmail != null ? etEmail.getText().toString().trim() : "";
+
+        boolean isValid = true;
+
+        if (name.isEmpty()) {
+            tvNameError.setText("Name is required");
+            tvNameError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else {
+            tvNameError.setText("");
+            tvNameError.setVisibility(View.GONE);
+        }
+
+        if (email.isEmpty()) {
+            tvEmailError.setText("Email is required");
+            tvEmailError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            tvEmailError.setText("Enter a valid email address");
+            tvEmailError.setVisibility(View.VISIBLE);
+            isValid = false;
+        } else {
+            tvEmailError.setText("");
+            tvEmailError.setVisibility(View.GONE);
+        }
+
+        return isValid;
     }
 
     /**

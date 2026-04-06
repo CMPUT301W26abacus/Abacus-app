@@ -19,7 +19,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Manages UI state and business logic for tracking entrants and finalizing the lottery.
+ * ViewModel for the organizer manage-event screen.
+ *
+ * <p>Owns all UI state and business logic for:
+ * <ul>
+ *   <li>Loading and displaying an organizer's events (by device UUID and/or Firebase UID)</li>
+ *   <li>Viewing and filtering the waitlist / entrant list for a specific event</li>
+ *   <li>Running and replacing lottery draws</li>
+ *   <li>Deleting events</li>
+ *   <li>Searching users and managing co-organizers</li>
+ * </ul>
+ *
+ * <p>All Firestore operations are asynchronous. Observe the exposed {@link LiveData} fields
+ * from a Fragment or Activity to react to state changes.
  */
 public class ManageEventViewModel extends ViewModel {
 
@@ -55,6 +67,11 @@ public class ManageEventViewModel extends ViewModel {
     public LiveData<Boolean>             getEventDeleted() { return eventDeleted; }
     public LiveData<Event>               getEventDetails() { return eventDetails; }
 
+    /**
+     * Loads all waitlist entries for the given event and posts the result to {@link #getEntrants()}.
+     *
+     * @param eventId Firestore document ID of the event whose waitlist to load.
+     */
     public void loadWaitlist(String eventId) {
         isLoading.setValue(true);
         registrationRepository.getAllEntries(eventId, waitlist -> {
@@ -67,6 +84,12 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    /**
+     * Fetches the event document and posts it to {@link #getEventDetails()} and
+     * {@link #getLotteryCompleted()}.
+     *
+     * @param eventId Firestore document ID of the event.
+     */
     public void loadLotteryStatus(String eventId) {
         isLoading.setValue(true);
         eventRepository.getEventByIdAsync(eventId, event -> {
@@ -80,9 +103,40 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    /**
+     * Loads events owned by the given organizer, matching on device UUID only.
+     * Convenience overload for callers that do not have a Firebase UID.
+     *
+     * @param organizerId Device UUID of the organizer.
+     */
     public void loadOrganizerEvents(String organizerId) {
+        loadOrganizerEvents(organizerId, null);
+    }
+
+    /**
+     * Loads all non-deleted events where the organizer ID matches either
+     * {@code deviceUuid} or {@code firebaseUid}.
+     *
+     * <p>Both parameters are optional, but at least one must be non-null.
+     * If both are null, {@link #getError()} is updated with an error message and
+     * the method returns early without making a Firestore query.
+     *
+     * @param deviceUuid  Device-local UUID of the organizer (may be null).
+     * @param firebaseUid Firebase Auth UID of the organizer (may be null).
+     */
+    public void loadOrganizerEvents(String deviceUuid, String firebaseUid) {
         isLoading.setValue(true);
-        eventRepository.getEventsByOrganizer(organizerId).addOnSuccessListener(queryDocumentSnapshots -> {
+        java.util.ArrayList<String> organizerIds = new java.util.ArrayList<>();
+        if (deviceUuid != null) organizerIds.add(deviceUuid);
+        if (firebaseUid != null) organizerIds.add(firebaseUid);
+
+        if (organizerIds.isEmpty()) {
+            error.setValue("No organizer ID found");
+            isLoading.setValue(false);
+            return;
+        }
+
+        eventRepository.getEventsByOrganizerIds(organizerIds).addOnSuccessListener(queryDocumentSnapshots -> {
             List<Event> allEvents = queryDocumentSnapshots.toObjects(Event.class);
             // Filter out deleted events
             List<Event> activeEvents = allEvents.stream()
@@ -96,11 +150,22 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
-    public void deleteEvent(String eventId, String organizerId) {
+    /**
+     * Soft-deletes the event with the given ID, then refreshes the organizer's event list.
+     *
+     * <p>On success, {@link #getEventDeleted()} is set to {@code true} and the event list is
+     * reloaded using both {@code deviceUuid} and {@code firebaseUid} so that events owned under
+     * either identity are shown correctly after deletion.
+     *
+     * @param eventId     Firestore document ID of the event to delete.
+     * @param deviceUuid  Device UUID of the organizer, used to refresh the event list.
+     * @param firebaseUid Firebase Auth UID of the organizer, used to refresh the event list.
+     */
+    public void deleteEvent(String eventId, String deviceUuid, String firebaseUid) {
         isLoading.setValue(true);
         eventRepository.deleteEvent(eventId).addOnSuccessListener(aVoid -> {
             eventDeleted.setValue(true);
-            loadOrganizerEvents(organizerId); // Refresh list
+            loadOrganizerEvents(deviceUuid, firebaseUid); // Refresh list with both UUIDs
         }).addOnFailureListener(e -> {
             error.setValue("Failed to delete event: " + e.getMessage());
             isLoading.setValue(false);
@@ -170,6 +235,12 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    /**
+     * Searches Firestore for users whose {@code email} field exactly matches the given string.
+     * Results are posted to {@link #getSearchResults()}.
+     *
+     * @param email The email address to search for. Null or blank clears results immediately.
+     */
     public void searchUsersByEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
             searchResults.setValue(new ArrayList<>());
@@ -193,27 +264,48 @@ public class ManageEventViewModel extends ViewModel {
                 });
     }
 
+    /**
+     * Sends a co-organizer invite notification to the specified user for the given event.
+     *
+     * @param eventId    Firestore document ID of the event.
+     * @param eventTitle Display title of the event, included in the notification message.
+     * @param user       The user to invite. Must have a non-null UID and email.
+     */
     public void sendCoOrganizerInvite(String eventId, String eventTitle, User user) {
         if (eventId == null || user == null) return;
 
-        Notification notification = new Notification(
-                user.getUid(),
-                user.getEmail(),
-                eventId,
-                "You have been invited to be a co-organizer for the event: " + eventTitle,
-                "CO_ORGANIZER_INVITE"
-        );
-        
-        db.collection("notifications")
-                .add(notification)
-                .addOnSuccessListener(documentReference -> {
-                    searchResults.setValue(new ArrayList<>());
-                })
-                .addOnFailureListener(e -> {
-                    error.setValue("Failed to send invite: " + e.getMessage());
-                });
+        db.collection("events").document(eventId).get().addOnSuccessListener(documentSnapshot -> {
+            String organizerId = documentSnapshot.getString("organizerId");
+            Notification notification = new Notification(
+                    user.getUid(),
+                    user.getEmail(),
+                    organizerId,
+                    eventId,
+                    "You have been invited to be a co-organizer for the event: " + eventTitle,
+                    Notification.TYPE_CO_ORGANIZER_INVITE
+            );
+
+            db.collection("notifications")
+                    .add(notification)
+                    .addOnSuccessListener(documentReference -> {
+                        searchResults.setValue(new ArrayList<>());
+                    })
+                    .addOnFailureListener(e -> {
+                        error.setValue("Failed to send invite: " + e.getMessage());
+                    });
+        }).addOnFailureListener(e -> {
+            error.setValue("Failed to fetch event for invitation: " + e.getMessage());
+        });
     }
 
+    /**
+     * Manually registers a user onto a private event's waitlist and sends a
+     * {@link Notification#TYPE_SELECTED} notification to that user.
+     *
+     * @param eventId    Firestore document ID of the private event.
+     * @param eventTitle Display title of the event, included in the notification message.
+     * @param user       The user to invite. Must have a non-null UID.
+     */
     public void inviteToPrivateEvent(String eventId, String eventTitle, User user) {
         if (eventId == null || user == null) return;
         isLoading.setValue(true);
@@ -234,6 +326,13 @@ public class ManageEventViewModel extends ViewModel {
         });
     }
 
+    /**
+     * Adds the user with {@code userId} to the {@code coOrganizers} array on the event document,
+     * removes them from the waitlist if present, and refreshes both lists.
+     *
+     * @param eventId Firestore document ID of the event.
+     * @param userId  Firebase UID of the user to promote to co-organizer.
+     */
     public void addCoOrganizer(String eventId, String userId) {
         if (eventId == null || userId == null) return;
 
@@ -255,6 +354,12 @@ public class ManageEventViewModel extends ViewModel {
                 });
     }
 
+    /**
+     * Fetches the full {@link User} objects for all co-organizers of the given event and
+     * posts them to {@link #getCoOrganizers()}.
+     *
+     * @param eventId Firestore document ID of the event.
+     */
     public void loadCoOrganizers(String eventId) {
         db.collection("events").document(eventId)
                 .get()

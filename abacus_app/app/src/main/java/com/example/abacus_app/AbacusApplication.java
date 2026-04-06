@@ -15,8 +15,24 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Application class for initializing global components and repositories.
- * This class is instantiated when the app starts and remains active for the entire app lifecycle.
+ * AbacusApplication - App initialization and global setup
+ *
+ * Runs once when the app starts and stays active the entire time.
+ *
+ * What it does:
+ * - Initializes Firebase Firestore with offline support enabled
+ * - Creates repositories for accessing user data
+ * - Checks if user is already logged in
+ *
+ * Theme Switching & Accessibility:
+ * - Does NOT wrap base context globally (keeps it responsive to system theme changes)
+ * - Each Activity must independently apply font scale in attachBaseContext() via
+ *   AccessibilityHelper.buildConfig() to respect user accessibility settings.
+ *   (MainActivity and LoginActivity implement this; others may need to add it.)
+ * - This design allows instant dark/light mode switching without requiring app restart,
+ *   at the cost of requiring per-activity font scale configuration.
+ *
+ * @author Dyna
  */
 public class AbacusApplication extends Application {
 
@@ -26,9 +42,8 @@ public class AbacusApplication extends Application {
 
     @Override
     protected void attachBaseContext(Context base) {
-        AccessibilityHelper helper = new AccessibilityHelper(base);
-        Configuration config = AccessibilityHelper.buildConfig(base, helper.getTextScale());
-        super.attachBaseContext(base.createConfigurationContext(config));
+        // Don't wrap context — keep it responsive to system configuration changes
+        super.attachBaseContext(base);
     }
 
     @Override

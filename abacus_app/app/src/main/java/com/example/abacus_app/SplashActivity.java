@@ -18,14 +18,21 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * Splash Activity
+ * Splash Activity - Entry point for the app
  *
- * Behaviour:
- * - Entry point for the app, shown before the main screen.
- * - Handles user state (first-time vs returning) and navigates accordingly.
- * - Shows an animation and buttons for guest browsing or signing up.
+ * Shows a splash screen with animation and handles navigation based on user state.
  *
+ * Behavior:
+ * - First launch (no UUID): Shows "Get Started" and "Browse as Guest" buttons
+ * - Returning logged-in user: Goes straight to main screen with their role
+ * - Logged-out user: Goes to main as guest (can log in from profile screen)
+ * - Deleted account: Shows message and returns to onboarding
  *
+ * Theme switching: Relies on Android's default configuration-change handling to
+ * apply the correct colors from values/ or values-night/ directories when the
+ * system dark mode setting changes.
+ *
+ * @author Dyna
  */
 public class SplashActivity extends AppCompatActivity {
 
@@ -35,19 +42,29 @@ public class SplashActivity extends AppCompatActivity {
     private UserRepository userRepository;     // Repository for user data
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
+    /** App-level role model supports only entrant/organizer for signed-in users. */
+    private String normalizeAppRole(String role) {
+        return "organizer".equals(role) ? "organizer" : "entrant";
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.splash_activity);
 
-        //Start animation (skip if Reduce Motion is enabled)
+        // Start animation
         ImageView img = findViewById(R.id.splashAbacus);
         AccessibilityHelper a11y = new AccessibilityHelper(this);
-        if (!a11y.isReduceMotion()) {
-            AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
-            if (avd != null) {
-                img.setImageDrawable(avd);
-                avd.start();
-            }
+        AnimatedVectorDrawableCompat avd = AnimatedVectorDrawableCompat.create(this, R.drawable.ic_abacus_animated);
+        if (avd != null) {
+            img.setImageDrawable(avd);
+            avd.start();
         }
 
         Button btnGetStarted = findViewById(R.id.btnGetStarted);
@@ -69,47 +86,47 @@ public class SplashActivity extends AppCompatActivity {
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
         userRepository = new UserRepository(localDataSource, remoteDataSource);
 
-        userRepository.getCurrentUserIdAsync(uuid -> {
-            if (uuid == null || uuid.isEmpty()) {
-                // Brand new device — no UUID yet, show onboarding buttons
+        // IMPORTANT: do NOT call getCurrentUserIdAsync() here because it creates
+        // and persists a UUID on first launch, which prevents onboarding buttons.
+        String uuid = localDataSource.getUUIDSync();
+        if (uuid == null || uuid.isEmpty()) {
+            // Brand new device — no UUID yet, show onboarding buttons
+            showButtons(btnGetStarted, tvBrowseGuest);
+            return;
+        }
+
+        userRepository.getProfileAsync(user -> {
+            // Only navigate as a signed-in user if Firebase Auth still holds
+            // a valid session. If Auth has expired the user must log in again.
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
+
+            // If getProfileAsync returned null, it means either the user doesn't exist
+            // OR UserRepository already detected isDeleted=true and signed them out.
+            if (user == null && firebaseSignedIn) {
+                // This covers the "Deleted" case. User exists in Auth but Repository returned null.
                 showButtons(btnGetStarted, tvBrowseGuest);
+                Toast.makeText(this, "Account is no longer active.", Toast.LENGTH_LONG).show();
                 return;
             }
-            userRepository.getProfileAsync(user -> {
-                // Only navigate as a signed-in user if Firebase Auth still holds
-                // a valid session. If Auth has expired the user must log in again.
-                FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-                boolean firebaseSignedIn = (firebaseUser != null && !firebaseUser.isAnonymous());
 
-                // If getProfileAsync returned null, it means either the user doesn't exist
-                // OR UserRepository already detected isDeleted=true and signed them out.
-                if (user == null && firebaseSignedIn) {
-                    // This covers the "Deleted" case. User exists in Auth but Repository returned null.
-                    showButtons(btnGetStarted, tvBrowseGuest);
-                    Toast.makeText(this, "Account is no longer active.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                if (firebaseSignedIn && user != null
-                        && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
-                    // Returning logged-in user — go straight to main
-                    String role = (user.getRole() != null && !user.getRole().isEmpty())
-                            ? user.getRole() : "entrant";
-                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
-                    new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(false, role),
-                            delay
-                    );
-                } else {
-                    // UUID exists but no active Firebase session (guest or expired).
-                    // Auto-navigate as guest — they can log in from the profile screen.
-                    long delay = a11y.isReduceMotion() ? 0 : ANIMATION_DELAY_MS;
-                    new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> goToMain(true, "entrant"),
-                            delay
-                    );
-                }
-            });
+            if (firebaseSignedIn && user != null
+                    && user.getLastLoginAt() != null && !user.getLastLoginAt().isEmpty()) {
+                // Returning logged-in user — go straight to main
+                String role = (user.getRole() != null && !user.getRole().isEmpty())
+            ? normalizeAppRole(user.getRole()) : "entrant";
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> goToMain(false, role),
+                        ANIMATION_DELAY_MS
+                );
+            } else {
+                // UUID exists but no active Firebase session (guest or expired).
+                // Auto-navigate as guest — they can log in from the profile screen.
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        () -> goToMain(true, "entrant"),
+                        ANIMATION_DELAY_MS
+                );
+            }
         });
     }
 
@@ -127,44 +144,6 @@ public class SplashActivity extends AppCompatActivity {
             btnGetStarted.animate().alpha(1f).setDuration(400).start();
             tvBrowseGuest.animate().alpha(1f).setDuration(400).start();
         }, BUTTONS_REVEAL_DELAY_MS);
-    }
-
-    /**
-     * Decides what to show based on whether a UUID was found in DataStore.
-     *
-     * @param isReturningUser true if a UUID already exists on this device.
-     * @param btnGetStarted   the "Get Started" button.
-     * @param tvBrowseGuest   the "Browse as guest" text view.
-     */
-    private void handleUserState(boolean isReturningUser, Button btnGetStarted, TextView tvBrowseGuest) {
-        if (isReturningUser) {
-            // UUID recognised → go straight to MainActivity after animation
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                goToMain(currentUser == null, "entrant"); // guest only if Firebase lost the session
-            }, ANIMATION_DELAY_MS);
-
-        } else {
-            // No UUID → new user, show onboarding buttons after animation
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                btnGetStarted.setVisibility(View.VISIBLE);
-                tvBrowseGuest.setVisibility(View.VISIBLE);
-
-                btnGetStarted.setAlpha(0f);
-                tvBrowseGuest.setAlpha(0f);
-                btnGetStarted.animate().alpha(1f).setDuration(400).start();
-                tvBrowseGuest.animate().alpha(1f).setDuration(400).start();
-            }, BUTTONS_REVEAL_DELAY_MS);
-
-            // "Get Started" → Login screen
-            btnGetStarted.setOnClickListener(v -> {
-                startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                finish();
-            });
-
-            // "Browse as guest" → MainActivity without authentication
-            tvBrowseGuest.setOnClickListener(v -> goToMain(true, "entrant"));
-        }
     }
 
     /**

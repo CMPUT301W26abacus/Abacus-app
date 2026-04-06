@@ -16,12 +16,28 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fragment that shows an authenticated user's personally saved events and the events
+ * they co-organize.
+ *
+ * <p>Two view modes are available, toggled via on-screen buttons:
+ * <ul>
+ *   <li>{@link ViewMode#SAVED} — events saved by the current Firebase user.</li>
+ *   <li>{@link ViewMode#CO_ORGANIZED} — events where the user appears in the
+ *       {@code coOrganizers} array.</li>
+ * </ul>
+ *
+ * <p>Both lists are read directly from Firestore. Guest users (no Firebase UID) see an
+ * empty state for both modes. Default view mode on launch is {@link ViewMode#SAVED}.
+ */
 public class MainSavedFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -32,7 +48,8 @@ public class MainSavedFragment extends Fragment {
 
     private List<Event> displayList = new ArrayList<>();
     private EventAdapter adapter;
-    private String userUid;
+    private String userUid;       // Firebase UID — used for saved lookup
+    private String deviceUuid;    // Device UUID — used for co-organizer lookup (existing behaviour)
 
     private enum ViewMode { SAVED, CO_ORGANIZED }
     private ViewMode currentMode = ViewMode.SAVED;
@@ -55,8 +72,13 @@ public class MainSavedFragment extends Fragment {
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
+        // Firebase UID for saved events (matches what EventAdapter writes)
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        userUid = firebaseUser != null ? firebaseUser.getUid() : null;
+
+        // Device UUID kept for co-organizer lookup (existing behaviour unchanged)
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
-        userUid = local.getUUIDSync();
+        deviceUuid = local.getUUIDSync();
 
         // ===== BUTTON LISTENERS =====
         btnShowSaved.setOnClickListener(v -> switchMode(ViewMode.SAVED));
@@ -73,11 +95,18 @@ public class MainSavedFragment extends Fragment {
         });
 
         // Default view
-        switchMode(ViewMode.CO_ORGANIZED);
+        switchMode(ViewMode.SAVED);
 
         return view;
     }
 
+    /**
+     * Switches the displayed list to {@code mode}, updates button highlight styles,
+     * and triggers the appropriate Firestore load.
+     *
+     * @param mode The view mode to activate ({@link ViewMode#SAVED} or
+     *             {@link ViewMode#CO_ORGANIZED}).
+     */
     private void switchMode(ViewMode mode) {
         currentMode = mode;
         updateButtonStyles();
@@ -89,6 +118,7 @@ public class MainSavedFragment extends Fragment {
         }
     }
 
+    /** Updates the stroke/text colour of the toggle buttons to reflect {@link #currentMode}. */
     private void updateButtonStyles() {
         int activeColor = ContextCompat.getColor(requireContext(), R.color.orange);
         int inactiveColor = ContextCompat.getColor(requireContext(), R.color.grey);
@@ -106,13 +136,95 @@ public class MainSavedFragment extends Fragment {
         }
     }
 
+    // ── Saved Events ──────────────────────────────────────────────────────────
+
+    /**
+     * Queries the current user's {@code saved} sub-collection in Firestore and loads the
+     * corresponding event documents into {@link #displayList}.
+     *
+     * <p>Returns immediately with an empty list if the user is not authenticated
+     * ({@link #userUid} is null).
+     */
     private void loadSavedEvents() {
-        displayList.clear();
-        // TODO: implement saved events
-        updateUI();
+        if (userUid == null) {
+            displayList.clear();
+            updateUI();
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("users").document(userUid)
+                .collection("saved")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        eventIds.add(doc.getId());
+                    }
+                    if (eventIds.isEmpty()) {
+                        displayList.clear();
+                        updateUI();
+                        return;
+                    }
+                    fetchEventsByIds(eventIds);
+                })
+                .addOnFailureListener(e -> {
+                    displayList.clear();
+                    updateUI();
+                });
     }
 
+    /**
+     * Fetches full event documents for a list of eventIds, then calls updateUI().
+     */
+    private void fetchEventsByIds(List<String> eventIds) {
+        List<Event> fetched = new ArrayList<>();
+        final int[] remaining = {eventIds.size()};
+
+        for (String eventId : eventIds) {
+            FirebaseFirestore.getInstance()
+                    .collection("events").document(eventId)
+                    .get()
+                    .addOnSuccessListener(snapshot -> {
+                        if (snapshot.exists()) {
+                            Event event = snapshot.toObject(Event.class);
+                            if (event != null && !Boolean.TRUE.equals(event.getIsDeleted())) {
+                                if (event.getEventId() == null || event.getEventId().isEmpty()) {
+                                    event.setEventId(snapshot.getId());
+                                }
+                                fetched.add(event);
+                            }
+                        }
+                        remaining[0]--;
+                        if (remaining[0] == 0) {
+                            displayList.clear();
+                            displayList.addAll(fetched);
+                            updateUI();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        remaining[0]--;
+                        if (remaining[0] == 0) {
+                            displayList.clear();
+                            displayList.addAll(fetched);
+                            updateUI();
+                        }
+                    });
+        }
+    }
+
+    // ── Co-Organized Events ───────────────────────────────────────────────────
+
+    /**
+     * Queries Firestore for events where {@link #userUid} appears in the {@code coOrganizers}
+     * array and loads them into {@link #displayList}.
+     *
+     * <p>Returns immediately without loading if {@link #userUid} is null (guest users).
+     * The {@code coOrganizers} field is populated by
+     * {@link ManageEventViewModel#addCoOrganizer(String, String)} using Firebase UIDs.
+     */
     private void loadCoOrganizedEvents() {
+        // coOrganizers stores Firebase UID (set by addCoOrganizer in ManageEventViewModel)
         if (userUid == null) return;
 
         FirebaseFirestore.getInstance().collection("events")
@@ -122,14 +234,20 @@ public class MainSavedFragment extends Fragment {
                     displayList.clear();
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Event event = doc.toObject(Event.class);
-                        if (event.getEventId() == null) event.setEventId(doc.getId());
-                        displayList.add(event);
+                        if (event != null && !Boolean.TRUE.equals(event.getIsDeleted())) {
+                            if (event.getEventId() == null) event.setEventId(doc.getId());
+                            displayList.add(event);
+                        }
                     }
                     updateUI();
                 });
     }
 
+    // ── UI ────────────────────────────────────────────────────────────────────
+
     private void updateUI() {
+        if (!isAdded()) return;
+
         if (displayList.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             layoutEmpty.setVisibility(View.VISIBLE);
@@ -142,13 +260,19 @@ public class MainSavedFragment extends Fragment {
             recyclerView.setVisibility(View.VISIBLE);
             layoutEmpty.setVisibility(View.GONE);
 
+            boolean canManageEvents = false;
+            if (getActivity() instanceof MainActivity) {
+                String role = ((MainActivity) getActivity()).getEffectiveRole();
+                canManageEvents = "organizer".equals(role) || "admin".equals(role);
+            }
+
             adapter = new EventAdapter(
                     displayList,
                     (title, autoJoin) -> {
                         String eventId = "";
                         for (Event e : displayList) {
-                            if (e.getTitle().equals(title)) {
-                                eventId = e.getEventId();
+                            if (e.getTitle() != null && e.getTitle().equals(title)) {
+                                eventId = e.getEventId() != null ? e.getEventId() : "";
                                 break;
                             }
                         }
@@ -168,11 +292,15 @@ public class MainSavedFragment extends Fragment {
                         ((MainActivity) getActivity()).showFragment(R.id.organizerManageFragment, false, args);
                     },
                     false,
+                    canManageEvents,
                     userUid,
                     false
             );
 
             recyclerView.setAdapter(adapter);
+            if (currentMode == ViewMode.SAVED) {
+                adapter.setHideFavourite(true);
+            }
         }
     }
 }

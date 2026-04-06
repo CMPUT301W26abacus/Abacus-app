@@ -69,7 +69,9 @@ public class MainHistoryViewModel extends ViewModel {
             List<RegistrationHistoryItem> items = new ArrayList<>();
             for (Registration r : registrationList) {
                 items.add(new RegistrationHistoryItem(
+                        r.getEventId(),
                         r.getEventTitle(),
+                        r.getPosterImageUrl(),
                         mapStatus(r.getStatus()),
                         r.getTimestamp()
                 ));
@@ -96,34 +98,64 @@ public class MainHistoryViewModel extends ViewModel {
 
     /** Raw data object returned by the repository. */
     public static class Registration {
+        private final String eventId;
         private final String eventTitle;
+        private final String posterImageUrl;
         private final String status;
         private final long   timestamp;
 
-        public Registration(String eventTitle, String status, long timestamp) {
+        public Registration(String eventId, String eventTitle, String posterImageUrl,
+                            String status, long timestamp) {
+            this.eventId = eventId;
             this.eventTitle = eventTitle;
+            this.posterImageUrl = posterImageUrl;
+            this.status = status;
+            this.timestamp = timestamp;
+        }
+
+        public Registration(String eventTitle, String status, long timestamp) {
+            this.eventId = "";
+            this.eventTitle = eventTitle;
+            this.posterImageUrl = null;
             this.status     = status;
             this.timestamp  = timestamp;
         }
 
+        public String getEventId()    { return eventId; }
         public String getEventTitle() { return eventTitle; }
+        public String getPosterImageUrl() { return posterImageUrl; }
         public String getStatus()     { return status; }
         public long   getTimestamp()  { return timestamp; }
     }
 
     /** Display-ready item consumed by the RecyclerView adapter. */
     public static class RegistrationHistoryItem {
+        private final String eventId;
         private final String eventTitle;
+        private final String posterImageUrl;
         private final String statusLabel;
         private final long   timestamp;
 
+        public RegistrationHistoryItem(String eventId, String eventTitle,
+                                       String posterImageUrl, String statusLabel, long timestamp) {
+            this.eventId = eventId;
+            this.eventTitle = eventTitle;
+            this.posterImageUrl = posterImageUrl;
+            this.statusLabel = statusLabel;
+            this.timestamp = timestamp;
+        }
+
         public RegistrationHistoryItem(String eventTitle, String statusLabel, long timestamp) {
+            this.eventId = "";
             this.eventTitle  = eventTitle;
+            this.posterImageUrl = null;
             this.statusLabel = statusLabel;
             this.timestamp   = timestamp;
         }
 
+        public String getEventId()     { return eventId; }
         public String getEventTitle()  { return eventTitle; }
+        public String getPosterImageUrl() { return posterImageUrl; }
         public String getStatusLabel() { return statusLabel; }
         public long   getTimestamp()   { return timestamp; }
     }

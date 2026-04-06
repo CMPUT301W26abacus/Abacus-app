@@ -25,10 +25,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Abacusapp">
 
-        <!-- Google Maps API Key - Linked to mapsApiKey in build.gradle.kts -->
+        <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="you-api-key" />
+            android:value="${mapsApiKey}" />
 
         <activity android:name=".SplashActivity"
             android:exported="true">

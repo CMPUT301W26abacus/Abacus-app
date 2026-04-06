@@ -8,140 +8,87 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.*;
 
 /**
- * Unit tests for {@link AccessibilityHelper}.
- *
- * Uses Robolectric so that SharedPreferences works without a physical device.
- * Covers:
- *   - Default values (both flags off)
- *   - Persistence of colorBlindMode flag
- *   - Persistence of largeText flag
- *   - buildConfig large-text font scale (1.3f)
- *   - buildConfig normal font scale (1.0f)
- *   - joinButtonColor returns appropriate colour per mode
- *   - selectedStatusColor returns appropriate colour per mode
+ * Unit tests for the {@link AccessibilityHelper} class.
+ * Tests accessibility features including text scaling and one-handed mode.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 34)
 public class AccessibilityHelperTest {
 
     private Context context;
+    private AccessibilityHelper accessibilityHelper;
 
     @Before
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
-        // Clear prefs before each test for isolation
-        context.getSharedPreferences("accessibility_prefs", Context.MODE_PRIVATE)
-                .edit().clear().commit();
-    }
-
-    // ── Default state ────────────────────────────────────────────────────────
-
-    @Test
-    public void defaultsAreFalse_colorBlindMode() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        assertFalse(helper.isColorBlindMode());
+        accessibilityHelper = new AccessibilityHelper(context);
     }
 
     @Test
-    public void defaultsAreFalse_largeText() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        assertFalse(helper.isLargeText());
-    }
-
-    // ── ColorBlind persistence ────────────────────────────────────────────────
-
-    @Test
-    public void setColorBlindModeTrue_persistsAcrossInstances() {
-        AccessibilityHelper helper1 = new AccessibilityHelper(context);
-        helper1.setColorBlindMode(true);
-
-        AccessibilityHelper helper2 = new AccessibilityHelper(context);
-        assertTrue(helper2.isColorBlindMode());
+    public void testAccessibilityHelperInstantiation() {
+        assertNotNull("AccessibilityHelper should be instantiated", accessibilityHelper);
     }
 
     @Test
-    public void setColorBlindModeFalse_persistsAcrossInstances() {
-        AccessibilityHelper helper1 = new AccessibilityHelper(context);
-        helper1.setColorBlindMode(true);
-        helper1.setColorBlindMode(false);
-
-        AccessibilityHelper helper2 = new AccessibilityHelper(context);
-        assertFalse(helper2.isColorBlindMode());
-    }
-
-    // ── LargeText persistence ─────────────────────────────────────────────────
-
-    @Test
-    public void setLargeTextTrue_persistsAcrossInstances() {
-        AccessibilityHelper helper1 = new AccessibilityHelper(context);
-        helper1.setLargeText(true);
-
-        AccessibilityHelper helper2 = new AccessibilityHelper(context);
-        assertTrue(helper2.isLargeText());
+    public void testGetTextScaleDefault() {
+        float defaultScale = accessibilityHelper.getTextScale();
+        assertEquals("Default text scale should be 1.0f", 1.0f, defaultScale, 0.01f);
     }
 
     @Test
-    public void setLargeTextFalse_persistsAcrossInstances() {
-        AccessibilityHelper helper1 = new AccessibilityHelper(context);
-        helper1.setLargeText(true);
-        helper1.setLargeText(false);
-
-        AccessibilityHelper helper2 = new AccessibilityHelper(context);
-        assertFalse(helper2.isLargeText());
-    }
-
-    // ── buildConfig ───────────────────────────────────────────────────────────
-
-    @Test
-    public void buildConfig_largeTextTrue_sets1_3FontScale() {
-        Configuration config = AccessibilityHelper.buildConfig(context, true);
-        assertEquals(1.3f, config.fontScale, 0.001f);
+    public void testSetAndGetTextScale() {
+        float testScale = 1.5f;
+        accessibilityHelper.setTextScale(testScale);
+        float retrievedScale = accessibilityHelper.getTextScale();
+        assertEquals("Text scale should be persisted and retrieved", testScale, retrievedScale, 0.01f);
     }
 
     @Test
-    public void buildConfig_largeTextFalse_sets1_0FontScale() {
-        Configuration config = AccessibilityHelper.buildConfig(context, false);
-        assertEquals(1.0f, config.fontScale, 0.001f);
-    }
-
-    // ── joinButtonColor ───────────────────────────────────────────────────────
-
-    @Test
-    public void joinButtonColor_normalMode_isOrange() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        helper.setColorBlindMode(false);
-        int color = helper.joinButtonColor();
-        assertEquals(android.graphics.Color.parseColor("#F97316"), color);
+    public void testBuildConfigReturnsConfiguration() {
+        // buildConfig requires both context and float textScale
+        Configuration config = AccessibilityHelper.buildConfig(context, 1.0f);
+        assertNotNull("buildConfig should return a non-null Configuration", config);
     }
 
     @Test
-    public void joinButtonColor_colorBlindMode_isBlue() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        helper.setColorBlindMode(true);
-        int color = helper.joinButtonColor();
-        assertEquals(android.graphics.Color.parseColor("#2563EB"), color);
-    }
-
-    // ── selectedStatusColor ───────────────────────────────────────────────────
-
-    @Test
-    public void selectedStatusColor_normalMode_isGreen() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        helper.setColorBlindMode(false);
-        int color = helper.selectedStatusColor();
-        assertEquals(android.graphics.Color.parseColor("#22C55E"), color);
+    public void testBuildConfigAppliesTextScale() {
+        float testScale = 1.5f;
+        Configuration config = AccessibilityHelper.buildConfig(context, testScale);
+        assertEquals("Configuration should apply the specified text scale", testScale, config.fontScale, 0.01f);
     }
 
     @Test
-    public void selectedStatusColor_colorBlindMode_isYellow() {
-        AccessibilityHelper helper = new AccessibilityHelper(context);
-        helper.setColorBlindMode(true);
-        int color = helper.selectedStatusColor();
-        assertEquals(android.graphics.Color.parseColor("#EAB308"), color);
+    public void testBuildConfigWithDifferentScales() {
+        float[] testScales = {0.8f, 1.0f, 1.6f};
+        for (float scale : testScales) {
+            Configuration config = AccessibilityHelper.buildConfig(context, scale);
+            assertEquals("fontScale should match the provided scale", scale, config.fontScale, 0.01f);
+        }
+    }
+
+    @Test
+    public void testGetOneHandedModeDefault() {
+        boolean oneHandedMode = accessibilityHelper.isOneHandedMode();
+        assertFalse("One-handed mode should be disabled by default", oneHandedMode);
+    }
+
+    @Test
+    public void testSetAndGetOneHandedMode() {
+        accessibilityHelper.setOneHandedMode(true);
+        assertTrue("One-handed mode should be enabled after setting", accessibilityHelper.isOneHandedMode());
+        accessibilityHelper.setOneHandedMode(false);
+        assertFalse("One-handed mode should be disabled after setting", accessibilityHelper.isOneHandedMode());
+    }
+
+    @Test
+    public void testReturnToAccessibilityFlag() {
+        assertFalse("Return flag should be false by default", accessibilityHelper.shouldReturnToAccessibility());
+        accessibilityHelper.setReturnToAccessibility(true);
+        assertTrue("Return flag should be true after setting", accessibilityHelper.shouldReturnToAccessibility());
+        accessibilityHelper.clearReturnToAccessibility();
+        assertFalse("Return flag should be false after clearing", accessibilityHelper.shouldReturnToAccessibility());
     }
 }
