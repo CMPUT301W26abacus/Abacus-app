@@ -18,7 +18,12 @@ import java.util.List;
 
 /**
  * Fragment for organizers to view the waitlist of a specific event.
- * Displays total count and list of entrants.
+ * Displays the total entrant count and a scrollable list of all waitlist entries
+ * regardless of their current status (waitlisted, invited, accepted, etc.).
+ *
+ * <p>Launched from the organizer management screen with {@code EVENT_ID} and
+ * {@code EVENT_TITLE} arguments. Fetches all entries via {@link RegistrationRepository}
+ * and binds them to a {@link WaitlistAdapter}.
  *
  * @author Himesh
  * @version 1.0
@@ -33,6 +38,13 @@ public class WaitlistViewFragment extends Fragment {
     private TextView tvEventName, tvCount;
     private final RegistrationRepository registrationRepository = new RegistrationRepository();
 
+    /**
+     * Creates a new instance of WaitlistViewFragment with the required arguments.
+     *
+     * @param eventId    the Firestore document ID of the event whose waitlist to display
+     * @param eventTitle the display title of the event, shown in the fragment header
+     * @return a new WaitlistViewFragment with arguments set
+     */
     public static WaitlistViewFragment newInstance(String eventId, String eventTitle) {
         WaitlistViewFragment fragment = new WaitlistViewFragment();
         Bundle args = new Bundle();
@@ -42,6 +54,11 @@ public class WaitlistViewFragment extends Fragment {
         return fragment;
     }
 
+    /**
+     * Reads the {@code EVENT_ID} and {@code EVENT_TITLE} arguments from the fragment's Bundle.
+     *
+     * @param savedInstanceState the previously saved instance state, or null
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +68,15 @@ public class WaitlistViewFragment extends Fragment {
         }
     }
 
+    /**
+     * Inflates the waitlist view layout, initialises the RecyclerView and header TextViews,
+     * and triggers the initial waitlist load from Firestore.
+     *
+     * @param inflater           the LayoutInflater used to inflate the layout
+     * @param container          the parent ViewGroup, or null if there is no parent
+     * @param savedInstanceState the previously saved instance state, or null
+     * @return the inflated root view for this fragment
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -72,6 +98,12 @@ public class WaitlistViewFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Fetches all waitlist entries for the current event from Firestore via
+     * {@link RegistrationRepository#getAllEntries} and updates the RecyclerView.
+     * Displays a toast if the fetch fails. Updates the total entrant count label
+     * regardless of success or failure.
+     */
     private void loadWaitlist() {
         if (eventId == null) return;
 

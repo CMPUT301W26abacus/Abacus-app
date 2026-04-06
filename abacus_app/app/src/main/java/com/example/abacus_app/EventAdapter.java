@@ -52,15 +52,41 @@ import java.util.List;
  */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
+    /**
+     * Callback for card and join-button tap events.
+     */
     public interface OnEventClickListener {
+        /**
+         * Called when the user taps an event card or its join button.
+         *
+         * @param eventTitle the title of the tapped event
+         * @param autoJoin   true when the join button was tapped directly,
+         *                   triggering the join flow immediately on the details screen
+         */
         void onEventClick(String eventTitle, boolean autoJoin);
     }
 
+    /**
+     * Callback for the admin delete button on each card.
+     */
     public interface OnEventDeleteListener {
+        /**
+         * Called when an admin taps the delete button on an event card.
+         *
+         * @param event the event to be deleted
+         */
         void onEventDelete(Event event);
     }
 
+    /**
+     * Callback for the Manage button shown to co-organizers.
+     */
     public interface OnManageClickListener {
+        /**
+         * Called when a co-organizer taps the Manage button on an event card.
+         *
+         * @param event the event to be managed
+         */
         void onManageClick(Event event);
     }
 
@@ -84,6 +110,18 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
+    /**
+     * Full constructor used by MainActivity and most screens.
+     *
+     * @param events          the list of events to display
+     * @param clickListener   callback for card/join-button taps
+     * @param deleteListener  callback for admin delete taps, or null if not admin
+     * @param isAdmin         true if the current user is an admin
+     * @param canManageEvents true if the current user is an organizer or admin
+     * @param userKey         the resolved user identifier for join-status checks,
+     *                        or null if not yet resolved
+     * @param isGuest         true if the current session is a guest session
+     */
     public EventAdapter(List<Event> events,
                         OnEventClickListener clickListener,
                         OnEventDeleteListener deleteListener,
@@ -100,6 +138,18 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         this.isGuest         = isGuest;
     }
 
+    /**
+     * Constructor that additionally accepts a manage-click listener for co-organizer cards.
+     *
+     * @param events               the list of events to display
+     * @param clickListener        callback for card/join-button taps
+     * @param deleteListener       callback for admin delete taps, or null if not admin
+     * @param manageClickListener  callback for co-organizer Manage button taps
+     * @param isAdmin              true if the current user is an admin
+     * @param canManageEvents      true if the current user is an organizer or admin
+     * @param userKey              the resolved user identifier, or null if not yet resolved
+     * @param isGuest              true if the current session is a guest session
+     */
     public EventAdapter(List<Event> events,
                         OnEventClickListener clickListener,
                         OnEventDeleteListener deleteListener,
@@ -112,6 +162,12 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         this.manageClickListener = manageClickListener;
     }
 
+    /**
+     * Minimal constructor for simple read-only event lists with no join or delete actions.
+     *
+     * @param events        the list of events to display
+     * @param clickListener callback for card taps
+     */
     public EventAdapter(List<Event> events, OnEventClickListener clickListener) {
         this(events, clickListener, null, false, false, null, false);
     }
@@ -136,6 +192,15 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         return new EventViewHolder(view);
     }
 
+    /**
+     * Binds a single Event to its card view. Handles all visual states:
+     * admin mode (delete button), organizer mode (edit button), co-organizer
+     * mode (manage button), and entrant mode (join/joined button with async
+     * Firestore status check). Also sets up the heart/save button.
+     *
+     * @param holder   the ViewHolder to bind into
+     * @param position the position in the events list
+     */
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
         Event event = events.get(position);
@@ -313,6 +378,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
      *
      * Always uses ic_favourite drawable — grey tint when unsaved, orange tint when saved.
      * This ensures consistent icon sizing regardless of saved state.
+     *
+     * @param holder the ViewHolder whose save button is being set up
+     * @param event  the event to check saved status for
      */
     private void setupSaveButton(@NonNull EventViewHolder holder, @NonNull Event event) {
         // Use Firebase UID if available, otherwise fall back to device UUID (guest)
@@ -346,6 +414,19 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
                 });
     }
 
+    /**
+     * Toggles the saved state of an event in Firestore and updates the heart icon.
+     * Saves minimal event metadata (eventId, title, savedAt timestamp) to
+     * users/{uid}/saved/{eventId} so the Saved screen can display it without
+     * fetching the full event document.
+     *
+     * @param holder         the ViewHolder containing the heart button
+     * @param db             the Firestore instance
+     * @param uid            the current user's ID
+     * @param eventId        the event's Firestore document ID
+     * @param event          the event being toggled
+     * @param currentlySaved true if the event is currently saved
+     */
     private void toggleSaved(@NonNull EventViewHolder holder,
                              @NonNull FirebaseFirestore db,
                              @NonNull String uid,
@@ -382,6 +463,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     /**
      * Sets the save icon appearance. Always uses ic_favourite for consistent sizing.
      * Grey tint when unsaved, orange tint when saved.
+     *
+     * @param holder the ViewHolder containing the heart button
+     * @param saved  true if the event is currently saved
      */
     private void setSaveIcon(@NonNull EventViewHolder holder, boolean saved) {
         if (saved) {
@@ -396,8 +480,16 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     // ── Button appearance ─────────────────────────────────────────────────────
 
+    /** Represents the three visual states of the join/status button on each card. */
     private enum ButtonState { JOIN, JOINED, MANAGE }
 
+    /**
+     * Applies one of the three standard button visual states to the join/status button.
+     *
+     * @param holder  the ViewHolder containing the button
+     * @param state   the desired visual state
+     * @param context used to resolve color resources
+     */
     private void applyButtonState(@NonNull EventViewHolder holder,
                                   ButtonState state,
                                   @NonNull Context context) {
@@ -430,6 +522,13 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         }
     }
 
+    /**
+     * Applies the Edit button appearance to the join/status button.
+     * Used when the current user is the organizer of the event.
+     *
+     * @param holder  the ViewHolder containing the button
+     * @param context used to resolve color resources
+     */
     private void applyEditButtonState(@NonNull EventViewHolder holder,
                                       @NonNull Context context) {
         MaterialButton btn = holder.btnJoinStatus;
@@ -447,6 +546,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     // ── ViewHolder ────────────────────────────────────────────────────────────
 
+    /**
+     * Holds references to all views within a single event card (item_event layout).
+     */
     static class EventViewHolder extends RecyclerView.ViewHolder {
         ImageView      ivPoster;
         TextView       tvTitle;
