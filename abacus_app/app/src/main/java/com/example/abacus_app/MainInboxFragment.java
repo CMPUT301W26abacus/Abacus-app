@@ -67,6 +67,7 @@ public class MainInboxFragment extends Fragment {
     private boolean showAllLogs = false;
     private ListenerRegistration registrationListener;
     private ListenerRegistration customNotificationListener;
+    private ListenerRegistration userIdNotificationListener;
     private ListenerRegistration allLogsListener;
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
@@ -127,6 +128,14 @@ public class MainInboxFragment extends Fragment {
         });
 
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setBottomNavVisible(true);
+        }
     }
 
     /**
@@ -202,6 +211,7 @@ public class MainInboxFragment extends Fragment {
                 Bundle args = new Bundle();
                 args.putString(EventDetailsFragment.ARG_EVENT_ID, eventId);
                 // show event details page with no nav-bar
+                ((MainActivity) getActivity()).setBottomNavVisible(false);
                 ((MainActivity) requireActivity())
                         .showFragment(
                                 R.id.eventDetailsFragment,
@@ -296,6 +306,15 @@ public class MainInboxFragment extends Fragment {
                     });
         }
 
+        if (currentUserId != null && !currentUserId.isEmpty()) {
+            userIdNotificationListener = db.collection("notifications")
+                    .whereEqualTo("userId", currentUserId)
+                    .addSnapshotListener((value, error) -> {
+                        if (error != null || value == null) return;
+                        processCustomNotifications(value.getDocuments());
+                    });
+        }
+
         if (currentUser != null && "admin".equals(currentUser.getRole())) {
             allLogsListener = db.collection("notifications")
                     .addSnapshotListener((value, error) -> {
@@ -311,6 +330,7 @@ public class MainInboxFragment extends Fragment {
     private void stopListening() {
         if (registrationListener != null) registrationListener.remove();
         if (customNotificationListener != null) customNotificationListener.remove();
+        if (userIdNotificationListener != null) userIdNotificationListener.remove();
         if (allLogsListener != null) allLogsListener.remove();
     }
 

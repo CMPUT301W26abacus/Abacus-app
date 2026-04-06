@@ -206,8 +206,8 @@ public class GuestSignUpFragment extends Fragment {
         btnJoin.setEnabled(false);
         btnJoin.setText("Joining…");
 
-        String guestKey = emailToKey(email);
-        String docId = guestKey + "_" + eventId;
+        String deviceId = new UserLocalDataSource(requireContext()).getUUIDSync();
+        String docId = (deviceId != null ? deviceId : emailToKey(email)) + "_" + eventId;
 
         new RegistrationRepository().joinWaitlistGuest(docId, email, name, eventId, location, error -> {
             if (error == null) {
