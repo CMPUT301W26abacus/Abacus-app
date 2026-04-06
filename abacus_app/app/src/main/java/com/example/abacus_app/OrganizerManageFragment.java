@@ -64,6 +64,7 @@ public class OrganizerManageFragment extends Fragment {
     private ChipGroup chipGroupFilter;
 
     private LinearLayout layoutCoOrganizers;
+    private LinearLayout layoutCoOrganizerStrip;
     private MaterialButton btnAddCoOrganizer;
     private RecyclerView rvCoOrganizers;
     private CoOrganizerAdapter coOrganizerAdapter;
@@ -82,6 +83,8 @@ public class OrganizerManageFragment extends Fragment {
 
     private List<WaitlistEntry> allEntries      = new ArrayList<>();
     private List<WaitlistEntry> filteredEntries = new ArrayList<>();
+    private View    bannerEventEnded;
+    private boolean isEventOver = false;
 
     @Nullable
     @Override
@@ -102,8 +105,10 @@ public class OrganizerManageFragment extends Fragment {
         btnDrawReplacement = rootView.findViewById(R.id.btn_draw_replacement);
         btnExportCsv       = rootView.findViewById(R.id.btn_export_csv);
         btnNotify          = rootView.findViewById(R.id.btn_notify_entrants);
+        bannerEventEnded   = rootView.findViewById(R.id.banner_event_ended);
 
         layoutCoOrganizers = rootView.findViewById(R.id.layout_co_organizers);
+        layoutCoOrganizerStrip = rootView.findViewById(R.id.layout_co_organizer_strip);
         btnAddCoOrganizer  = rootView.findViewById(R.id.btn_add_co_organizer);
         rvCoOrganizers     = rootView.findViewById(R.id.rv_co_organizers);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -154,10 +159,22 @@ public class OrganizerManageFragment extends Fragment {
 
         btnAddCoOrganizer.setOnClickListener(v -> {
             if (selectedEventId == null || selectedEvent == null) return;
+            if (isEventOver) {
+                Toast.makeText(getContext(),
+                        "This event has ended. No invites can be sent.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
             Bundle args = new Bundle();
             args.putString(BrowseEntrantsFragment.ARG_EVENT_ID,    selectedEventId);
             args.putString(BrowseEntrantsFragment.ARG_EVENT_TITLE, tvEventName.getText().toString());
             args.putBoolean(BrowseEntrantsFragment.ARG_IS_PRIVATE, selectedEvent.isPrivate());
+            args.putLong(BrowseEntrantsFragment.ARG_REG_END_MS,
+                    selectedEvent.getRegistrationEnd() != null
+                            ? selectedEvent.getRegistrationEnd().toDate().getTime() : 0L);
+            args.putLong(BrowseEntrantsFragment.ARG_EVENT_END_MS,
+                    selectedEvent.getEventEnd() != null
+                            ? selectedEvent.getEventEnd().toDate().getTime() : 0L);
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).showFragment(
                         R.id.browseEntrantsFragment, false, args);
@@ -196,6 +213,8 @@ public class OrganizerManageFragment extends Fragment {
     private void showEventList() {
         callback.setEnabled(false);
         currentMode = Mode.EVENT_LIST;
+        isEventOver = false;
+        if (bannerEventEnded != null) bannerEventEnded.setVisibility(View.GONE);
         if (getActivity() instanceof MainActivity)
             ((MainActivity) getActivity()).setBottomNavVisible(true);
         tvEventName.setText("My Events");
@@ -207,6 +226,7 @@ public class OrganizerManageFragment extends Fragment {
         filterContainer.setVisibility(View.GONE);
         btnDrawReplacement.setVisibility(View.GONE);
         layoutCoOrganizers.setVisibility(View.GONE);
+        layoutCoOrganizerStrip.setVisibility(View.GONE);
 
         UserLocalDataSource local = new UserLocalDataSource(requireContext());
         String uuid               = local.getUUIDSync();
@@ -236,6 +256,8 @@ public class OrganizerManageFragment extends Fragment {
     private void showWaitlist(String eventTitle, String eventId) {
         callback.setEnabled(true);
         currentMode = Mode.WAITLIST;
+        isEventOver = false;
+        if (bannerEventEnded != null) bannerEventEnded.setVisibility(View.GONE);
         if (getActivity() instanceof MainActivity)
             ((MainActivity) getActivity()).setBottomNavVisible(false);
         tvEventName.setText(eventTitle);
@@ -247,6 +269,7 @@ public class OrganizerManageFragment extends Fragment {
         filterContainer.setVisibility(View.VISIBLE);
         chipGroupFilter.check(R.id.chip_all);
         layoutCoOrganizers.setVisibility(View.VISIBLE);
+        layoutCoOrganizerStrip.setVisibility(View.GONE);
         btnAddCoOrganizer.setText("Send Invites");
 
         filteredEntries.clear();
@@ -324,7 +347,8 @@ public class OrganizerManageFragment extends Fragment {
                 coOrganizersList.clear();
                 coOrganizersList.addAll(users);
                 coOrganizerAdapter.notifyDataSetChanged();
-                if (!coOrganizersList.isEmpty()) layoutCoOrganizers.setVisibility(View.VISIBLE);
+                layoutCoOrganizerStrip.setVisibility(
+                        coOrganizersList.isEmpty() ? View.GONE : View.VISIBLE);
             }
         });
 
@@ -336,6 +360,23 @@ public class OrganizerManageFragment extends Fragment {
             if (currentMode != Mode.WAITLIST) return;
             if (completed != null && completed) showDrawReplacementButton();
             else if (completed != null) showDrawLotteryButton();
+        });
+
+        viewModel.getEventDetails().observe(getViewLifecycleOwner(), event -> {
+            if (currentMode != Mode.WAITLIST || event == null) return;
+            selectedEvent = event;
+
+            long now = System.currentTimeMillis();
+            isEventOver = event.getEventEnd() != null
+                    && now > event.getEventEnd().toDate().getTime();
+
+            if (bannerEventEnded != null) {
+                bannerEventEnded.setVisibility(isEventOver ? View.VISIBLE : View.GONE);
+            }
+            if (isEventOver) {
+                btnDrawLottery.setVisibility(View.GONE);
+                btnDrawReplacement.setVisibility(View.GONE);
+            }
         });
 
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
@@ -412,11 +453,21 @@ public class OrganizerManageFragment extends Fragment {
     private String escapeQuotes(String value) { return value == null ? "" : value.replace("\"", "\"\""); }
 
     private void showDrawLotteryButton() {
+        if (isEventOver) {
+            if (btnDrawLottery != null) btnDrawLottery.setVisibility(View.GONE);
+            if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.GONE);
+            return;
+        }
         if (btnDrawLottery != null) { btnDrawLottery.setVisibility(View.VISIBLE); btnDrawLottery.setEnabled(true); }
         if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.GONE);
     }
 
     private void showDrawReplacementButton() {
+        if (isEventOver) {
+            if (btnDrawLottery != null) btnDrawLottery.setVisibility(View.GONE);
+            if (btnDrawReplacement != null) btnDrawReplacement.setVisibility(View.GONE);
+            return;
+        }
         if (btnDrawLottery != null) btnDrawLottery.setVisibility(View.GONE);
         if (btnDrawReplacement != null) { btnDrawReplacement.setVisibility(View.VISIBLE); btnDrawReplacement.setEnabled(false); }
     }

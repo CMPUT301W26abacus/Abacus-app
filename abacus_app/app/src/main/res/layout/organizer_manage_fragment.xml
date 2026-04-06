@@ -10,209 +10,198 @@
         android:id="@+id/swipe_refresh"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/btn_draw_lottery"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/app_bar_manage"
         app:layout_constraintEnd_toEndOf="parent">
 
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scroll_content"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:overScrollMode="never">
-
-        <LinearLayout
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scroll_content"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="20dp"
-            android:paddingBottom="100dp">
+            android:layout_height="match_parent"
+            android:overScrollMode="never">
 
             <LinearLayout
-                android:id="@+id/layout_co_organizers"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp">
+                android:paddingTop="20dp"
+                android:paddingBottom="160dp">
+
+                <!-- Co-organizers strip -->
+                <LinearLayout
+                    android:id="@+id/layout_co_organizer_strip"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Co-organizers:"
+                        android:textAppearance="?attr/textAppearanceTitleSmall"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_co_organizers"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_event_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:paddingHorizontal="16dp"
+                    android:text="Event Name"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="@color/black"
+                    android:textStyle="bold" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp">
 
                     <TextView
+                        android:id="@+id/tv_waitlist_count"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Event Invitations"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="@color/black"
-                        android:textStyle="bold" />
+                        android:text="Total Entrants: 0"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="@color/grey" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_add_co_organizer"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:id="@+id/btn_notify_entrants"
+                        style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Send " />
+                        android:text="Notify"
+                        android:visibility="gone"
+                        app:icon="@drawable/ic_notifications" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_export_csv"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Export CSV"
+                        android:visibility="gone"
+                        app:icon="@android:drawable/ic_menu_save" />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/layout_search_co_organizer"
+                <HorizontalScrollView
+                    android:id="@+id/filter_scroll"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical"
+                    android:layout_marginBottom="12dp"
+                    android:paddingHorizontal="16dp"
+                    android:scrollbars="none"
                     android:visibility="gone">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                        android:layout_width="match_parent"
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chip_group_filter"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:hint="Search Users">
+                        app:selectionRequired="true"
+                        app:singleSelection="true">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_search_entrant"
-                            android:layout_width="match_parent"
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_all"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:checked="true"
+                            android:text="All" />
 
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_search_results"
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_marginTop="4dp"
-                        android:background="@android:color/white"
-                        android:visibility="gone" />
-                </LinearLayout>
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_waitlisted"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Waitlisted" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_invited"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Invited" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_accepted"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Accepted" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_cancelled"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cancelled/Declined" />
+
+                    </com.google.android.material.chip.ChipGroup>
+                </HorizontalScrollView>
 
                 <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_co_organizers"
+                    android:id="@+id/rv_waitlist"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"
+                    android:paddingHorizontal="16dp" />
+
             </LinearLayout>
-
-            <TextView
-                android:id="@+id/tv_event_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:paddingHorizontal="16dp"
-                android:text="Event Name"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="@color/black"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp">
-
-                <TextView
-                    android:id="@+id/tv_waitlist_count"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Total Entrants: 0"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="@color/grey" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_notify_entrants"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Notify"
-                    android:visibility="gone"
-                    app:icon="@drawable/ic_notifications" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_export_csv"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Export CSV"
-                    android:visibility="gone"
-                    app:icon="@android:drawable/ic_menu_save" />
-            </LinearLayout>
-
-            <HorizontalScrollView
-                android:id="@+id/filter_scroll"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:paddingHorizontal="16dp"
-                android:scrollbars="none"
-                android:visibility="gone">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chip_group_filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:selectionRequired="true"
-                    app:singleSelection="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_all"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        android:text="All" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_waitlisted"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Waitlisted" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_invited"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Invited" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_accepted"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Accepted" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_cancelled"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Cancelled/Declined" />
-
-                </com.google.android.material.chip.ChipGroup>
-            </HorizontalScrollView>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_waitlist"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:overScrollMode="never"
-                android:paddingHorizontal="16dp" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        </androidx.core.widget.NestedScrollView>
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- Event Invitations row — sits just above the lottery button -->
+    <LinearLayout
+        android:id="@+id/layout_co_organizers"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:background="@color/white"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/btn_draw_lottery"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Event Invitations"
+            android:textAppearance="?attr/textAppearanceTitleSmall"
+            android:textColor="@color/black"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_co_organizer"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Send Invites" />
+
+    </LinearLayout>
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/app_bar_manage"
@@ -223,12 +212,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Status bar spacer row -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="@color/white"
             android:paddingHorizontal="16dp" />
 
+        <!-- Title row -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -247,7 +238,7 @@
                 app:tint="@color/black"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+                app:layout_constraintBottom_toBottomOf="parent" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -262,7 +253,20 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <!-- Event ended banner -->
+        <TextView
+            android:id="@+id/banner_event_ended"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/error_red"
+            android:text="This event has ended — invites and lottery are disabled"
+            android:textColor="@color/white"
+            android:textAlignment="center"
+            android:padding="10dp"
+            android:visibility="gone" />
+
     </com.google.android.material.appbar.AppBarLayout>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_draw_lottery"
         android:layout_width="match_parent"
