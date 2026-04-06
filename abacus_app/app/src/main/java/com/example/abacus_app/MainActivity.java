@@ -1018,6 +1018,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Used to show the navbar after going back from EventDetails.
+     *
+     * @param show
+     */
+    public void showBottomNav(boolean show) {
+        bottomNav.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /**
      * Removes all entries from the NavController back stack, including the start destination.
      *
      * <p>Attempts {@code popBackStack(startId, inclusive=true)} first as an O(1) fast path.
