@@ -1,6 +1,8 @@
 package com.example.abacus_app;
 
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.PropertyName;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,7 @@ public class Event implements Serializable {
     private Integer waitlistCount;    // Current number of people on waitlist
     private boolean geoRequired;
     private boolean lotteryDrawn;
+    @PropertyName("isPrivate")
     private boolean isPrivate;
     private String posterImageUrl;
     private String qrCodeUrl;
@@ -107,9 +110,11 @@ public class Event implements Serializable {
     public boolean isLotteryDrawn() { return lotteryDrawn; }
     public void setLotteryDrawn(boolean lotteryDrawn) { this.lotteryDrawn = lotteryDrawn; }
 
+    @PropertyName("isPrivate")
     public boolean isPrivate() { return isPrivate; }
-    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
+    @PropertyName("isPrivate")
+    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
     public String getPosterImageUrl() { return posterImageUrl; }
     public void setPosterImageUrl(String posterImageUrl) { this.posterImageUrl = posterImageUrl; }
 
