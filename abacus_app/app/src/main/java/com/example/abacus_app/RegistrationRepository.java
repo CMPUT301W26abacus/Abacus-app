@@ -7,6 +7,7 @@ import android.util.Log;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -340,6 +341,7 @@ public class RegistrationRepository {
 
     /**
      * Changes the status of an invited entrant from invited to declined.
+     * Decrements waitlistCount so the freed spot becomes available to new entrants.
      *
      * @param userID   the unique ID of the user in the database
      * @param eventID  the unique ID of the event in the database
@@ -361,6 +363,13 @@ public class RegistrationRepository {
                 }
 
                 remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_DECLINED);
+
+                // Free up the spot so new entrants can join and US 01.05.01 is satisfied
+                FirebaseFirestore.getInstance()
+                        .collection("events")
+                        .document(eventID)
+                        .update("waitlistCount", FieldValue.increment(-1));
+
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
@@ -370,6 +379,7 @@ public class RegistrationRepository {
 
     /**
      * Changes the status of an entrant to cancelled.
+     * Decrements waitlistCount so the freed spot becomes available to new entrants.
      *
      * @param userID   the unique ID of the user in the database
      * @param eventID  the unique ID of the event in the database
@@ -387,6 +397,13 @@ public class RegistrationRepository {
                 }
 
                 remoteDataSource.updateUserEntryStatusSync(eventID, userID, WaitlistEntry.STATUS_CANCELLED);
+
+                // Free up the spot so new entrants can join
+                FirebaseFirestore.getInstance()
+                        .collection("events")
+                        .document(eventID)
+                        .update("waitlistCount", FieldValue.increment(-1));
+
                 mainHandler.post(() -> callback.onComplete(null));
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onComplete(e));
