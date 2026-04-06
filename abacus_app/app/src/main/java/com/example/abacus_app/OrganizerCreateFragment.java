@@ -249,8 +249,8 @@ public class OrganizerCreateFragment extends Fragment {
         if (cbLimit.isChecked()) {
             try {
                 waitlistLimit = Integer.parseInt(etLimit.getText().toString());
-                if (waitlistLimit > eventCapacity) {
-                    Toast.makeText(getContext(), "Waitlist capacity cannot exceed event capacity", Toast.LENGTH_SHORT).show();
+                if (waitlistLimit < eventCapacity) {
+                    Toast.makeText(getContext(), "Event capacity cannot exceed waitlist capacity", Toast.LENGTH_SHORT).show();
                     return;
                 }
             } catch (NumberFormatException e) {
