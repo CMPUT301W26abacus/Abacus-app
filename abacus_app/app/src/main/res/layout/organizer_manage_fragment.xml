@@ -28,7 +28,6 @@
                 android:paddingTop="20dp"
                 android:paddingBottom="160dp">
 
-                <!-- Co-organizers strip -->
                 <LinearLayout
                     android:id="@+id/layout_co_organizer_strip"
                     android:layout_width="match_parent"
@@ -170,7 +169,6 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Event Invitations row — sits just above the lottery button -->
     <LinearLayout
         android:id="@+id/layout_co_organizers"
         android:layout_width="0dp"
@@ -181,7 +179,7 @@
         android:paddingVertical="8dp"
         android:background="@color/white"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/btn_draw_lottery"
+        app:layout_constraintBottom_toTopOf="@id/lottery_button_container"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -212,14 +210,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Status bar spacer row -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="@color/white"
             android:paddingHorizontal="16dp" />
 
-        <!-- Title row -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -253,7 +249,6 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Event ended banner -->
         <TextView
             android:id="@+id/banner_event_ended"
             android:layout_width="match_parent"
@@ -267,28 +262,32 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_draw_lottery"
+    <FrameLayout
+        android:id="@+id/lottery_button_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="Draw Lottery"
-        android:padding="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_draw_replacement"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="Draw Replacement"
-        android:padding="12dp"
-        android:visibility="gone"
-        android:enabled="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_draw_lottery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:text="Draw Lottery"
+            android:padding="12dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_draw_replacement"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:text="Draw Replacement"
+            android:padding="12dp"
+            android:visibility="gone"
+            android:enabled="false" />
+
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

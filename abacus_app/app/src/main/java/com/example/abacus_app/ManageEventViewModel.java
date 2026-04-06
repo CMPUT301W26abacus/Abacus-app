@@ -224,15 +224,16 @@ public class ManageEventViewModel extends ViewModel {
                 } else {
                     Log.d("mytagmanageeventVM", "onResult: replacement drawn = " + entry.getUserId());
                     loadWaitlist(eventId);
-                }
-                notificationRepository.notifyReplacement(eventId, entry.getUserID(), new NotificationRepository.VoidCallback() {
-                    @Override
-                    public void onComplete(Exception error) {
-                        if (error != null) {
-                            Log.d(TAG, "onComplete: error sending notifications");
+
+                    notificationRepository.notifyReplacement(eventId, entry.getUserID(), new NotificationRepository.VoidCallback() {
+                        @Override
+                        public void onComplete(Exception error) {
+                            if (error != null) {
+                                Log.d(TAG, "onComplete: error sending notifications");
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
         });
     }
