@@ -49,6 +49,9 @@ public class CommentsFragment extends BottomSheetDialogFragment {
     private User currentUser  = null;
     private boolean canDelete = false;
 
+    /**
+     * Sets up the fragment as a BottomSheet that covers most of the screen.
+     */
     @Override
     public void onStart() {
         super.onStart();
@@ -148,6 +151,9 @@ public class CommentsFragment extends BottomSheetDialogFragment {
     }
 
 
+    /**
+     * Gets comments from the database through CommentRepository, sorts by date, and passes to CommentAdapter.
+     */
     private void loadComments() {
         repo.getComments(eventId, result -> {
             comments.clear();
@@ -161,6 +167,10 @@ public class CommentsFragment extends BottomSheetDialogFragment {
         });
     }
 
+    /**
+     * Adds a comment and refreshes the adapter.
+     * @param content
+     */
     private void addComment(String content) {
         Log.d("mytag", "addComment: " + currentUser.getName());
         repo.addComment(eventId, currentUser.getUid(), currentUser.getName(), content, error -> {

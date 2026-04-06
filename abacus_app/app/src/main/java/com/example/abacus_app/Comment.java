@@ -39,58 +39,106 @@ public class Comment implements Comparable<Comment>{
         this.timestamp = timestamp;
     }
 
+    /**
+     * Gets the comment ID.
+     * @return the unique ID of the comment in the database
+     */
     public String getCommentId() {
         return commentId;
     }
 
+    /**
+     * Gets the ID of the user who left the comment.
+     * @return the unique ID of user who left the comment
+     */
     public String getUserId() {
         return userId;
     }
 
+    /**
+     * Gets the name of the user who left the comment.
+     * @return the name of user who left the comment
+     */
     public String getUsername() {
         return username;
     }
 
+    /**
+     * Gets the ID of the event the comment is about.
+     * @return the unique ID of the event the comment is about
+     */
     public String getEventId() {
         return eventId;
     }
 
+    /**
+     * Gets the text content of the comment written by the user who created it.
+     * @return the text content of the comment
+     */
     public String getContent() {
         return content;
     }
 
+    /**
+     * Gets the time the comment was posted.
+     * @return the timestamp the comment was posted
+     */
     public Long getTimestamp() {
         return timestamp;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param commentId the unique ID of the comment in the database
+     */
     public void setCommentId(String commentId) {
         this.commentId = commentId;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param userId the unique ID of user who left the comment
+     */
     public void setUserId(String userId) {
         this.userId = userId;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param username the name of user who left the comment
+     */
     public void setUsername(String username) {
         this.username = username;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param eventId the unique ID of event the comment is about
+     */
     public void setEventId(String eventId) {
         this.eventId = eventId;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param content the text content of the comment
+     */
     public void setContent(String content) {
         this.content = content;
     }
 
+    /**
+     * Only used for firebase serialization.
+     * @param timestamp the timestamp the comment was posted
+     */
     public void setTimestamp(Long timestamp) {
         this.timestamp = timestamp;
     }
 
     /**
      * Compares Comment by timestamp to order from most recent to oldest.
-     * @param other
-     * @return
+     * @param other another comment to be compared to
+     * @return a positive integer if sooner; zero if equal; negative if later
      */
     @Override
     public int compareTo(Comment other) {
