@@ -15,6 +15,11 @@
     <!-- ── Added from Farhan (safe) ───────────────────────────────── -->
     <color name="card_stroke">#E0E0E0</color>
 
+    <!-- Comment UI surfaces -->
+    <color name="comment_surface">#FFFFFF</color>
+    <color name="comment_bubble">#F7F7F7</color>
+    <color name="comment_input_bg">#F2F2F2</color>
+
     <!-- Guest banner -->
     <color name="color_guest_banner_bg">#FFF8F0</color>
 

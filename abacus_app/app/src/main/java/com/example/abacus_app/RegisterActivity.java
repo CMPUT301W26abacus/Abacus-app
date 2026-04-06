@@ -181,6 +181,9 @@ public class RegisterActivity extends AppCompatActivity {
         updates.put("isGuest",     false);
         updates.put("isDeleted",   false);
         updates.put("role",        role);
+        com.google.firebase.auth.FirebaseUser fbUser =
+                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (fbUser != null) updates.put("firebaseUid", fbUser.getUid());
         if ("organizer".equals(role) && !orgName.isEmpty()) {
             updates.put("organizationName", orgName);
         }

@@ -5,7 +5,6 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -14,7 +13,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -38,6 +36,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
     private RecyclerView recyclerView;
     private EditText input;
     private ImageButton send;
+    private android.view.View inputContainer;
     private TextView tvEmpty;
 
     private List<Comment> comments = new ArrayList<>();
@@ -85,6 +84,7 @@ public class CommentsFragment extends BottomSheetDialogFragment {
         }
 
         recyclerView = view.findViewById(R.id.recycler_comments);
+        inputContainer = view.findViewById(R.id.input_container);
         input = view.findViewById(R.id.et_comment);
         send = view.findViewById(R.id.btn_send);
         tvEmpty = view.findViewById(R.id.tv_empty);
@@ -108,26 +108,25 @@ public class CommentsFragment extends BottomSheetDialogFragment {
         userRepository.getProfile(new UserRepository.UserCallback() {
             @Override
             public void onResult(User user) {
-                currentUser = user;
-                if (user != null) {
+                // Use Firebase Auth as the source of truth — if no authenticated
+                // (non-anonymous) Firebase user exists, treat as guest regardless of
+                // any device UUID profile that may linger in Firestore after logout.
+                com.google.firebase.auth.FirebaseUser fbUser =
+                        com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                boolean isGuest = fbUser == null || fbUser.isAnonymous();
+
+                if (!isGuest) {
+                    currentUser = user;
                     determineCanDelete();
-                    input.setEnabled(true);
-                    send.setEnabled(true);
+                    inputContainer.setVisibility(android.view.View.VISIBLE);
                 } else {
-                    // Guest user — disable comment input
-                    input.setEnabled(false);
-                    send.setEnabled(false);
-                    input.setHint("Sign in to add comments");
+                    currentUser = null;
+                    inputContainer.setVisibility(android.view.View.GONE);
                 }
             }
         });
 
-        // onClick listeners
         send.setOnClickListener(v -> {
-            if (currentUser == null) {
-                Toast.makeText(getContext(), "Sign in to add comments", Toast.LENGTH_SHORT).show();
-                return;
-            }
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
                 addComment(text);
@@ -137,19 +136,16 @@ public class CommentsFragment extends BottomSheetDialogFragment {
 
         input.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEND) {
-
                 String text = input.getText().toString().trim();
                 if (!text.isEmpty()) {
                     addComment(text);
                     input.setText("");
                 }
-
                 return true;
             }
             return false;
         });
     }
-
 
     /**
      * Gets comments from the database through CommentRepository, sorts by date, and passes to CommentAdapter.

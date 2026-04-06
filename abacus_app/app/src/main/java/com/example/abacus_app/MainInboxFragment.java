@@ -68,6 +68,7 @@ public class MainInboxFragment extends Fragment {
     private ListenerRegistration registrationListener;
     private ListenerRegistration customNotificationListener;
     private ListenerRegistration userIdNotificationListener;
+    private ListenerRegistration firebaseUidNotificationListener;
     private ListenerRegistration allLogsListener;
 
     // We store notifications in a map keyed by a unique ID to prevent duplicates
@@ -315,6 +316,19 @@ public class MainInboxFragment extends Fragment {
                     });
         }
 
+        com.google.firebase.auth.FirebaseUser fbUser =
+                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (fbUser != null && !fbUser.getUid().equals(currentUserId)) {
+            // Also listen for notifications addressed to the Firebase Auth UID
+            // (used when organizerId on events is the Firebase UID, not device UUID).
+            firebaseUidNotificationListener = db.collection("notifications")
+                    .whereEqualTo("userId", fbUser.getUid())
+                    .addSnapshotListener((value, error) -> {
+                        if (error != null || value == null) return;
+                        processCustomNotifications(value.getDocuments());
+                    });
+        }
+
         if (currentUser != null && "admin".equals(currentUser.getRole())) {
             allLogsListener = db.collection("notifications")
                     .addSnapshotListener((value, error) -> {
@@ -331,6 +345,7 @@ public class MainInboxFragment extends Fragment {
         if (registrationListener != null) registrationListener.remove();
         if (customNotificationListener != null) customNotificationListener.remove();
         if (userIdNotificationListener != null) userIdNotificationListener.remove();
+        if (firebaseUidNotificationListener != null) firebaseUidNotificationListener.remove();
         if (allLogsListener != null) allLogsListener.remove();
     }
 
