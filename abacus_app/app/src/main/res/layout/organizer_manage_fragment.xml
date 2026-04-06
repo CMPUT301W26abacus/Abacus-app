@@ -123,6 +123,15 @@
                     android:textColor="@color/grey" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_notify_entrants"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Notify"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_notifications" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_export_csv"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="wrap_content"

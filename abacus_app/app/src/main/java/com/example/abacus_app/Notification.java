@@ -12,7 +12,6 @@ package com.example.abacus_app;
  *
  * Outstanding Issues:
  * - Consider adding a 'read' status to track if the user has seen the notification.
- * - Localization of hardcoded message templates in the repository might be needed.
  */
 public class Notification {
 
@@ -34,14 +33,20 @@ public class Notification {
     /** Status when an invite has been declined. */
     public static final String STATUS_DECLINED = "DECLINED";
 
-    private String userId;      // The entrant ID
-    private String userEmail;   // Added for stable identity
-    private String organizerId; // The ID of the organizer who sent the notification
+    private String userId;
+    private String userEmail;
+    private String organizerId;
     private String eventId;
     private String message;
     private String type;
-    private String status = STATUS_PENDING; // Default status
+    private String status = STATUS_PENDING;
     private long timestamp;
+    
+    /** 
+     * Indicates if this notification should be visible in the user's personal inbox.
+     * Set based on the user's 'notificationsEnabled' preference at the time of creation.
+     */
+    private boolean receivedInInbox = true; 
 
     /**
      * Default no-argument constructor required for Firebase Firestore deserialization.
@@ -50,7 +55,6 @@ public class Notification {
 
     /**
      * Constructs a new Notification without an organizer ID.
-     * Primarily used for system-generated notifications where a specific organizer is not the sender.
      *
      * @param userId    Unique ID of the recipient user.
      * @param userEmail Email of the recipient user.
@@ -65,7 +69,6 @@ public class Notification {
         this.message = message;
         this.type = type;
         this.timestamp = System.currentTimeMillis();
-        this.status = STATUS_PENDING;
     }
 
     /**
@@ -79,14 +82,8 @@ public class Notification {
      * @param type        The classification type of the notification.
      */
     public Notification(String userId, String userEmail, String organizerId, String eventId, String message, String type) {
-        this.userId = userId;
-        this.userEmail = userEmail;
+        this(userId, userEmail, eventId, message, type);
         this.organizerId = organizerId;
-        this.eventId = eventId;
-        this.message = message;
-        this.type = type;
-        this.timestamp = System.currentTimeMillis();
-        this.status = STATUS_PENDING;
     }
 
     /** @return The recipient's unique user ID. */
@@ -105,13 +102,25 @@ public class Notification {
     public String getStatus() { return status; }
     /** @return The unix timestamp when the notification was created. */
     public long getTimestamp() { return timestamp; }
+    /** @return True if this notification should be visible in the user's inbox. */
+    public boolean isReceivedInInbox() { return receivedInInbox; }
 
+    /** @param userId The recipient's unique user ID. */
     public void setUserId(String userId) { this.userId = userId; }
+    /** @param userEmail The recipient's email address. */
     public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+    /** @param organizerId The ID of the organizer who sent the notification. */
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
+    /** @param eventId The ID of the event associated with this notification. */
     public void setEventId(String eventId) { this.eventId = eventId; }
+    /** @param message The notification message text. */
     public void setMessage(String message) { this.message = message; }
+    /** @param type The type of notification. */
     public void setType(String type) { this.type = type; }
+    /** @param status The current status of the notification. */
     public void setStatus(String status) { this.status = status; }
+    /** @param timestamp The unix timestamp when the notification was created. */
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+    /** @param receivedInInbox True if this notification should be visible in the user's inbox. */
+    public void setReceivedInInbox(boolean receivedInInbox) { this.receivedInInbox = receivedInInbox; }
 }

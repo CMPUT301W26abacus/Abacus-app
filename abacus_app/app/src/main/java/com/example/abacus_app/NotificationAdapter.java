@@ -29,11 +29,10 @@ import java.util.Map;
  * 1. Normal Mode (My Inbox): For users to view and interact with their own notifications (e.g., accepting invitations).
  * 2. Log Mode (Admin View): A read-only view for administrators to audit all system notifications.
  *
- * Role: Adapter in the View Layer (MVVM/MVP).
+ * Role: Adapter in the View Layer (MVVM).
  *
  * Outstanding Issues:
  * - Event title fetching happens inside onBindViewHolder; consider pre-fetching or moving to a ViewModel to avoid redundant Firestore calls.
- * - The 'isReadOnly' flag should ideally be passed through a constructor or a more formal configuration object.
  */
 public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -118,11 +117,22 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         notifyDataSetChanged();
     }
 
+    /**
+     * Returns the view type of the item at position for the purposes of view recycling.
+     * @param position position to query
+     * @return integer value identifying the type of the view needed to represent the item at position.
+     */
     @Override
     public int getItemViewType(int position) {
         return isReadOnly ? VIEW_TYPE_LOG : VIEW_TYPE_NORMAL;
     }
 
+    /**
+     * Called when RecyclerView needs a new {@link RecyclerView.ViewHolder} of the given type to represent an item.
+     * @param parent The ViewGroup into which the new View will be added after it is bound to an adapter position.
+     * @param viewType The view type of the new View.
+     * @return A new ViewHolder that holds a View of the given view type.
+     */
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -135,6 +145,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
+    /**
+     * Called by RecyclerView to display the data at the specified position.
+     * @param holder The ViewHolder which should be updated to represent the contents of the item at the given position in the data set.
+     * @param position The position of the item within the adapter's data set.
+     */
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Notification notification = notifications.get(position);
@@ -225,19 +240,28 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
+    /**
+     * Returns the total number of items in the data set held by the adapter.
+     * @return The total number of items in this adapter.
+     */
     @Override
     public int getItemCount() {
         return notifications.size();
     }
 
     /**
-     * ViewHolder for standard interactive notifications.
+     * ViewHolder for standard interactive notifications in the user's inbox.
+     * Supports action buttons for invitations.
      */
     static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView, timestampTextView, statusTextView;
         View layoutActions;
         MaterialButton btnAccept, btnDecline;
 
+        /**
+         * Initializes the standard notification view holder.
+         * @param itemView The root view of the notification item layout.
+         */
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);
@@ -250,11 +274,16 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     }
 
     /**
-     * ViewHolder for read-only log entries (Admin view).
+     * ViewHolder for read-only log entries used in the Admin view.
+     * Displays additional metadata like sender and recipient.
      */
     static class LogViewHolder extends RecyclerView.ViewHolder {
         TextView messageTextView, timestampTextView, statusTextView, tvRecipient, tvSender, tvType;
 
+        /**
+         * Initializes the log notification view holder.
+         * @param itemView The root view of the notification log item layout.
+         */
         public LogViewHolder(@NonNull View itemView) {
             super(itemView);
             messageTextView = itemView.findViewById(R.id.notificationMessage);

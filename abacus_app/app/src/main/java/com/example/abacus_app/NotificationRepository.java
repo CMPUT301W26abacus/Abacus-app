@@ -12,17 +12,14 @@ import java.util.concurrent.Executors;
  * NotificationRepository.java
  *
  * This repository handles the business logic for creating and sending notifications.
- * It coordinates between different data sources (Users, Events, Registrations) to 
- * construct appropriate notification messages for various scenarios like lottery results,
- * manual organizer messages, and invitation cancellations.
+ * It coordinates between different data sources (Users, Events, Registrations) to
+ * construct appropriate notification messages for various scenarios.
  *
  * Role: Repository in the Domain/Data Layer (MVVM).
  *
  * Outstanding Issues:
- * - Thread management: Using a single-thread executor for all batch operations might 
+ * - Thread management: Using a single-thread executor for all batch operations might
  *   become a bottleneck if many organizers draw lotteries simultaneously.
- * - Error handling: Some asynchronous operations fail silently or only log errors 
- *   without notifying the UI layer via the callback.
  */
 public class NotificationRepository {
 
@@ -43,7 +40,7 @@ public class NotificationRepository {
 
     /**
      * Notify a list of users that they have been selected for an event.
-     * 
+     *
      * @param eventId The ID of the event.
      * @param userIds The list of user IDs to notify.
      */
@@ -63,6 +60,7 @@ public class NotificationRepository {
                                 "Congratulations! You have been selected for the event.",
                                 Notification.TYPE_SELECTED
                         );
+                        notification.setReceivedInInbox(user.getNotificationsEnabled());
                         remote.saveNotification(notification);
                     }
                 });
@@ -72,7 +70,7 @@ public class NotificationRepository {
 
     /**
      * Notify a list of users they were not selected for an event.
-     * 
+     *
      * @param eventId The ID of the event.
      * @param userIds The list of user IDs to notify.
      */
@@ -92,6 +90,7 @@ public class NotificationRepository {
                                 "We regret to inform you that you were not selected for the event this time.",
                                 Notification.TYPE_NOT_SELECTED
                         );
+                        notification.setReceivedInInbox(user.getNotificationsEnabled());
                         remote.saveNotification(notification);
                     }
                 });
@@ -101,7 +100,7 @@ public class NotificationRepository {
 
     /**
      * Sets up a real-time listener for notifications filtered by a user's email.
-     * 
+     *
      * @param email    The email to filter by.
      * @param listener The listener callback for updates.
      */
@@ -114,7 +113,7 @@ public class NotificationRepository {
      * Also notifies the organizer that the lottery draw is complete.
      *
      * @param eventId  The unique ID of the event.
-     * @param callback Called when the bulk notification operation completes.
+     * @param callback Called when the operation completes.
      */
     public void notifyLotteryResults(String eventId, VoidCallback callback) {
         executor.submit(() -> {
@@ -138,7 +137,7 @@ public class NotificationRepository {
                                         "Congratulations! You have been invited to " + (event != null ? event.getTitle() : "the event"),
                                         Notification.TYPE_SELECTED
                                 );
-                            } else { // waitlisted
+                            } else {
                                 notification = new Notification(
                                         userId,
                                         user.getEmail(),
@@ -148,6 +147,7 @@ public class NotificationRepository {
                                         Notification.TYPE_NOT_SELECTED
                                 );
                             }
+                            notification.setReceivedInInbox(user.getNotificationsEnabled());
                             remote.saveNotification(notification);
                         }
                     });
@@ -165,6 +165,7 @@ public class NotificationRepository {
                                     "Lottery draw for \"" + (event != null ? event.getTitle() : "your event") + "\" has been successfully completed.",
                                     Notification.TYPE_MANUAL
                             );
+                            orgNotif.setReceivedInInbox(organizer.getNotificationsEnabled());
                             remote.saveNotification(orgNotif);
                         }
                     });
@@ -197,6 +198,7 @@ public class NotificationRepository {
                             "Congratulations! You have been selected as a replacement for " + (event != null ? event.getTitle() : "the event") + ".",
                             Notification.TYPE_SELECTED
                     );
+                    notification.setReceivedInInbox(user.getNotificationsEnabled());
                     remote.saveNotification(notification);
                 }
                 if (callback != null) {
@@ -226,6 +228,7 @@ public class NotificationRepository {
                             "Your invitation to " + (event != null ? event.getTitle() : "the event") + " has expired.",
                             Notification.TYPE_CANCELED
                     );
+                    notification.setReceivedInInbox(user.getNotificationsEnabled());
                     remote.saveNotification(notification);
                 }
                 if (callback != null) {
@@ -241,7 +244,7 @@ public class NotificationRepository {
      * @param eventId the ID of the event context
      * @param userIds the list of user IDs to receive the message
      * @param message the custom message text
-     * @param type    the notification type (usually TYPE_MANUAL)
+     * @param type    the notification type
      */
     public void sendManualNotification(String eventId, List<String> userIds, String message, String type) {
         if (userIds == null || userIds.isEmpty()) return;
@@ -259,6 +262,7 @@ public class NotificationRepository {
                                 message,
                                 type
                         );
+                        notification.setReceivedInInbox(user.getNotificationsEnabled());
                         remote.saveNotification(notification);
                     }
                 });
@@ -267,8 +271,8 @@ public class NotificationRepository {
     }
 
     /**
-     * Notifies an organizer when an invited user declines.
-     * 
+     * Notifies an organizer when an invited user declines their invitation.
+     *
      * @param eventId The ID of the event.
      * @param userKey The ID of the user who declined.
      */
@@ -290,6 +294,7 @@ public class NotificationRepository {
                                 name + " has declined the invitation for " + event.getTitle() + ".",
                                 Notification.TYPE_MANUAL
                         );
+                        notification.setReceivedInInbox(organizer.getNotificationsEnabled());
                         remote.saveNotification(notification);
                     }
                 });
@@ -299,7 +304,7 @@ public class NotificationRepository {
 
     /**
      * Notifies an organizer when a user leaves the waitlist voluntarily.
-     * 
+     *
      * @param eventId The ID of the event.
      * @param userId  The ID of the user who left.
      */
@@ -321,6 +326,7 @@ public class NotificationRepository {
                                 name + " has left the waiting list for \"" + event.getTitle() + "\".",
                                 Notification.TYPE_MANUAL
                         );
+                        notification.setReceivedInInbox(organizer.getNotificationsEnabled());
                         remote.saveNotification(notification);
                     }
                 });
@@ -336,7 +342,7 @@ public class NotificationRepository {
     }
 
     /**
-     * Generic callback for operations with no return value.
+     * Callback interface for void operations.
      */
     public interface VoidCallback {
         /**

@@ -38,16 +38,16 @@ import java.util.Set;
  * 1. Status-based: Derived from the user's 'registrations' for events (e.g., Selected/Waitlisted).
  * 2. Custom: Direct messages stored in the 'notifications' collection.
  *
+ * It respects the user's notification preference:
+ * - If notifications are ON, all historical and new messages are shown.
+ * - If notifications are OFF, only messages received *before* the user opted out remain 
+ *   visible. New messages are stored in Firestore for admin logs but are filtered 
+ *   out of the user's personal inbox via the 'receivedInInbox' flag.
+ *
  * For administrators, it includes a toggle switch to view a global audit log of all 
  * notifications sent within the system.
  *
  * Role: View (Fragment) in the MVVM pattern.
- *
- * Outstanding Issues:
- * - Refresh logic: swipeRefresh currently triggers a full reload of the user profile 
- *   and listeners, which might be overkill compared to just refreshing data.
- * - Invitation cleanup: accepting/declining an invitation should ideally update 
- *   both the UI and the remote database atomically.
  */
 public class MainInboxFragment extends Fragment {
 
@@ -331,6 +331,8 @@ public class MainInboxFragment extends Fragment {
 
                     Notification n = createFromStatus(eventId, eventTitle, status, drawn, timestamp, organizerId);
                     if (n != null) {
+                        // Registration status changes are always "received" as they 
+                        // represent the ground truth of the user's lottery outcome.
                         myNotifications.put("REG_" + eventId, n);
                         if (!showAllLogs) updateUI();
                     }
@@ -346,7 +348,13 @@ public class MainInboxFragment extends Fragment {
         for (DocumentSnapshot doc : docs) {
             Notification n = doc.toObject(Notification.class);
             if (n != null) {
-                myNotifications.put("MSG_" + doc.getId(), n);
+                // Personal Inbox Filter: Only show if the message was sent while 
+                // the user's 'notificationsEnabled' was true.
+                if (n.isReceivedInInbox()) {
+                    myNotifications.put("MSG_" + doc.getId(), n);
+                } else {
+                    myNotifications.remove("MSG_" + doc.getId());
+                }
             }
         }
         if (!showAllLogs) updateUI();
