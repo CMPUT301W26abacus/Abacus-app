@@ -336,8 +336,12 @@ public class OrganizerManageFragment extends Fragment {
                     .count();
 
             if (selectedEvent != null && selectedEvent.getEventCapacity() != null) {
-                btnDrawReplacement.setEnabled(
-                        countInvitedAccepted < selectedEvent.getEventCapacity() && countWaitlisted > 0);
+                if (countInvitedAccepted < selectedEvent.getEventCapacity() && countWaitlisted > 0) {
+                    Log.d(TAG, "observeViewModel: enabled");
+                    btnDrawReplacement.setEnabled(true);
+                } else {
+                    btnDrawReplacement.setEnabled(false);
+                }
             }
             applyFilter();
         });
@@ -385,7 +389,9 @@ public class OrganizerManageFragment extends Fragment {
                 btnDrawLottery.setEnabled(!loading);
                 btnDrawLottery.setText(loading ? "Processing..." : "Draw Lottery");
             } else if (btnDrawReplacement.getVisibility() == View.VISIBLE) {
-                btnDrawReplacement.setEnabled(!loading);
+                if (loading) {
+                    btnDrawReplacement.setEnabled(false);
+                }
                 btnDrawReplacement.setText(loading ? "Processing..." : "Draw Replacement");
             }
         });
