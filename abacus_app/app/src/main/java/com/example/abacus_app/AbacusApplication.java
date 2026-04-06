@@ -5,10 +5,14 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.util.Log;
 
+import com.cloudinary.android.MediaManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * AbacusApplication - App initialization and global setup
@@ -48,6 +52,9 @@ public class AbacusApplication extends Application {
         
         Log.d(TAG, "AbacusApplication starting...");
         
+        // Initialize Cloudinary MediaManager
+        initializeCloudinary();
+
         // Initialize Firebase Firestore settings
         initializeFirestore();
         
@@ -58,6 +65,16 @@ public class AbacusApplication extends Application {
         checkAuthenticationStatus();
         
         Log.d(TAG, "AbacusApplication initialization complete");
+    }
+
+    /**
+     * Initialize Cloudinary MediaManager with the provided credentials
+     */
+    private void initializeCloudinary() {
+        Map config = new HashMap();
+        config.put("cloud_name", "djajccob8");
+        MediaManager.init(this, config);
+        Log.d(TAG, "Cloudinary initialized");
     }
 
     /**

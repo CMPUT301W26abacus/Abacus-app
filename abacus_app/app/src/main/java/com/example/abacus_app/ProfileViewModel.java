@@ -15,8 +15,6 @@ import java.util.Map;
  * Holds all business logic and state for the profile screen.
  * Sits between ProfileFragment and UserRepository so the fragment
  * never touches data directly.
- *
- * Ref: US 01.02.01–04
  */
 public class ProfileViewModel extends ViewModel {
 
@@ -24,13 +22,6 @@ public class ProfileViewModel extends ViewModel {
     private final MutableLiveData<String>  _email        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _phone        = new MutableLiveData<>("");
     private final MutableLiveData<String>  _role         = new MutableLiveData<>("entrant");
-    /**
-     * The role the admin is currently *viewing the app as*.
-     * For non-admins this always equals _role.
-     * For admins it can be "entrant", "organizer", or "admin".
-     * Initialised lazily from the loaded role so it survives fragment re-creation
-     * within the same ViewModel scope.
-     */
     private final MutableLiveData<String>  _viewMode     = new MutableLiveData<>("");
     private final MutableLiveData<Boolean> _notificationsEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<String>  _nameError    = new MutableLiveData<>(null);
@@ -70,37 +61,21 @@ public class ProfileViewModel extends ViewModel {
     private UserRepository userRepository;
     private boolean profileLoaded = false;
 
-    /**
-     * Initializes the ViewModel with a UserRepository and guest status.
-     * @param repository UserRepository instance
-     * @param isGuest boolean indicating if the user is a guest
-     */
     public void init(UserRepository repository, boolean isGuest) {
         this.userRepository = repository;
         _isGuest.setValue(isGuest);
     }
 
-    /**
-     * Sets the user name.
-     * @param name String containing the user's name
-     */
     public void setName(String name) {
         _name.setValue(name);
         _nameError.setValue(null);
     }
-    /**
-     * Sets the user email.
-     * @param email String containing the user's email
-     */
+
     public void setEmail(String email) {
         _email.setValue(email);
         _emailError.setValue(null);
     }
 
-    /**
-     * Sets the user phone number.
-     * @param phone String containing the user's phone number
-     */
     public void setPhone(String phone) {
         _phone.setValue(phone);
     }
@@ -109,32 +84,20 @@ public class ProfileViewModel extends ViewModel {
     public void setProfilePhotoUrl(String url)             { _profilePhotoUrl.setValue(url); }
     public void setOrganizationName(String organizationName) { _organizationName.setValue(organizationName); }
 
-    /**
-     * Sets the user role.
-     * @param role String containing the user's role
-     */
     public void setRole(String role) {
         _role.setValue(role);
     }
 
-    /**
-     * Sets the active view mode (admin only).
-     * "entrant" | "organizer" | "admin"
-     */
     public void setViewMode(String mode) {
         _viewMode.setValue(mode);
     }
 
-    /**
-     * Sets the notifications enabled state locally.
-     * @param enabled Boolean indicating whether notifications are enabled
-     */
     public void setNotificationsEnabled(boolean enabled) {
         _notificationsEnabled.setValue(enabled);
     }
 
     /**
-     * Saves the notification preference to Firestore immediately.
+     * Saves the notification preference to Firestore immediately (Dev Branch Feature).
      */
     public void saveNotificationPreference(boolean enabled) {
         if (userRepository == null) return;
@@ -147,11 +110,6 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Loads the user profile from Firestore and pushes values into LiveData.
-     * Called by the fragment in onViewCreated().
-     */
-    /** Forces a fresh fetch on the next loadProfile() call (e.g. after saving). */
     public void invalidateProfile() {
         profileLoaded = false;
     }
@@ -159,12 +117,9 @@ public class ProfileViewModel extends ViewModel {
     public void loadProfile() {
         if (userRepository == null) return;
         Boolean guestNow = _isGuest.getValue();
-        if (guestNow != null && guestNow) {
-            // Guest session: do not fetch Firestore profile, which could pull an old
-            // role tied to this device UUID and override guest UI state.
-            return;
-        }
-        if (profileLoaded) return;   // already loaded in this ViewModel lifetime — skip Firestore round-trip
+        if (guestNow != null && guestNow) return;
+
+        if (profileLoaded) return;
         profileLoaded = true;
 
         userRepository.getProfileAsync(user -> {
@@ -174,7 +129,6 @@ public class ProfileViewModel extends ViewModel {
                 _phone.postValue(user.getPhone() != null ? user.getPhone() : "");
                 String role = user.getRole() != null ? user.getRole() : "entrant";
                 _role.postValue(role);
-                // Initialise viewMode from role only on first load
                 if (_viewMode.getValue() == null || _viewMode.getValue().isEmpty()) {
                     _viewMode.postValue(role);
                 }
@@ -186,7 +140,6 @@ public class ProfileViewModel extends ViewModel {
                 boolean guest = user.isGuest() || (user.getLastLoginAt() == null || user.getLastLoginAt().isEmpty());
                 _isGuest.postValue(guest);
             } else {
-                // No UUID in storage — device is a guest regardless of the activity intent
                 _name.postValue("");
                 _email.postValue("");
                 _phone.postValue("");
@@ -195,11 +148,6 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Validates inputs then saves name, email, phone, and notificationsEnabled to Firestore.
-     * Role is intentionally excluded — it can only be changed via Firestore console
-     * or by an admin, never by the user editing their own profile.
-     */
     public void saveProfile() {
         if (userRepository == null) return;
 
@@ -241,12 +189,11 @@ public class ProfileViewModel extends ViewModel {
         if (!orgName.isEmpty()) {
             data.put("organizationName", orgName);
         }
-        // role is NOT included here — saving profile never overwrites role
 
         userRepository.saveProfileAsync(data, error -> {
             _isSaving.postValue(false);
             if (error == null) {
-                profileLoaded = false;  // allow refresh on next open
+                profileLoaded = false;
                 _toastMessage.postValue("Profile saved!");
             } else {
                 _toastMessage.postValue("Error saving profile: " + error.getMessage());
@@ -254,10 +201,6 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Soft-deletes the profile via the repository.
-     * Fragment should call this only after the user confirms via AlertDialog.
-     */
     public void deleteProfile() {
         if (userRepository == null) return;
 
@@ -275,11 +218,6 @@ public class ProfileViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Clears the local UUID and signs out of Firebase Auth, then resets all
-     * profile state to guest so the profile screen shows the guest UI in-place
-     * without navigating away.
-     */
     public void logout() {
         if (userRepository != null) {
             userRepository.clearLocalSession();
@@ -297,24 +235,14 @@ public class ProfileViewModel extends ViewModel {
         _toastMessage.setValue(null);
     }
 
-    /**
-     * Loads organizer-specific stats: events created count.
-     */
     public void loadOrganizerStats(String userId, EventRepository eventRepository) {
         eventRepository.getEventsByOrganizer(userId)
                 .addOnSuccessListener(querySnapshot -> {
                     _eventsCreated.postValue(querySnapshot.size());
-                    // total registrations would require an additional query per event,
-                    // so we post the count of events for now
                 })
                 .addOnFailureListener(e -> _eventsCreated.postValue(0));
     }
 
-    /**
-     * Loads entrant-specific stats: events joined and events won counts.
-     * Events joined = count of registrations (excluding cancelled/declined)
-     * Events won = count of registrations with status "invited" or "accepted"
-     */
     public void loadEntrantStats(String userId, RegistrationRepository registrationRepository) {
         registrationRepository.getEntrantStats(userId, (eventsJoined, eventsWon) -> {
             _eventsJoined.postValue(eventsJoined);
@@ -323,7 +251,7 @@ public class ProfileViewModel extends ViewModel {
     }
 
     /**
-     * Uploads a profile photo to Firebase Storage and updates the profilePhotoUrl in Firestore.
+     * YOUR CLOUDINARY UPLOAD LOGIC (Kept from your branch)
      */
     public void uploadProfilePhoto(android.net.Uri photoUri, StorageRepository storageRepo) {
         if (userRepository == null || photoUri == null) return;
@@ -331,24 +259,26 @@ public class ProfileViewModel extends ViewModel {
         userRepository.getCurrentUserIdAsync(uuid -> {
             if (uuid == null) return;
 
-            storageRepo.uploadProfilePhoto(uuid, photoUri)
-                    .addOnSuccessListener(taskSnapshot ->
-                        storageRepo.getProfilePhotoUrl(uuid)
-                                .addOnSuccessListener(downloadUri -> {
-                                    String url = downloadUri.toString();
-                                    _profilePhotoUrl.postValue(url);
-                                    Map<String, Object> data = new HashMap<>();
-                                    data.put("profilePhotoUrl", url);
-                                    userRepository.saveProfileAsync(data, error -> {
-                                        if (error == null) {
-                                            _toastMessage.postValue("Photo updated!");
-                                        } else {
-                                            _toastMessage.postValue("Failed to save photo URL");
-                                        }
-                                    });
-                                })
-                    )
-                    .addOnFailureListener(e -> _toastMessage.postValue("Photo upload failed: " + e.getMessage()));
+            storageRepo.uploadImage(photoUri, new StorageRepository.CloudinaryCallback() {
+                @Override
+                public void onSuccess(String url) {
+                    _profilePhotoUrl.postValue(url);
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("profilePhotoUrl", url);
+                    userRepository.saveProfileAsync(data, error -> {
+                        if (error == null) {
+                            _toastMessage.postValue("Photo updated!");
+                        } else {
+                            _toastMessage.postValue("Failed to save photo URL");
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    _toastMessage.postValue("Photo upload failed: " + errorMessage);
+                }
+            });
         });
     }
 }
