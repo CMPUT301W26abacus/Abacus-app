@@ -42,6 +42,7 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="Back"
                 app:layout_constraintEnd_toStartOf="@+id/tv_title"
+                app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/ic_arrow_back"
                 app:tint="@color/black" />
