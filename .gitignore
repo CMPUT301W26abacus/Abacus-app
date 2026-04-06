@@ -51,8 +51,8 @@ captures/
 .externalNativeBuild
 .cxx/
 
-# Google Services (Uncomment if using Firebase and don't want to commit)
-# google-services.json
+# Google Services (Firebase) - do not commit service account / API keys
+**/google-services.json
 
 # Freeline
 freeline.py

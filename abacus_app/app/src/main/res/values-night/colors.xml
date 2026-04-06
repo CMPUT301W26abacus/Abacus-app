@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ── Base palette (night) ───────────────────────────────────── -->
+    <color name="black">#C6C6CA</color>
+    <color name="white">#000000</color>
+    <color name="grey">#636365</color>
+    <color name="light_grey">#161617</color>
+
+    <!-- ── Your existing colors (DARK-ADJUSTED where needed) ──────── -->
+    <color name="surface_tint">#1C1C1E</color>
+
+    <!-- Keep same brand colors unless you WANT dark variants -->
+    <color name="orange">#C96A3A</color>
+    <color name="error_red">#CF6679</color> <!-- optional: better for dark -->
+
+    <!-- From Farhan -->
+    <color name="card_stroke">#333333</color>
+
+    <!-- Comment UI surfaces -->
+    <color name="comment_surface">#1C1C1E</color>
+    <color name="comment_bubble">#2C2C2E</color>
+    <color name="comment_input_bg">#3A3A3C</color>
+
+    <!-- Guest banner -->
+    <color name="color_guest_banner_bg">#FFF8F0</color>
+
+    <!-- Waitlist status indicators -->
+    <color name="color_status_waitlisted_orange">#C96A3A</color>
+    <color name="color_status_invited_blue">#3B82F6</color>
+    <color name="color_status_accepted_green">#10B981</color>
+    <color name="color_status_declined_red">#EF4444</color>
+    <color name="color_status_canceled_black">#374151</color>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Your app theme -->
+    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+        <!-- theme stuff -->
+        <item name="colorPrimary">@color/orange</item>
+    </style>
+
+    <!-- TextInputEditText style -->
+    <style name="OrangeTextInputEditText" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/orange</item>
+        <item name="android:textColorHint">@color/orange</item>
+        <item name="android:textCursorDrawable">@drawable/custom_cursor</item>
+    </style>
+
+</resources>

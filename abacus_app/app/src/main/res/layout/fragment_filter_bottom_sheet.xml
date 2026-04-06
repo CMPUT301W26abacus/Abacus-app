@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/white">
+
+    <!-- Drag handle -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@color/grey"
+        android:backgroundTint="@color/grey" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="32dp">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Filter Events"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Interests label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="INTERESTS"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select all that apply"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/grey"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Category chips (matches organizer create form) -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chip_group_filter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            app:singleLine="false"
+            app:selectionRequired="false">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_sports"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sports &amp; Fitness" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_music"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Music" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_arts"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Arts &amp; Culture" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_tech"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tech" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_food"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Food &amp; Drink" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_networking"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Networking" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_outdoor"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Outdoor" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_gaming"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gaming" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_volunteering"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Volunteering" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/fchip_education"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Education" />
+
+        </com.google.android.material.chip.ChipGroup>
+
+        <!-- Date label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DATE"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Date picker button -->
+        <Button
+            android:id="@+id/btn_pick_date"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="20dp"
+            android:text="Select a date"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="@color/black"
+            app:strokeColor="@color/black" />
+
+        <!-- Availability label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AVAILABILITY"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Open for registration toggle -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_open_only"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Open for registration only"
+            android:textColor="@color/black"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Has spots left toggle -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_has_spots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Has spots left (not full)"
+            android:textColor="@color/black"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:layout_marginBottom="28dp" />
+
+        <!-- Apply + Clear buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_clear_filters"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Clear"
+                android:textColor="@color/black"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="@color/black" />
+
+            <Button
+                android:id="@+id/btn_apply_filters"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Apply"
+                android:textColor="@color/orange"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="@color/orange" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

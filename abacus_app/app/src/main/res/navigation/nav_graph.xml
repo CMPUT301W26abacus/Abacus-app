@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_saved">
+
+    <fragment
+        android:id="@+id/nav_saved"
+        android:name="com.example.abacus_app.MainSavedFragment"
+        android:label="Saved" />
+
+    <fragment
+        android:id="@+id/nav_history"
+        android:name="com.example.abacus_app.RegistrationHistoryFragment"
+        android:label="History" >
+        <action
+            android:id="@+id/action_nav_history_to_eventDetailsFragment"
+            app:destination="@id/eventDetailsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_inbox"
+        android:name="com.example.abacus_app.MainInboxFragment"
+        android:label="Inbox" />
+
+    <fragment
+        android:id="@+id/eventDetailsFragment"
+        android:name="com.example.abacus_app.EventDetailsFragment"
+        android:label="Event Details" >
+        <action
+            android:id="@+id/action_eventDetailsFragment_to_guestSignUpFragment"
+            app:destination="@id/guestSignUpFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/mainProfileFragment"
+        android:name="com.example.abacus_app.ProfileFragment"
+        android:label="Profile" />
+
+    <fragment
+        android:id="@+id/mainQrScanFragment"
+        android:name="com.example.abacus_app.MainQrScanFragment"
+        android:label="Scan QR" />
+
+    <fragment
+        android:id="@+id/eventQrFragment"
+        android:name="com.example.abacus_app.EventQrFragment"
+        android:label="Event QR" />
+
+    <fragment
+        android:id="@+id/organizerCreateFragment"
+        android:name="com.example.abacus_app.OrganizerCreateFragment"
+        android:label="Create Event" />
+
+    <fragment
+        android:id="@+id/organizerManageFragment"
+        android:name="com.example.abacus_app.OrganizerManageFragment"
+        android:label="Manage Event" />
+
+
+    <fragment
+        android:id="@+id/browseEntrantsFragment"
+        android:name="com.example.abacus_app.BrowseEntrantsFragment"
+        android:label="BrowseEntrantsFragment" />
+
+    <!-- Admin only -->
+    <fragment
+        android:id="@+id/adminLogsFragment"
+        android:name="com.example.abacus_app.AdminLogsFragment"
+        android:label="Admin Logs" />
+
+
+    <!-- Opened from Lottery Guidelines button on Event Details -->
+    <fragment
+        android:id="@+id/lotteryGuidelinesFragment"
+        android:name="com.example.abacus_app.LotteryGuidelinesFragment"
+        android:label="Lottery Guidelines" />
+
+    <fragment
+        android:id="@+id/guestSignUpFragment"
+        android:name="com.example.abacus_app.GuestSignUpFragment"
+        android:label="Join as Guest"
+        tools:layout="@layout/fragment_guest_sign_up"/>
+
+    <fragment
+        android:id="@+id/preferencesFragment"
+        android:name="com.example.abacus_app.PreferencesFragment"
+        android:label="Event Preferences" />
+
+    <fragment
+        android:id="@+id/accessibilityFragment"
+        android:name="com.example.abacus_app.AccessibilityFragment"
+        android:label="Accessibility" />
+
+    <fragment
+        android:id="@+id/eventMapFragment"
+        android:name="com.example.abacus_app.EventMapFragment"
+        android:label="Event Map" />
+
+
+</navigation>

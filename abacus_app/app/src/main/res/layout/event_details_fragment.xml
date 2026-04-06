@@ -1,6 +1,397 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    event_details_fragment.xml
+
+    Role: Layout for the Event Details screen. Shows event poster, title,
+    organizer, date/time, location, waiting list count, description, and
+    lottery guidelines button. Join/Leave buttons are fixed at the bottom.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Fixed header bar -->
+    <View
+        android:id="@+id/view_header_bg"
+        android:layout_width="0dp"
+        android:layout_height="100dp"
+        android:background="@color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Scrollable content — sits above the fixed bottom buttons -->
+    <ScrollView
+        android:id="@+id/scroll_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:background="@color/white"
+        app:layout_constraintTop_toBottomOf="@id/view_header_bg"
+        app:layout_constraintBottom_toTopOf="@id/layout_waitlist_buttons"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Event poster -->
+            <ImageView
+                android:id="@+id/iv_event_poster"
+                android:layout_width="match_parent"
+                android:layout_height="280dp"
+                android:layout_marginTop="10dp"
+                android:contentDescription="Event poster"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_event_poster" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tv_event_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Event Title"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:lineSpacingExtra="2dp" />
+
+                <!-- Editable Title -->
+                <EditText
+                    android:id="@+id/et_edit_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Event Title"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:id="@+id/tv_organizer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Hosted by Organizer Name"
+                    android:textColor="@color/black"
+                    android:textSize="14sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginBottom="20dp"
+                    android:background="@color/light_grey" />
+
+                <!-- Event date & time (what entrants care about) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="DATE &amp; TIME"
+                    android:textColor="@color/black"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_event_date_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Not set"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Registration period (secondary info) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="REGISTRATION PERIOD"
+                    android:textColor="@color/black"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_date_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="LOCATION"
+                    android:textColor="@color/black"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_location"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Venue Name, City"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btn_view_map"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="View Map"
+                    android:textColor="@color/orange"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="WAITING LIST"
+                    android:textColor="@color/black"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_waitlist_count"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="— on waiting list"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="20dp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="20dp"
+                    android:background="@color/light_grey" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ABOUT THIS EVENT"
+                    android:textColor="@color/black"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Event description goes here."
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Editable Description -->
+                <EditText
+                    android:id="@+id/et_edit_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Event Description"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    android:textColor="@color/black"
+                    android:minLines="3"
+                    android:gravity="top"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Editable Poster URL -->
+                <EditText
+                    android:id="@+id/et_edit_poster_url"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Poster Image URL"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:textColor="@color/black"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="20dp"
+                    android:background="@color/light_grey" />
+
+                <Button
+                    android:id="@+id/btn_view_comments"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="View Comments"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp"
+                    android:textColor="@color/black"/>
+
+                <!-- Lottery Guidelines button (US lottery guidelines) -->
+                <Button
+                    android:id="@+id/btn_lottery_guidelines"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Lottery Guidelines"
+                    android:layout_marginBottom="8dp"
+                    android:textColor="@color/black"/>
+
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Back button — 48x48, overlaid top left -->
+    <ImageButton
+        android:id="@+id/btn_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="50dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="Back"
+        android:src="@drawable/ic_arrow_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/black" />
+
+    <!-- Title centered at same level as back button -->
+    <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:gravity="center"
+        android:text="Event Details"
+        android:textAppearance="?attr/textAppearanceHeadlineSmall"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- QR button — overlaid top right -->
+    <ImageButton
+        android:id="@+id/btn_view_qr"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginEnd="8dp"
+        android:adjustViewBounds="false"
+        android:background="@color/light_grey"
+        android:contentDescription="View QR Code"
+        android:cropToPadding="true"
+        android:src="@drawable/ic_qr"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/black" />
+
+    <LinearLayout
+        android:id="@+id/layout_waitlist_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:backgroundTint="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" >
+
+        <!-- Join Waiting List — shown when NOT on waitlist -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_join_waitlist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginVertical="28dp"
+            android:text="JOIN WAITING LIST"
+            android:textColor="@color/white"
+            android:background="@color/orange"
+            android:visibility="gone"
+            android:textSize="16sp" />
+
+        <!-- Leave Waiting List — white/outlined, shown when already on waitlist -->
+        <Button
+            android:id="@+id/btn_leave_waitlist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginVertical="28dp"
+            android:text="Leave Waiting List"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/white"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <!-- Event Status Message — shown when user has accepted/declined/cancelled -->
+        <TextView
+            android:id="@+id/tv_event_waitlist_status_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+
+        <!-- Accept Invitation — green, shown when invited -->
+        <Button
+            android:id="@+id/btn_accept_invitation"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="10dp"
+            android:text="ACCEPT"
+            android:textColor="@color/color_status_accepted_green"
+            android:backgroundTint="@color/white"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:enabled="false"
+            android:visibility="gone" />
+
+        <!-- Decline Invitation — red, shown when invited -->
+        <Button
+            android:id="@+id/btn_decline_invitation"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="10dp"
+            android:text="DECLINE"
+            android:textColor="@color/color_status_declined_red"
+            android:backgroundTint="@color/white"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:enabled="false"
+            android:visibility="gone" />
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

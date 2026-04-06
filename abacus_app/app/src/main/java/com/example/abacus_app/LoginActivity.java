@@ -1,0 +1,330 @@
+package com.example.abacus_app;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * LoginActivity - Handles user login
+ *
+ * Lets existing users sign in with email and password using Firebase Auth.
+ *
+ * What it does:
+ * - Authenticates user with Firebase Auth
+ * - Looks up user's existing Firestore profile by email
+ * - Restores user's UUID and history from local storage
+ * - Syncs display name between Firebase and Firestore
+ * - Clears guest email when user logs in (no mixing accounts)
+ * - Shows error messages (wrong password, no account, etc)
+ * - Handles password reset via email
+ * - Links to registration for new users
+ *
+ * @author Dyna
+ */
+public class LoginActivity extends AppCompatActivity {
+
+    private FirebaseAuth mAuth;
+    private UserRepository userRepository;
+    private UserLocalDataSource localDataSource;
+
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        AccessibilityHelper a11y = new AccessibilityHelper(base);
+        android.content.res.Configuration config = AccessibilityHelper.buildConfig(base, a11y.getTextScale());
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.loginpage);
+
+        mAuth = FirebaseAuth.getInstance();
+
+        localDataSource = new UserLocalDataSource(getApplicationContext());
+        UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(FirebaseFirestore.getInstance());
+        userRepository = new UserRepository(localDataSource, remoteDataSource);
+
+        EditText etEmail    = findViewById(R.id.etEmail);
+        EditText etPassword = findViewById(R.id.etPassword);
+        Button btnSignIn    = findViewById(R.id.btnSignIn);
+        TextView tvForgot   = findViewById(R.id.tvForgot);
+        TextView tvSignUp   = findViewById(R.id.tvSignUp);
+        android.widget.ImageButton btnBack = findViewById(R.id.btnBack);
+
+        // Back button goes to previous page
+        btnBack.setOnClickListener(v -> finish());
+
+        btnSignIn.setOnClickListener(v -> {
+            String email    = etEmail.getText().toString().trim();
+            String password = etPassword.getText().toString().trim();
+
+            if (email.isEmpty()) {
+                Toast.makeText(this, "Please enter your email", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (password.isEmpty()) {
+                Toast.makeText(this, "Please enter your password", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            btnSignIn.setEnabled(false);
+            btnSignIn.setText("Signing in...");
+
+            mAuth.signInWithEmailAndPassword(email, password)
+                    .addOnSuccessListener(authResult -> {
+                        FirebaseUser user = authResult.getUser();
+                        if (user != null) {
+                            restoreIdentityThenNavigate(user);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        btnSignIn.setEnabled(true);
+                        btnSignIn.setText("Sign In");
+
+                        String errorMessage = "Login failed. Please try again.";
+                        if (e instanceof com.google.firebase.FirebaseNetworkException
+                                || (e.getMessage() != null && e.getMessage().toLowerCase().contains("network"))) {
+                            errorMessage = "No internet connection. Please check your network and try again.";
+                        } else if (e.getMessage() != null) {
+                            if (e.getMessage().contains("invalid-email")) {
+                                errorMessage = "Invalid email format";
+                            } else if (e.getMessage().contains("wrong-password")
+                                    || e.getMessage().contains("invalid-credential")) {
+                                errorMessage = "Incorrect email or password";
+                            } else if (e.getMessage().contains("user-not-found")) {
+                                errorMessage = "No account found with this email";
+                            } else if (e.getMessage().contains("user-disabled")) {
+                                errorMessage = "This account has been disabled";
+                            } else if (e.getMessage().contains("too-many-requests")) {
+                                errorMessage = "Too many failed attempts. Please try again later";
+                            }
+                        }
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
+                    });
+        });
+
+        tvForgot.setOnClickListener(v -> {
+            String email = etEmail.getText().toString().trim();
+            if (email.isEmpty()) {
+                Toast.makeText(this, "Enter your email first", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            mAuth.sendPasswordResetEmail(email)
+                    .addOnSuccessListener(unused ->
+                            Toast.makeText(this, "Reset email sent!", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e ->
+                            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+        });
+
+        tvSignUp.setOnClickListener(v ->
+                startActivity(new Intent(this, RegisterActivity.class)));
+                // Note: Do NOT call finish() here to preserve back stack
+    }
+
+    /**
+     * Reads the user's role from Firestore using the local UUID (not Firebase Auth UID)
+     * then navigates to MainActivity with the role as an intent extra.
+     */
+    private void fetchRoleAndNavigate() {
+        String uuid = localDataSource.getUUIDSync();
+
+        if (uuid == null) {
+            navigateToMain("entrant");
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(uuid)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    String role = normalizeAppRole(doc.getString("role"));
+                    android.util.Log.d("LoginActivity", "Role from Firestore: " + role);
+                    navigateToMain(role);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LoginActivity", "Failed to read role", e);
+                    navigateToMain("entrant");
+                });
+    }
+
+    private void navigateToMain(String role) {
+        getSharedPreferences("abacus_prefs", MODE_PRIVATE)
+                .edit()
+                .putBoolean("has_launched_before", true)
+                .apply();
+
+    // Authenticated session should not inherit guest waitlist identity.
+    getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, MODE_PRIVATE)
+        .edit()
+        .remove(GuestSignUpFragment.PREF_GUEST_EMAIL)
+        .apply();
+
+        Toast.makeText(this, "Welcome back!", Toast.LENGTH_SHORT).show();
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.putExtra("isGuest", false);
+        intent.putExtra("userRole", role);
+        intent.putExtra("role", role);
+        startActivity(intent);
+        finish();
+    }
+
+    /**
+     * Looks up the user's existing Firestore document by email, restores their
+     * UUID to SharedPreferences (so history is preserved), updates profile fields,
+     * then navigates to MainActivity. Everything is chained so navigation only
+     * happens after the UUID is fully restored.
+     */
+    private void restoreIdentityThenNavigate(FirebaseUser authUser) {
+        if (authUser == null || authUser.getEmail() == null) {
+            updateProfileFields(authUser);
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .whereEqualTo("email", authUser.getEmail())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        DocumentSnapshot doc = pickBestUserDoc(querySnapshot.getDocuments());
+
+                        if (doc == null) {
+                            updateProfileFields(authUser);
+                            return;
+                        }
+
+                        // Check if the account is inactivated/deleted
+                        Boolean isDeleted = doc.getBoolean("isDeleted");
+                        if (Boolean.TRUE.equals(isDeleted)) {
+                            // Sign out of Firebase Auth immediately
+                            mAuth.signOut();
+
+                            // Reset the Sign In button so they can try again with a different account
+                            Button btnSignIn = findViewById(R.id.btnSignIn);
+                            btnSignIn.setEnabled(true);
+                            btnSignIn.setText("Sign In");
+
+                            // Explicitly inform the user
+                            Toast.makeText(this, "Your account has been inactivated.", Toast.LENGTH_LONG).show();
+                            return; // Stop the navigation chain here
+                        }
+                        // Restore the UUID that owns this account's history
+                        String existingUuid = doc.getId();
+                        localDataSource.saveDeviceId(existingUuid);
+                        android.util.Log.d("LoginActivity", "Identity restored from existing account");
+                    }
+                    updateProfileFields(authUser);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LoginActivity", "UUID lookup failed, proceeding anyway", e);
+                    updateProfileFields(authUser);
+                });
+    }
+
+    private void updateProfileFields(FirebaseUser authUser) {
+        String lastLoginAt = new SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+        ).format(new Date());
+
+        Map<String, Object> updates = new HashMap<>();
+        if (authUser.getEmail() != null) updates.put("email", authUser.getEmail());
+        if (authUser.getDisplayName() != null && !authUser.getDisplayName().isEmpty()) {
+            updates.put("name", authUser.getDisplayName());
+        }
+        updates.put("isGuest", false);
+        updates.put("lastLoginAt", lastLoginAt);
+        updates.put("firebaseUid", authUser.getUid());
+
+        android.util.Log.d("LoginActivity", "Saving profile updates");
+
+        userRepository.saveProfileAsync(updates, error -> {
+            if (error != null) {
+                android.util.Log.e("LoginActivity", "Failed to update profile: " + error.getMessage());
+            } else {
+                android.util.Log.d("LoginActivity", "Profile updated successfully");
+                if (authUser.getDisplayName() == null || authUser.getDisplayName().isEmpty()) {
+                    syncNameFromFirestoreToAuth(authUser);
+                }
+            }
+            fetchRoleAndNavigate();
+        });
+    }
+
+    private void syncNameFromFirestoreToAuth(FirebaseUser authUser) {
+        userRepository.getProfileAsync(user -> {
+            if (user != null && user.getName() != null && !user.getName().isEmpty()
+                    && !"New User".equals(user.getName())) {
+                UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
+                        .setDisplayName(user.getName())
+                        .build();
+                authUser.updateProfile(profileUpdates)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                android.util.Log.d("LoginActivity", "Updated Firebase Auth display name");
+                            }
+                        });
+            }
+        });
+    }
+
+    /**
+     * App supports only entrant/organizer roles for signed-in users.
+     * Any unknown/admin role is treated as entrant.
+     */
+    private String normalizeAppRole(String role) {
+        return "organizer".equals(role) ? "organizer" : "entrant";
+    }
+
+    /**
+     * Picks the most suitable Firestore user doc when duplicate emails exist.
+     * Preference order: active entrant/organizer doc, then any active doc.
+     */
+    private DocumentSnapshot pickBestUserDoc(List<DocumentSnapshot> docs) {
+        if (docs == null || docs.isEmpty()) return null;
+
+        List<DocumentSnapshot> active = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            Boolean isDeleted = doc.getBoolean("isDeleted");
+            if (!Boolean.TRUE.equals(isDeleted)) {
+                active.add(doc);
+            }
+        }
+
+        if (active.isEmpty()) return docs.get(0);
+
+        for (DocumentSnapshot doc : active) {
+            String role = normalizeAppRole(doc.getString("role"));
+            if ("entrant".equals(role) || "organizer".equals(role)) {
+                return doc;
+            }
+        }
+
+        return active.get(0);
+    }
+}
