@@ -20,8 +20,6 @@ import java.util.List;
  * Outstanding Issues:
  * - Security: Firestore rules must be carefully configured to ensure users can only 
  *   listen to notifications where 'userEmail' matches their own authenticated identity.
- * - Scalability: listenForNotificationsByEmail returns all historical notifications; 
- *   pagination or a limit (e.g., last 50) should be implemented to save bandwidth.
  */
 public class NotificationRemoteDataSource {
 
