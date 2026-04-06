@@ -16,7 +16,7 @@
         android:textSize="18sp"
         android:gravity="center"
         android:padding="16dp"
-        android:textColor="@color/black"
+        android:textColor="?attr/colorOnSurface"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
@@ -36,7 +36,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="No comments yet.\nStart the conversation 💬"
-        android:textColor="@color/black"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="14sp"
         android:gravity="center"
         android:visibility="gone"
@@ -63,7 +63,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="12dp"
-        android:background="@color/white"
+        android:background="@color/comment_surface"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -80,7 +80,7 @@
             android:maxLines="1"
             android:paddingHorizontal="16dp"
             android:background="@drawable/bg_comment_input"
-            android:textColor="@color/black"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="14sp"/>
 
         <!-- Send button -->

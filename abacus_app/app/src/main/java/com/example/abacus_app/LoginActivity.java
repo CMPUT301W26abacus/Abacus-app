@@ -259,6 +259,7 @@ public class LoginActivity extends AppCompatActivity {
         }
         updates.put("isGuest", false);
         updates.put("lastLoginAt", lastLoginAt);
+        updates.put("firebaseUid", authUser.getUid());
 
         android.util.Log.d("LoginActivity", "Saving profile updates");
 

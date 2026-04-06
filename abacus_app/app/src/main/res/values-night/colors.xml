@@ -17,6 +17,11 @@
     <!-- From Farhan -->
     <color name="card_stroke">#333333</color>
 
+    <!-- Comment UI surfaces -->
+    <color name="comment_surface">#1C1C1E</color>
+    <color name="comment_bubble">#2C2C2E</color>
+    <color name="comment_input_bg">#3A3A3C</color>
+
     <!-- Guest banner -->
     <color name="color_guest_banner_bg">#FFF8F0</color>
 

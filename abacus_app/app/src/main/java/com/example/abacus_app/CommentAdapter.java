@@ -86,10 +86,28 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.ViewHold
             repo.deleteComment(c.getEventId(), c.getCommentId(), new CommentRepository.VoidCallback() {
                 @Override
                 public void onComplete(Exception error) {
-                    comments.remove(c);
-                    notifyDataSetChanged();
                     if (error != null) {
                         Log.d("CommentAdapter", "deleteComment: error deleting comment");
+                        return;
+                    }
+                    comments.remove(c);
+                    notifyDataSetChanged();
+
+                    // Notify the comment author that their comment was removed.
+                    String authorId = c.getUserId();
+                    if (authorId != null && !authorId.isEmpty()) {
+                        Notification n = new Notification(
+                                authorId,
+                                null,
+                                c.getEventId(),
+                                "Your comment was removed by a moderator.",
+                                Notification.TYPE_COMMENT_DELETED
+                        );
+                        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("notifications")
+                                .add(n)
+                                .addOnFailureListener(e ->
+                                        Log.e("CommentAdapter", "Failed to send comment-deleted notification", e));
                     }
                 }
             });

@@ -26,6 +26,10 @@ public class Notification {
     /** Type for custom manual messages sent by organizers. */
     public static final String TYPE_MANUAL = "MANUAL";
 
+    public static final String TYPE_COMMENT_DELETED = "COMMENT_DELETED";
+
+    public static final String TYPE_EVENT_DELETED = "EVENT_DELETED";
+
     /** Default pending status for actionable notifications (e.g., invites). */
     public static final String STATUS_PENDING = "PENDING";
     /** Status when an invite has been accepted. */
