@@ -40,6 +40,14 @@ public class LotteryGuidelinesFragment extends Fragment {
 
     private String currentEventId = null;
 
+    /**
+     * Inflates the lottery guidelines layout.
+     *
+     * @param inflater           the LayoutInflater used to inflate the layout
+     * @param container          the parent ViewGroup, or null if there is no parent
+     * @param savedInstanceState the previously saved instance state, or null
+     * @return the inflated root view for this fragment
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -48,6 +56,14 @@ public class LotteryGuidelinesFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_lottery_guidelines, container, false);
     }
 
+    /**
+     * Reads the event ID argument, wires up the back button, and initiates the
+     * Firestore fetch for lottery guidelines. Falls back to default text if no
+     * event ID is provided.
+     *
+     * @param view               the root view returned by {@link #onCreateView}
+     * @param savedInstanceState the previously saved instance state, or null
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);

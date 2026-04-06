@@ -60,7 +60,10 @@ import java.util.Locale;
 
 public class EventDetailsFragment extends Fragment {
 
+    /** Bundle key for the event title string passed from the previous screen. */
     public static final String ARG_EVENT_TITLE = "eventTitle";
+
+    /** Bundle key for the Firestore event document ID. */
     public static final String ARG_EVENT_ID    = "eventId";
 
     /**
@@ -228,13 +231,19 @@ public class EventDetailsFragment extends Fragment {
             setupAuthenticatedWaitlist();
         }
 
-
-
         loadWaitlistCount();
     }
 
     // ── Guest waitlist ────────────────────────────────────────────────────────
 
+    /**
+     * Sets up waitlist interaction for unauthenticated (guest) users.
+     * If a guest email is already stored in SharedPreferences, checks whether
+     * the guest is already on the waitlist and shows the appropriate button.
+     * If no email is stored, shows the Join button which navigates to sign-up.
+     *
+     * @param view the fragment's root view, needed to navigate to GuestSignUpFragment
+     */
     private void setupGuestWaitlist(@NonNull View view) {
         String savedEmail = requireContext()
                 .getSharedPreferences(GuestSignUpFragment.PREFS_GUEST, Context.MODE_PRIVATE)
@@ -269,6 +278,12 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Authenticated waitlist ────────────────────────────────────────────────
 
+    /**
+     * Sets up waitlist interaction for authenticated users.
+     * Resolves the user's UUID asynchronously, then determines whether to
+     * show the Edit button (for organizers/co-organizers) or check waitlist
+     * status and show the appropriate join/leave/accept/decline button.
+     */
     private void setupAuthenticatedWaitlist() {
         UserLocalDataSource localDataSource   = new UserLocalDataSource(requireContext());
         UserRemoteDataSource remoteDataSource = new UserRemoteDataSource(
@@ -347,6 +362,12 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Guest routing ─────────────────────────────────────────────────────────
 
+    /**
+     * Navigates to GuestSignUpFragment so the guest can register their email
+     * before joining the waitlist. Blocks navigation if registration has already ended.
+     *
+     * @param view the fragment's root view used to find the NavController
+     */
     private void openGuestSignUp(@NonNull View view) {
         if (loadedEvent != null && loadedEvent.getRegistrationEnd() != null &&
                 loadedEvent.getRegistrationEnd().toDate().before(new Date())) {
@@ -359,6 +380,11 @@ public class EventDetailsFragment extends Fragment {
         Navigation.findNavController(view).navigate(R.id.guestSignUpFragment, args);
     }
 
+    /**
+     * Shows a confirmation dialog before a guest leaves the waitlist.
+     *
+     * @param guestEmail the stored guest email used to identify the Firestore document
+     */
     private void showGuestLeaveConfirmationDialog(@NonNull String guestEmail) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -368,6 +394,12 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Removes a guest from the waitlist using their sanitised email key,
+     * notifies the organizer, and resets the UI to the Join state.
+     *
+     * @param guestEmail the stored guest email used to derive the Firestore document key
+     */
     private void leaveGuestWaitlist(@NonNull String guestEmail) {
         if (currentEventId == null) return;
         String guestKey = GuestSignUpFragment.emailToKey(guestEmail);
@@ -395,6 +427,12 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Event details ─────────────────────────────────────────────────────────
 
+    /**
+     * Fetches the full event document from Firestore and populates all UI fields:
+     * poster image, description, event date, registration period, waitlist capacity,
+     * and organizer name. Also re-checks waitlist status once the event is loaded
+     * so the correct button state is shown for authenticated users.
+     */
     private void loadEventDetails() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -471,6 +509,11 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Waitlist count ────────────────────────────────────────────────────────
 
+    /**
+     * Fetches the current waitlist count from Firestore and updates {@code tvWaitlistCount}.
+     * If the waitlist is full and the Join button is visible, disables it and
+     * changes its text to "Event Full" to prevent further joins.
+     */
     private void loadWaitlistCount() {
         if (currentEventId == null) return;
         eventRepository.getEventByIdAsync(currentEventId, event -> {
@@ -494,6 +537,11 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Join / leave (authenticated) ──────────────────────────────────────────
 
+    /**
+     * Entry point for the join flow. If the event requires geolocation,
+     * checks for location permission and either requests it or proceeds
+     * to fetch the location. Otherwise joins immediately with no location.
+     */
     private void handleJoinFlow() {
         if (loadedEvent != null && loadedEvent.isGeoRequired()) {
             if (ActivityCompat.checkSelfPermission(requireContext(),
@@ -509,6 +557,11 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Fetches the device's current location using high-accuracy GPS,
+     * falling back to last known location if the current fix is unavailable.
+     * Calls joinWaitlist() with the resolved location (or null on failure).
+     */
     private void fetchLocationAndJoin() {
         if (ActivityCompat.checkSelfPermission(requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION)
@@ -537,6 +590,14 @@ public class EventDetailsFragment extends Fragment {
                 .addOnFailureListener(e -> joinWaitlist(null));
     }
 
+    /**
+     * Handles the result of the location permission request.
+     * Proceeds to fetchLocationAndJoin() if granted, or shows an error toast if denied.
+     *
+     * @param requestCode  the request code passed to requestPermissions()
+     * @param permissions  the requested permissions
+     * @param grantResults the grant result for each permission
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
@@ -551,6 +612,13 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Adds the current user to the event's waitlist in Firestore via
+     * RegistrationRepository. On success, switches the UI to the Leave button
+     * and refreshes the waitlist count.
+     *
+     * @param location the user's current location, or null if geo is not required
+     */
     private void joinWaitlist(Location location) {
         if (currentRegistrationKey == null || currentEventId == null) {
             Toast.makeText(requireContext(), "Something went wrong.", Toast.LENGTH_SHORT).show();
@@ -574,6 +642,9 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    /**
+     * Shows a confirmation dialog before an authenticated user leaves the waitlist.
+     */
     private void showLeaveConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Leave Waiting List")
@@ -583,6 +654,10 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Removes the authenticated user from the waitlist in Firestore,
+     * notifies the organizer, and resets the UI to the Join state.
+     */
     private void leaveWaitlist() {
         if (currentRegistrationKey == null || currentEventId == null) return;
 
@@ -604,6 +679,10 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    /**
+     * Shows a confirmation dialog before the user declines their lottery invitation.
+     * Warns that the decision is irreversible.
+     */
     private void showDeclineConfirmationDialog() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Decline Invitation?")
@@ -613,6 +692,10 @@ public class EventDetailsFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Records the user's decision to decline their lottery invitation in Firestore,
+     * notifies the organizer, and updates the UI to show the declined status message.
+     */
     private void declineInvitation() {
         if (currentRegistrationKey == null || currentEventId == null) return;
         registrationRepository.declineInvitation(currentRegistrationKey, currentEventId, error -> {
@@ -633,6 +716,10 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    /**
+     * Records the user's decision to accept their lottery invitation in Firestore
+     * and updates the UI to show the accepted status message.
+     */
     private void acceptInvitation() {
         if (currentRegistrationKey == null || currentEventId == null) return;
         registrationRepository.acceptInvitation(currentRegistrationKey, currentEventId, error -> {
@@ -651,6 +738,12 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Button visibility ─────────────────────────────────────────────────────
 
+    /**
+     * Shows the Join Waiting List button and hides all others.
+     * If the current user is the organizer or co-organizer, shows "Edit" instead.
+     * If registration has ended, disables the button and shows "Registration Ended".
+     * If the event is private and the user is not the organizer, hides the button.
+     */
     private void showJoinButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.VISIBLE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
@@ -681,6 +774,9 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Shows the Leave Waiting List button and hides all others.
+     */
     private void showLeaveButton() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.VISIBLE);
@@ -690,6 +786,10 @@ public class EventDetailsFragment extends Fragment {
         if (tvStatusMessage != null) tvStatusMessage.setVisibility(View.GONE);
     }
 
+    /**
+     * Shows the Accept and Decline invitation buttons and hides all others.
+     * Used when the user's waitlist status is STATUS_INVITED.
+     */
     private void showAcceptDeclineButtons() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
@@ -700,6 +800,14 @@ public class EventDetailsFragment extends Fragment {
         if (btnDecline != null) btnDecline.setEnabled(true);
     }
 
+    /**
+     * Hides all action buttons and displays a coloured status message.
+     * Used for terminal states: accepted, declined, or cancelled.
+     *
+     * @param status one of {@link WaitlistEntry#STATUS_ACCEPTED},
+     *               {@link WaitlistEntry#STATUS_DECLINED}, or
+     *               {@link WaitlistEntry#STATUS_CANCELLED}
+     */
     private void showStatusMessage(String status) {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setVisibility(View.GONE);
         if (btnLeaveWaitlist != null) btnLeaveWaitlist.setVisibility(View.GONE);
@@ -725,6 +833,13 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Edit mode (organizer) ─────────────────────────────────────────────────
 
+    /**
+     * Returns true if the current user is allowed to edit this event.
+     * Editing is permitted for: the event's organizer (matched by UUID or Firebase UID)
+     * when they hold the organizer or admin role, or any co-organizer by Firebase UID.
+     *
+     * @return true if the user can edit the event, false otherwise
+     */
     private boolean canEditCurrentEvent() {
         if (loadedEvent == null || getActivity() == null) return false;
         if (!(getActivity() instanceof MainActivity)) return false;
@@ -755,6 +870,12 @@ public class EventDetailsFragment extends Fragment {
         return (hasOrganizerRole && ownsEvent) || isCoOrganizer;
     }
 
+    /**
+     * Toggles the event details screen between view mode and edit mode.
+     * In edit mode, text fields replace the read-only TextViews and the
+     * bottom button changes to "Save Changes". Calling again while editing
+     * triggers saveChanges().
+     */
     private void toggleEditMode() {
         if (loadedEvent == null) return;
         if (!isEditing) {
@@ -779,6 +900,11 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
+    /**
+     * Persists the organizer's edits (title, description, poster URL) to Firestore.
+     * Validates that the title is non-empty before saving. On success, exits edit
+     * mode and reloads the event details.
+     */
     private void saveChanges() {
         if (loadedEvent == null || currentEventId == null) return;
         String newTitle = etTitle != null
@@ -806,6 +932,11 @@ public class EventDetailsFragment extends Fragment {
 
     // ── Admin soft delete ─────────────────────────────────────────────────────
 
+    /**
+     * Performs a soft delete of the current event by setting isDeleted=true in Firestore.
+     * The real-time snapshot listener in MainActivity automatically removes the event
+     * from the browse list on next update. Navigates back on success.
+     */
     private void softDeleteFromDetails() {
         if (currentEventId == null) return;
         FirebaseFirestore.getInstance()
@@ -825,6 +956,10 @@ public class EventDetailsFragment extends Fragment {
                 );
     }
 
+    /**
+     * Restores the event details screen to view mode after editing is complete.
+     * Hides the edit text fields and shows the read-only TextViews.
+     */
     private void exitEditMode() {
         if (btnJoinWaitlist  != null) btnJoinWaitlist.setText("Edit");
         if (tvTitle          != null) tvTitle.setVisibility(View.VISIBLE);

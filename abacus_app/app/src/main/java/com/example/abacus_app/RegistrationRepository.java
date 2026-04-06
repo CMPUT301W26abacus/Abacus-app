@@ -66,6 +66,15 @@ public class RegistrationRepository {
         this.eventRemoteDataSource = eventRemoteDataSource;
     }
 
+    /**
+     * Enriches each {@link WaitlistEntry} in the list with the corresponding user's
+     * display name and email by fetching from Firestore synchronously.
+     * For guest entries (identified by an email-key format), attempts to decode
+     * the key back to an email and look up the guest record.
+     * Failures for individual entries are logged and skipped silently.
+     *
+     * @param waitlist the list of entries to enrich in-place
+     */
     private void populateUserInfo(ArrayList<WaitlistEntry> waitlist) {
         for (WaitlistEntry entry : waitlist) {
             try {
@@ -89,6 +98,15 @@ public class RegistrationRepository {
         }
     }
 
+    /**
+     * Attempts to reverse a guest email key back to a readable email address.
+     * Guest keys are produced by {@link GuestSignUpFragment#emailToKey} which
+     * replaces "@" with "_at_" and "." with "_".
+     * Returns null if the key does not match the guest key format.
+     *
+     * @param key the stored guest key to decode
+     * @return the decoded email address, or null if the key is not in guest-key format
+     */
     private String decodeEmailKey(String key) {
         if (key == null || key.isEmpty()) return null;
         if (!key.contains("_at_")) return null;
@@ -98,7 +116,7 @@ public class RegistrationRepository {
     /**
      * Gets the number of entrants currently on the waitlist, regardless of status.
      *
-     * @param eventID the unique ID of the event in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      */
     public void getWaitListSize(String eventID, IntegerCallback callback) {
@@ -172,10 +190,10 @@ public class RegistrationRepository {
      *
      * @param guestKey   the unique ID of the user in the database
      * @param guestEmail the email entered by the guest
-     * @param guestName the name entered by the guest
-     * @param eventID  the unique ID of the event in the database
-     * @param location the user's current location, or {@code null} if not required
-     * @param callback called when the operation completes; {@code error} is non-null on failure
+     * @param guestName  the name entered by the guest
+     * @param eventID    the unique ID of the event in the database
+     * @param location   the user's current location, or {@code null} if not required
+     * @param callback   called when the operation completes; {@code error} is non-null on failure
      * @throws IllegalStateException    if the waitlist is full or closed
      * @throws IllegalArgumentException if the user is already on the waitlist
      */
@@ -209,6 +227,14 @@ public class RegistrationRepository {
         });
     }
 
+    /**
+     * Directly adds a user to the waitlist with STATUS_INVITED, bypassing the lottery.
+     * Used by organizers to manually invite specific entrants to private events.
+     *
+     * @param userID   the unique ID of the user to invite
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes; {@code error} is non-null on failure
+     */
     public void manuallyInviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
             try {
@@ -240,8 +266,8 @@ public class RegistrationRepository {
     /**
      * Deletes the data related to the waitlist entry of the user.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the given user is not on the waitlist
      */
@@ -265,11 +291,11 @@ public class RegistrationRepository {
     /**
      * Changes the status of an invited entrant from invited to accepted.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
-     * @throws IllegalStateException the user status is not invited
+     * @throws IllegalStateException    the user status is not invited
      */
     public void inviteEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
@@ -295,11 +321,11 @@ public class RegistrationRepository {
     /**
      * Changes the status of an invited entrant from invited to accepted.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
-     * @throws IllegalStateException the user status is not invited
+     * @throws IllegalStateException    the user status is not invited
      */
     public void acceptInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
@@ -315,11 +341,11 @@ public class RegistrationRepository {
     /**
      * Changes the status of an invited entrant from invited to declined.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
-     * @throws IllegalStateException the user status is not invited
+     * @throws IllegalStateException    the user status is not invited
      */
     public void declineInvitation(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
@@ -345,11 +371,11 @@ public class RegistrationRepository {
     /**
      * Changes the status of an entrant to cancelled.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
      * @param callback called when the operation completes
      * @throws IllegalArgumentException the user is not on the waitlist
-     * @throws IllegalStateException the user status is not invited
+     * @throws IllegalStateException    the user status is not invited
      */
     public void cancelEntrant(String userID, String eventID, VoidCallback callback) {
         executor.submit(() -> {
@@ -389,8 +415,8 @@ public class RegistrationRepository {
                 }
                 int size = remoteDataSource.getWaitlistSizeSync(eventID);
                 if (size == 0) {
-                    throw new IllegalStateException("Cannot draw lottery, waitlist is empty.")
-;                }
+                    throw new IllegalStateException("Cannot draw lottery, waitlist is empty.");
+                }
 
                 // execute operation
                 int eventCapacity = event.getEventCapacity() != null ? event.getEventCapacity() : 0;
@@ -420,9 +446,11 @@ public class RegistrationRepository {
 
     /**
      * Invites the next waitlisted user with the lowest lottery number.
+     * Used after a declined or cancelled invitation to fill the vacated spot.
      *
      * @param eventID  the unique ID of the event in the database
-     * @param callback called when the operation completes
+     * @param callback called when the operation completes; receives the invited entry,
+     *                 or null if no waitlisted entrants remain
      */
     public void drawReplacement(String eventID, EntryCallback callback) {
         executor.submit(() -> {
@@ -446,9 +474,9 @@ public class RegistrationRepository {
     /**
      * Checks whether or not a user is on the waitlist of an event.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
-     * @param callback callback called when the operation completes
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void isOnWaitlist(String userID, String eventID, BooleanCallback callback) {
         executor.submit(() -> {
@@ -462,11 +490,12 @@ public class RegistrationRepository {
     }
 
     /**
-     * Gets the WaitlistEntry associated with a single user for a signle event.
+     * Gets the WaitlistEntry associated with a single user for a single event.
+     * Also enriches the entry with the user's name and email if available.
      *
-     * @param userID the unique ID of the user in the database
-     * @param eventID the unique ID of the event in the database
-     * @param callback callback called when the operation completes
+     * @param userID   the unique ID of the user in the database
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes; receives the entry or null on failure
      */
     public void getUserEntry(String userID, String eventID, EntryCallback callback) {
         executor.submit(() -> {
@@ -489,8 +518,8 @@ public class RegistrationRepository {
     /**
      * Gets all entries on the waitlist of a specific event, regardless of entry status.
      *
-     * @param eventID the unique ID of the event in the database
-     * @param callback callback called when the operation completes
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void getAllEntries(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
@@ -507,8 +536,8 @@ public class RegistrationRepository {
     /**
      * Gets all entries on the waitlist of a specific event with status "waitlisted".
      *
-     * @param eventID the unique ID of the event in the database
-     * @param callback callback called when the operation completes
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void getWaitlisted(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
@@ -526,13 +555,12 @@ public class RegistrationRepository {
     /**
      * Gets all entries on the waitlist of a specific event with status "invited".
      *
-     * @param eventID the unique ID of the event in the database
-     * @param callback callback called when the operation completes
+     * @param eventID  the unique ID of the event in the database
+     * @param callback called when the operation completes
      */
     public void getInvited(String eventID, WaitlistCallback callback) {
         executor.submit(() -> {
             try {
-                // execute logic
                 ArrayList<WaitlistEntry> waitlist = remoteDataSource.getEntriesWithStatusSync(eventID, WaitlistEntry.STATUS_INVITED);
                 mainHandler.post(() -> callback.onResult(waitlist));
             } catch (Exception e) {
@@ -544,8 +572,8 @@ public class RegistrationRepository {
     /**
      * Gets all waitlist entries associated with a single user across all events.
      *
-     * @param userID the unique ID of the user in the database
-     * @param callback callback called when the operation completes
+     * @param userID   the unique ID of the user in the database
+     * @param callback called when the operation completes
      */
     public void getHistoryForUser(String userID, WaitlistCallback callback) {
         executor.submit(() -> {
@@ -614,8 +642,11 @@ public class RegistrationRepository {
 
     /**
      * Loads entrant-specific stats: events joined and events won.
-     * Events joined = count of registrations where status is not "cancelled" or "declined"
-     * Events won = count of registrations where status is "invited" or "accepted"
+     * Events joined = count of registrations where status is not "cancelled" or "declined".
+     * Events won = count of registrations where status is "invited" or "accepted".
+     *
+     * @param userId   the unique ID of the user to compute stats for
+     * @param callback called when the operation completes, receiving eventsJoined and eventsWon
      */
     public void getEntrantStats(String userId, EntrantStatsCallback callback) {
         executor.submit(() -> {
